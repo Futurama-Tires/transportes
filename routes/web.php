@@ -26,6 +26,11 @@ Route::get('/ejemploRol', function () {
     return view('ejemploRol');
 })->middleware(['auth', 'verified', 'role:operador'])->name('ejemploRol');
 
+Route::get('/dashboard-admin', function () {
+    return view('dashboards.admin');
+})->middleware(['auth', 'role:administrador'])->name('dashboard.admin');
+
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
