@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\OperadorController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -35,6 +36,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+Route::middleware(['auth', 'role:administrador'])->group(function () {
+    Route::get('/operadores/create', [OperadorController::class, 'create'])->name('operadores.create');
+    Route::post('/operadores', [OperadorController::class, 'store'])->name('operadores.store');
 });
 
 require __DIR__.'/auth.php';
