@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OperadorController;
+use App\Http\Controllers\CapturistaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -41,6 +42,9 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'role:administrador'])->group(function () {
     Route::get('/operadores/create', [OperadorController::class, 'create'])->name('operadores.create');
     Route::post('/operadores', [OperadorController::class, 'store'])->name('operadores.store');
+
+    Route::get('/capturistas/create', [CapturistaController::class, 'create'])->name('capturistas.create');
+    Route::post('/capturistas', [CapturistaController::class, 'store'])->name('capturistas.store');
 });
 
 require __DIR__.'/auth.php';
