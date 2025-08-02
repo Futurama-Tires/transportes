@@ -16,11 +16,11 @@ return new class extends Migration
 
             $table->foreignId('vehiculo_id')->constrained('vehiculos')->onDelete('cascade');
 
-            $table->unsignedTinyInteger('numero_tanque')->default(1); // Ej. 1, 2, etc.
-            $table->float('capacidad_litros', 8, 2);                  // Capacidad individual del tanque
+            $table->unsignedTinyInteger('numero_tanque')->nullable();; // Ej. 1, 2, etc.
+            $table->float('capacidad_litros', 8, 2)->nullable();// Capacidad individual del tanque
             $table->float('rendimiento_estimado', 8, 2)->nullable(); // Manual
             $table->float('costo_tanque_lleno', 10, 2)->nullable();  // Aprox. si se llena completo
-            $table->enum('tipo_combustible', ['Magna', 'Diesel', 'Premium']);
+            $table->enum('tipo_combustible', ['Magna', 'Diesel', 'Premium'])->nullable();
 
             $table->timestamps();
 
