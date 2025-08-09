@@ -101,30 +101,20 @@
 
 <div class="mb-4">
     <label class="block text-gray-700 dark:text-gray-300">Tarjeta SiVale</label>
-    <input type="text" name="tarjeta_siVale" value="{{ old('tarjeta_siVale', $vehiculo->tarjeta_siVale ?? '') }}"
-           class="w-full border-gray-300 rounded">
-    @error('tarjeta_siVale')
+    <select name="tarjeta_si_vale_id" class="w-full border-gray-300 rounded">
+        <option value="">-- Sin tarjeta asignada --</option>
+        @foreach($tarjetas as $tarjeta)
+            <option value="{{ $tarjeta->id }}"
+                {{ old('tarjeta_si_vale_id', $vehiculo->tarjeta_si_vale_id ?? '') == $tarjeta->id ? 'selected' : '' }}>
+                {{ $tarjeta->numero_tarjeta }}
+            </option>
+        @endforeach
+    </select>
+    @error('tarjeta_si_vale_id')
         <span class="text-red-500 text-sm">{{ $message }}</span>
     @enderror
 </div>
 
-<div class="mb-4">
-    <label class="block text-gray-700 dark:text-gray-300">NIP</label>
-    <input type="text" name="nip" value="{{ old('nip', $vehiculo->nip ?? '') }}"
-           class="w-full border-gray-300 rounded">
-    @error('nip')
-        <span class="text-red-500 text-sm">{{ $message }}</span>
-    @enderror
-</div>
-
-<div class="mb-4">
-    <label class="block text-gray-700 dark:text-gray-300">Fecha vencimiento tarjeta</label>
-    <input type="date" name="fec_vencimiento" value="{{ old('fec_vencimiento', $vehiculo->fec_vencimiento ?? '') }}"
-           class="w-full border-gray-300 rounded">
-    @error('fec_vencimiento')
-        <span class="text-red-500 text-sm">{{ $message }}</span>
-    @enderror
-</div>
 
 <div class="mb-4">
     <label class="block text-gray-700 dark:text-gray-300">Vencimiento tarjeta circulación</label>

@@ -21,8 +21,7 @@ class Vehiculo extends Model
         'motor',
         'placa',
         'estado',
-        'tarjeta_siVale',
-        'nip',
+        'tarjeta_si_vale_id',
         'fec_vencimiento',
         'vencimiento_t_circulacion',
         'cambio_placas',
@@ -49,4 +48,10 @@ class Vehiculo extends Model
     {
         return $this->hasMany('App\Models\CargaCombustible');
     }
+
+    public function tarjetaSiVale()
+    {
+        return $this->belongsTo(TarjetaSiVale::class, 'tarjeta_si_vale_id');
+    }
+
 }

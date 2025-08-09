@@ -4,6 +4,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OperadorController;
 use App\Http\Controllers\CapturistaController;
 use App\Http\Controllers\VehiculoController;
+use App\Http\Controllers\TarjetaSiValeController;
+
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -66,12 +68,9 @@ Route::middleware(['auth', 'role:administrador|capturista'])->group(function () 
     Route::post('/vehiculos', [VehiculoController::class, 'store'])->name('vehiculos.store');
     Route::delete('/vehiculos/{vehiculo}', [VehiculoController::class, 'destroy'])->name('vehiculos.destroy'); 
 
+    Route::resource('tarjetas', TarjetaSiValeController::class);
+
     });
-
-
-        
-
-
 
 // Rutas de autenticación (login, register, etc.)
 require __DIR__.'/auth.php';

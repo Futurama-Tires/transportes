@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Vehiculo;
+use App\Models\TarjetaSiVale;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -19,13 +20,15 @@ class VehiculoController extends Controller
 
     public function index()
     {
-        $vehiculos = Vehiculo::latest('id')->paginate(10);
+        $vehiculos = Vehiculo::with('tarjetaSiVale')->latest('id')->paginate(10);
         return view('vehiculos.index', compact('vehiculos'));
     }
 
     public function create()
     {
-        return view('vehiculos.create');
+        // Pasamos todas las tarjetas para que el usuario elija
+        $tarjetas = TarjetaSiVale::orderBy('numero_tarjeta')->get();
+        return view('vehiculos.create', compact('tarjetas'));
     }
 
     public function store(Request $request)
@@ -40,12 +43,14 @@ class VehiculoController extends Controller
 
     public function show(Vehiculo $vehiculo)
     {
+        $vehiculo->load('tarjetaSiVale');
         return view('vehiculos.show', compact('vehiculo'));
     }
 
     public function edit(Vehiculo $vehiculo)
     {
-        return view('vehiculos.edit', compact('vehiculo'));
+        $tarjetas = TarjetaSiVale::orderBy('numero_tarjeta')->get();
+        return view('vehiculos.edit', compact('vehiculo', 'tarjetas'));
     }
 
     public function update(Request $request, Vehiculo $vehiculo)
@@ -70,7 +75,7 @@ class VehiculoController extends Controller
     private function validateData(Request $request, $vehiculoId = null): array
     {
         return $request->validate([
-            'ubicacion'                 => ['required', 'string', 'max:255'],
+            'ubicacion'                 => ['required', Rule::in(['CVC', 'IXT', 'QRO', 'VALL', 'GDL'])],
             'propietario'               => ['required', 'string', 'max:255'],
             'unidad'                    => ['required', 'string', 'max:255'],
             'marca'                     => ['nullable', 'string', 'max:255'],
@@ -85,7 +90,7 @@ class VehiculoController extends Controller
                 Rule::unique('vehiculos', 'placa')->ignore($vehiculoId),
             ],
             'estado'                    => ['nullable', 'string', 'max:255'],
-            'tarjeta_siVale'            => ['nullable', 'string', 'max:255'],
+            'tarjeta_si_vale_id'        => ['nullable', 'exists:tarjetasSiVale,id'],
             'nip'                       => ['nullable', 'string', 'max:255'],
             'fec_vencimiento'           => ['nullable', 'string', 'max:255'],
             'vencimiento_t_circulacion' => ['nullable', 'string', 'max:255'],
@@ -95,6 +100,7 @@ class VehiculoController extends Controller
         ], [
             'serie.unique' => 'La serie ya está registrada.',
             'placa.unique' => 'La placa ya está registrada.',
+            'tarjeta_si_vale_id.exists' => 'La tarjeta seleccionada no es válida.'
         ]);
     }
 }
