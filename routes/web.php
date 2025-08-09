@@ -5,6 +5,7 @@ use App\Http\Controllers\OperadorController;
 use App\Http\Controllers\CapturistaController;
 use App\Http\Controllers\VehiculoController;
 use App\Http\Controllers\TarjetaSiValeController;
+use App\Http\Controllers\VerificacionController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -63,12 +64,14 @@ Route::middleware(['auth', 'role:administrador|capturista'])->group(function () 
     Route::get('/vehiculos/{vehiculo}/edit', [VehiculoController::class, 'edit'])->name('vehiculos.edit');
     Route::put('/vehiculos/{vehiculo}', [VehiculoController::class, 'update'])->name('vehiculos.update');
     Route::get('/vehiculos/{vehiculo}', [VehiculoController::class, 'show'])->name('vehiculos.show');
-
-    
     Route::post('/vehiculos', [VehiculoController::class, 'store'])->name('vehiculos.store');
     Route::delete('/vehiculos/{vehiculo}', [VehiculoController::class, 'destroy'])->name('vehiculos.destroy'); 
 
+    //CRUD TarjetasSiVale
     Route::resource('tarjetas', TarjetaSiValeController::class);
+
+    //CRUD Verificaciones
+    Route::resource('verificaciones', VerificacionController::class);
 
     });
 
