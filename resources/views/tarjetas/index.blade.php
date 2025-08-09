@@ -1,73 +1,68 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 leading-tight">
-            Tarjetas SiVale
+            Gestión de Tarjetas SiVale
         </h2>
     </x-slot>
 
     <div class="py-6">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-
-            {{-- Botón crear --}}
-            <div class="mb-4">
-                <a href="{{ route('tarjetas.create') }}"
-                   class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                    + Nueva Tarjeta
-                </a>
-            </div>
-
-            {{-- Mensajes de éxito --}}
+        <div class="max-w-7xl mx-auto">
+            {{-- Mensaje de éxito --}}
             @if(session('success'))
-                <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+                <div class="mb-4 text-green-600">
                     {{ session('success') }}
                 </div>
             @endif
 
+            {{-- Botón agregar --}}
+            <a href="{{ route('tarjetas.create') }}"
+               class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded mb-4 inline-block">
+               + Nueva Tarjeta
+            </a>
+
             {{-- Tabla --}}
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                <table class="min-w-full border border-gray-300 dark:border-gray-700">
-                    <thead>
-                        <tr class="bg-gray-100 dark:bg-gray-700">
-                            <th class="px-4 py-2 border">Número de Tarjeta</th>
-                            <th class="px-4 py-2 border">NIP</th>
-                            <th class="px-4 py-2 border">Fecha de Vencimiento</th>
-                            <th class="px-4 py-2 border">Acciones</th>
+            <table class="min-w-full bg-white border border-gray-300">
+                <thead>
+                    <tr>
+                        <th class="border px-4 py-2">Número de Tarjeta</th>
+                        <th class="border px-4 py-2">NIP</th>
+                        <th class="border px-4 py-2">Fecha de Vencimiento</th>
+                        <th class="border px-4 py-2">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($tarjetas as $tarjeta)
+                        <tr>
+                            <td class="border px-4 py-2">{{ $tarjeta->numero_tarjeta }}</td>
+                            <td class="border px-4 py-2">{{ $tarjeta->nip ?? '—' }}</td>
+                            <td class="border px-4 py-2">
+                                {{ $tarjeta->fecha_vencimiento ? \Carbon\Carbon::parse($tarjeta->fecha_vencimiento)->format('d/m/Y') : '—' }}
+                            </td>
+                            <td class="border px-4 py-2">
+                                <a href="{{ route('tarjetas.edit', $tarjeta) }}" class="text-blue-500 hover:underline">
+                                    Editar
+                                </a>
+                                <form action="{{ route('tarjetas.destroy', $tarjeta) }}"
+                                      method="POST"
+                                      class="inline"
+                                      onsubmit="return confirm('¿Seguro que quieres eliminar esta tarjeta?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-500 hover:underline ml-2">
+                                        Eliminar
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($tarjetas as $tarjeta)
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <td class="px-4 py-2 border">{{ $tarjeta->numero_tarjeta }}</td>
-                                <td class="px-4 py-2 border">{{ $tarjeta->nip ?? '—' }}</td>
-                                <td class="px-4 py-2 border">
-                                    {{ $tarjeta->fecha_vencimiento ? \Carbon\Carbon::parse($tarjeta->fecha_vencimiento)->format('d/m/Y') : '—' }}
-                                </td>
-                                <td class="px-4 py-2 border text-center">
-                                    <a href="{{ route('tarjetas.edit', $tarjeta) }}"
-                                       class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600">
-                                        Editar
-                                    </a>
-                                    <form action="{{ route('tarjetas.destroy', $tarjeta) }}" method="POST" class="inline">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit"
-                                                onclick="return confirm('¿Seguro que quieres eliminar esta tarjeta?')"
-                                                class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
-                                            Eliminar
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="px-4 py-2 border text-center text-gray-500">
-                                    No hay tarjetas registradas.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                    @empty
+                        <tr>
+                            <td colspan="4" class="border px-4 py-2 text-center">
+                                No hay tarjetas registradas.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
 
             {{-- Paginación --}}
             <div class="mt-4">
