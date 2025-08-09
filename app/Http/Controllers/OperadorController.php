@@ -8,9 +8,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-
 class OperadorController extends Controller
 {
+    public function index()
+    {
+        $operadores = Operador::with('user')->get();
+        return view('operadores.index', compact('operadores'));
+    }
+
     public function create()
     {
         return view('operadores.create');
@@ -25,8 +30,7 @@ class OperadorController extends Controller
             'email' => ['required', 'email', 'regex:/@futuramatiresmx\.com$/i', 'unique:users,email'],
         ]);
 
-        $randomPassword = Str::random(10); // genera una contraseña aleatoria
-
+        $randomPassword = Str::random(10);
 
         // Crear usuario
         $user = User::create([
@@ -35,7 +39,7 @@ class OperadorController extends Controller
             'password' => Hash::make($randomPassword),
         ]);
 
-        $user->assignRole('operador'); // Spatie
+        $user->assignRole('operador');
 
         // Crear operador
         Operador::create([
@@ -45,12 +49,47 @@ class OperadorController extends Controller
             'apellido_materno' => $request->apellido_materno,
         ]);
 
-        // Mostrar al admin las credenciales generadas
         return view('operadores.confirmacion', [
             'email' => $user->email,
             'password' => $randomPassword,
         ]);
+    }
 
-        return redirect()->route('operadores.create')->with('success', 'Operador creado correctamente');
+    public function edit($id)
+    {
+        $operador = Operador::with('user')->findOrFail($id);
+        return view('operadores.edit', compact('operador'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'nombre' => 'required|string|max:255',
+            'apellido_paterno' => 'required|string|max:255',
+            'apellido_materno' => 'nullable|string|max:255',
+            'email' => ['required', 'email', 'regex:/@futuramatiresmx\.com$/i', 'unique:users,email,' . $id],
+        ]);
+
+        $operador = Operador::findOrFail($id);
+
+        $operador->update([
+            'nombre' => $request->nombre,
+            'apellido_paterno' => $request->apellido_paterno,
+            'apellido_materno' => $request->apellido_materno,
+        ]);
+
+        $operador->user->update([
+            'name' => $request->nombre . ' ' . $request->apellido_paterno,
+            'email' => $request->email
+        ]);
+
+        return redirect()->route('operadores.index')->with('success', 'Operador actualizado correctamente');
+    }
+
+    public function destroy($id)
+    {
+        $operador = Operador::findOrFail($id);
+        $operador->user->delete(); // Esto también elimina el operador por la relación ON DELETE CASCADE
+        return redirect()->route('operadores.index')->with('success', 'Operador eliminado correctamente');
     }
 }

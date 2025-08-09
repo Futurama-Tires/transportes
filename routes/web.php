@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OperadorController;
 use App\Http\Controllers\CapturistaController;
+use App\Http\Controllers\VehiculoController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -38,13 +39,39 @@ Route::middleware('auth')->group(function () {
 
 // Gestión solo para administradores
 Route::middleware(['auth', 'role:administrador'])->group(function () {
+    
+    // Capturistas (CRUD completo)
+    Route::resource('capturistas', CapturistaController::class);
+});
+
+// Gestión solo para administradores y capturistas
+Route::middleware(['auth', 'role:administrador|capturista'])->group(function () {
+    // Rutas accesibles para administradores y capturistas
+
     // Operadores
     Route::get('/operadores/create', [OperadorController::class, 'create'])->name('operadores.create');
     Route::post('/operadores', [OperadorController::class, 'store'])->name('operadores.store');
 
-    // Capturistas (CRUD completo)
-    Route::resource('capturistas', CapturistaController::class);
-});
+    // CRUD OPERADORES
+    Route::resource('operadores', OperadorController::class);
+    
+    // CRUD Vehiculos.
+    Route::get('/vehiculos', [VehiculoController::class, 'index'])->name('vehiculos.index');
+    Route::get('/vehiculos/create', [VehiculoController::class, 'create'])->name('vehiculos.create');
+    Route::get('/vehiculos/{vehiculo}/edit', [VehiculoController::class, 'edit'])->name('vehiculos.edit');
+    Route::put('/vehiculos/{vehiculo}', [VehiculoController::class, 'update'])->name('vehiculos.update');
+    Route::get('/vehiculos/{vehiculo}', [VehiculoController::class, 'show'])->name('vehiculos.show');
+
+    
+    Route::post('/vehiculos', [VehiculoController::class, 'store'])->name('vehiculos.store');
+    Route::delete('/vehiculos/{vehiculo}', [VehiculoController::class, 'destroy'])->name('vehiculos.destroy'); 
+
+    });
+
+
+        
+
+
 
 // Rutas de autenticación (login, register, etc.)
 require __DIR__.'/auth.php';

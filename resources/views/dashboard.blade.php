@@ -49,11 +49,15 @@
 
             <!-- Gestión de Operadores (Administrador y Capturista) -->
             @hasanyrole('administrador|capturista')
-            <a href="https://www.google.com"  class="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition duration-300 p-6">
+            <a href="{{ route('operadores.index') }}"  
+            class="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition duration-300 p-6">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Operadores</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">Gestionar los operadores del sistema.</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                    Gestionar los operadores del sistema.
+                </p>
             </a>
             @endhasanyrole
+
 
             <!-- Capturistas (Solo Administrador) -->
             @role('administrador')
@@ -66,11 +70,14 @@
             </a>
             @endrole
 
-            <!-- Vehículos (Administrador y Capturista) -->
+            <!-- Gestión de Vehículos -->
             @hasanyrole('administrador|capturista')
-            <a href="https://www.google.com" class="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition duration-300 p-6">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Vehículos</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">Control de flota, registros y actualizaciones.</p>
+            <a href="{{ route('vehiculos.index') }}" 
+            class="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition duration-300 p-6">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Gestión de Vehículos</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                    Control de flota, registros y actualizaciones.
+                </p>
             </a>
             @endhasanyrole
 

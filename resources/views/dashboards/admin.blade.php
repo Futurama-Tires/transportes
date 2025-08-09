@@ -16,10 +16,15 @@
             </a>
 
             <!-- Gestión de Vehículos -->
-            <a href="https://www.google.com" class="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition duration-300 p-6">
+            @hasanyrole('administrador|capturista')
+            <a href="{{ route('vehiculos.index') }}" 
+            class="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition duration-300 p-6">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Gestión de Vehículos</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">Control de flota, registros y actualizaciones.</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                    Control de flota, registros y actualizaciones.
+                </p>
             </a>
+            @endhasanyrole
 
             <!-- Gestión de Cargas -->
             <a href="https://www.google.com" class="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition duration-300 p-6">
