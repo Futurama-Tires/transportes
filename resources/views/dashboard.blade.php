@@ -34,6 +34,7 @@
         </h2>
         <br>  
     </x-slot>
+    
 
     <div div class="py-4">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -56,9 +57,12 @@
 
             <!-- Capturistas (Solo Administrador) -->
             @role('administrador')
-            <a href="https://www.google.com" class="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition duration-300 p-6">
+            <a href="{{ route('capturistas.index') }}" 
+            class="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition duration-300 p-6">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Capturistas</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">Gestionar los capturistas del sistema.</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                    Gestionar los capturistas del sistema.
+                </p>
             </a>
             @endrole
 
