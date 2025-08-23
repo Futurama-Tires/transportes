@@ -6,7 +6,6 @@ use App\Http\Controllers\CapturistaController;
 use App\Http\Controllers\VehiculoController;
 use App\Http\Controllers\TarjetaSiValeController;
 use App\Http\Controllers\VerificacionController;
-
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,57 +22,42 @@ Route::view('/dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
-// Ejemplo solo para rol operador
-Route::view('/ejemploRol', 'ejemploRol')
-    ->middleware(['auth', 'verified', 'role:operador'])
-    ->name('ejemploRol');
-
-// Dashboard exclusivo para administradores
-Route::view('/dashboard-admin', 'dashboards.admin')
-    ->middleware(['auth', 'role:administrador'])
-    ->name('dashboard.admin');
-
-// Perfil de usuario (cualquier usuario autenticado)
 Route::middleware('auth')->group(function () {
+    // Ejemplo solo para rol operador (requiere verificación como en tu versión)
+    Route::view('/ejemploRol', 'ejemploRol')
+        ->middleware(['verified', 'role:operador'])
+        ->name('ejemploRol');
+
+    // Dashboard exclusivo para administradores
+    Route::view('/dashboard-admin', 'dashboards.admin')
+        ->middleware('role:administrador')
+        ->name('dashboard.admin');
+
+    // Perfil de usuario (cualquier usuario autenticado)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
 
-// Gestión solo para administradores
-Route::middleware(['auth', 'role:administrador'])->group(function () {
-    
-    // Capturistas (CRUD completo)
-    Route::resource('capturistas', CapturistaController::class);
-});
-
-// Gestión solo para administradores y capturistas
-Route::middleware(['auth', 'role:administrador|capturista'])->group(function () {
-    // Rutas accesibles para administradores y capturistas
-
-    // Operadores
-    Route::get('/operadores/create', [OperadorController::class, 'create'])->name('operadores.create');
-    Route::post('/operadores', [OperadorController::class, 'store'])->name('operadores.store');
-
-    // CRUD OPERADORES
-    Route::resource('operadores', OperadorController::class);
-    
-    // CRUD Vehiculos.
-    Route::get('/vehiculos', [VehiculoController::class, 'index'])->name('vehiculos.index');
-    Route::get('/vehiculos/create', [VehiculoController::class, 'create'])->name('vehiculos.create');
-    Route::get('/vehiculos/{vehiculo}/edit', [VehiculoController::class, 'edit'])->name('vehiculos.edit');
-    Route::put('/vehiculos/{vehiculo}', [VehiculoController::class, 'update'])->name('vehiculos.update');
-    Route::get('/vehiculos/{vehiculo}', [VehiculoController::class, 'show'])->name('vehiculos.show');
-    Route::post('/vehiculos', [VehiculoController::class, 'store'])->name('vehiculos.store');
-    Route::delete('/vehiculos/{vehiculo}', [VehiculoController::class, 'destroy'])->name('vehiculos.destroy'); 
-
-    //CRUD TarjetasSiVale
-    Route::resource('tarjetas', TarjetaSiValeController::class);
-
-    //CRUD Verificaciones
-    Route::resource('verificaciones', VerificacionController::class);
-
+    // Gestión solo para administradores
+    Route::middleware('role:administrador')->group(function () {
+        // Capturistas (CRUD completo)
+        Route::resource('capturistas', CapturistaController::class);
     });
+
+    // Gestión para administradores y capturistas
+    Route::middleware('role:administrador|capturista')->group(function () {
+        // CRUD completos: Operadores, Vehículos, Tarjetas, Verificaciones
+        // (Con Route::resources evitamos duplicar create/store y rutas manuales)
+        Route::resources([
+            'operadores'     => OperadorController::class,
+            'vehiculos'      => VehiculoController::class,
+            'tarjetas'       => TarjetaSiValeController::class,
+        ]);
+
+        Route::resource('verificaciones', VerificacionController::class)
+        ->parameters(['verificaciones' => 'verificacion']); // <- clave del fix
+    });
+});
 
 // Rutas de autenticación (login, register, etc.)
 require __DIR__.'/auth.php';

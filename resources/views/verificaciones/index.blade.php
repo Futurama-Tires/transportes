@@ -55,8 +55,6 @@
                                         {{ $verificacion->comentarios ?? '-' }}
                                     </td>
                                     <td class="px-4 py-2 text-right text-sm font-medium">
-                                        <a href="{{ route('verificaciones.show', $verificacion) }}"
-                                           class="text-blue-500 hover:text-blue-700">Ver</a>
                                         <a href="{{ route('verificaciones.edit', $verificacion) }}"
                                            class="ml-2 text-yellow-500 hover:text-yellow-700">Editar</a>
                                         <form action="{{ route('verificaciones.destroy', $verificacion) }}"

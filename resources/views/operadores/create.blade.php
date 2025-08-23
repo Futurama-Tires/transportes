@@ -1,41 +1,87 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Crear operador</title>
-</head>
-<body>
-    <h1>Registrar nuevo operador</h1>
+<x-app-layout>
+    <x-slot name="header">
+        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+            Registrar Nuevo Operador
+        </h2>
+    </x-slot>
 
-    @if(session('success'))
-        <p style="color: green;">{{ session('success') }}</p>
-    @endif
+    <div class="py-6">
+        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+            {{-- Mensaje de éxito --}}
+            @if(session('success'))
+                <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                    {{ session('success') }}
+                </div>
+            @endif
 
-    <form method="POST" action="{{ route('operadores.store') }}">
-        @csrf
+            {{-- Mostrar errores --}}
+            @if ($errors->any())
+                <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    <ul class="list-disc list-inside">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
-        <label>Nombre:</label>
-        <input type="text" name="nombre" required><br>
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
+                <form method="POST" action="{{ route('operadores.store') }}">
+                    @csrf
 
-        <label>Apellido paterno:</label>
-        <input type="text" name="apellido_paterno" required><br>
+                    {{-- Nombre --}}
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300">Nombre *</label>
+                        <input type="text" name="nombre" value="{{ old('nombre') }}"
+                               class="w-full border-gray-300 rounded" required>
+                        @error('nombre')
+                            <span class="text-red-500 text-sm">{{ $message }}</span>
+                        @enderror
+                    </div>
 
-        <label>Apellido materno:</label>
-        <input type="text" name="apellido_materno"><br>
+                    {{-- Apellido paterno --}}
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300">Apellido paterno *</label>
+                        <input type="text" name="apellido_paterno" value="{{ old('apellido_paterno') }}"
+                               class="w-full border-gray-300 rounded" required>
+                        @error('apellido_paterno')
+                            <span class="text-red-500 text-sm">{{ $message }}</span>
+                        @enderror
+                    </div>
 
-        <label>Email (@futuramatiresmx.com):</label>
-        <input type="email" name="email" required><br>
+                    {{-- Apellido materno --}}
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300">Apellido materno</label>
+                        <input type="text" name="apellido_materno" value="{{ old('apellido_materno') }}"
+                               class="w-full border-gray-300 rounded">
+                        @error('apellido_materno')
+                            <span class="text-red-500 text-sm">{{ $message }}</span>
+                        @enderror
+                    </div>
 
-        <button type="submit">Crear operador</button>
-    </form>
-</body>
+                    {{-- Email --}}
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300">Email (@futuramatiresmx.com) *</label>
+                        <input type="email" name="email" value="{{ old('email') }}"
+                               class="w-full border-gray-300 rounded" required>
+                        @error('email')
+                            <span class="text-red-500 text-sm">{{ $message }}</span>
+                        @enderror
+                    </div>
 
-@if ($errors->any())
-    <div style="color: red;">
-        <ul>
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
+                    {{-- Botones --}}
+                    <div class="flex justify-end">
+                        <a href="{{ route('operadores.index') }}"
+                           class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mr-2">
+                            Cancelar
+                        </a>
+                        <button type="submit"
+                                class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            Crear Operador
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
-@endif
-</html>
+</x-app-layout>
