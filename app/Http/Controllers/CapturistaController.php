@@ -10,9 +10,30 @@ use Illuminate\Support\Str;
 
 class CapturistaController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $capturistas = Capturista::with('user')->get();
+        $query = Capturista::with('user');
+
+        // Si se escribe algo en el buscador, filtramos
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+
+            $query->where(function($q) use ($search) {
+                $q->where('nombre', 'like', "%{$search}%")
+                  ->orWhere('apellido_paterno', 'like', "%{$search}%")
+                  ->orWhere('apellido_materno', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($u) use ($search) {
+                      $u->where('email', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        // Paginamos (25 por página, puedes cambiar el número)
+        $capturistas = $query->paginate(25);
+
+        // Mantener búsqueda en la paginación
+        $capturistas->appends(['search' => $request->search]);
+
         return view('capturistas.index', compact('capturistas'));
     }
 

@@ -10,11 +10,28 @@ use Illuminate\Support\Str;
 
 class OperadorController extends Controller
 {
-    public function index()
-    {
-        $operadores = Operador::with('user')->get();
-        return view('operadores.index', compact('operadores'));
+    public function index(Request $request)
+{
+    $query = Operador::with('user');
+
+    if ($request->filled('search')) {
+        $search = $request->input('search');
+
+        $query->where(function($q) use ($search) {
+            $q->where('nombre', 'like', "%{$search}%")
+              ->orWhere('apellido_paterno', 'like', "%{$search}%")
+              ->orWhere('apellido_materno', 'like', "%{$search}%")
+              ->orWhereHas('user', function($u) use ($search) {
+                  $u->where('email', 'like', "%{$search}%");
+              });
+        });
     }
+
+    $operadores = $query->paginate(25);
+
+    return view('operadores.index', compact('operadores'));
+}
+
 
     public function create()
     {
@@ -89,7 +106,7 @@ class OperadorController extends Controller
     public function destroy($id)
     {
         $operador = Operador::findOrFail($id);
-        $operador->user->delete(); // Esto también elimina el operador por la relación ON DELETE CASCADE
+        $operador->user->delete(); // Elimina también el operador por la relación ON DELETE CASCADE
         return redirect()->route('operadores.index')->with('success', 'Operador eliminado correctamente');
     }
 }

@@ -6,48 +6,58 @@
     </x-slot>
 
     <div class="py-6">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
 
             {{-- Mensajes de éxito --}}
             @if(session('success'))
-                <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                <div class="mb-4 text-green-600">
                     {{ session('success') }}
                 </div>
             @endif
 
-            {{-- Botón crear --}}
-            <div class="mb-4">
+            {{-- Barra superior: búsqueda + botón crear --}}
+            <div class="mb-4 flex justify-between items-center">
+                <form method="GET" action="{{ route('operadores.index') }}" class="flex gap-2">
+                    <input type="text"
+                           name="search"
+                           value="{{ request('search') }}"
+                           placeholder="Buscar por nombre o correo..."
+                           class="border rounded px-3 py-2 text-sm w-64 focus:ring focus:ring-blue-300 focus:outline-none">
+                    <button type="submit"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                        Buscar
+                    </button>
+                </form>
+
                 <a href="{{ route('operadores.create') }}"
-                   class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                    + Agregar Operador
+                   class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                   + Agregar Operador
                 </a>
             </div>
 
             {{-- Tabla --}}
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-4">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead class="bg-gray-50 dark:bg-gray-700">
+                    <table class="min-w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700">
+                        <thead>
                             <tr>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Nombre</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Correo</th>
-                                <th class="px-4 py-2"></th>
+                                <th class="border px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Nombre</th>
+                                <th class="border px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Correo</th>
+                                <th class="border px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        <tbody>
                             @forelse($operadores as $operador)
                                 <tr>
-                                    <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <td class="border px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
                                         {{ $operador->nombre }} {{ $operador->apellido_paterno }} {{ $operador->apellido_materno }}
                                     </td>
-                                    <td class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <td class="border px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
                                         {{ $operador->user->email }}
                                     </td>
-                                    <td class="px-4 py-2 text-right text-sm font-medium">
+                                    <td class="border px-4 py-2 text-sm">
                                         <a href="{{ route('operadores.edit', $operador->id) }}"
-                                           class="text-yellow-500 hover:text-yellow-700">
-                                            Editar
-                                        </a>
+                                           class="text-blue-500 hover:underline">Editar</a>
 
                                         <form action="{{ route('operadores.destroy', $operador->id) }}"
                                               method="POST"
@@ -55,7 +65,7 @@
                                               onsubmit="return confirm('¿Seguro que quieres eliminar este operador?')">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="ml-2 text-red-500 hover:text-red-700">
+                                            <button type="submit" class="text-red-500 hover:underline ml-2">
                                                 Eliminar
                                             </button>
                                         </form>
@@ -63,7 +73,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="px-4 py-2 text-center text-gray-500 dark:text-gray-300">
+                                    <td colspan="3" class="border px-4 py-2 text-center text-gray-500 dark:text-gray-300">
                                         No hay operadores registrados.
                                     </td>
                                 </tr>
@@ -76,7 +86,7 @@
             {{-- Paginación --}}
             @if(method_exists($operadores, 'links'))
                 <div class="mt-4">
-                    {{ $operadores->links() }}
+                    {{ $operadores->appends(['search' => request('search')])->links() }}
                 </div>
             @endif
 
