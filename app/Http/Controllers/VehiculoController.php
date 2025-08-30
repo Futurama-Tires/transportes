@@ -18,11 +18,37 @@ class VehiculoController extends Controller
         $this->middleware(['role:administrador'])->only('destroy');
     }
 
-    public function index()
-    {
-        $vehiculos = Vehiculo::with('tarjetaSiVale')->latest('id')->paginate(10);
-        return view('vehiculos.index', compact('vehiculos'));
+    public function index(Request $request)
+{
+    $query = Vehiculo::with('tarjetaSiVale');
+
+    // ====== Filtro de búsqueda ======
+    if ($request->filled('search')) {
+        $search = $request->input('search');
+
+        $query->where(function ($q) use ($search) {
+            $q->where('ubicacion', 'like', "%{$search}%")
+              ->orWhere('propietario', 'like', "%{$search}%")
+              ->orWhere('unidad', 'like', "%{$search}%")
+              ->orWhere('marca', 'like', "%{$search}%")
+              ->orWhere('anio', 'like', "%{$search}%")
+              ->orWhere('serie', 'like', "%{$search}%")
+              ->orWhere('motor', 'like', "%{$search}%")
+              ->orWhere('placa', 'like', "%{$search}%")
+              ->orWhere('estado', 'like', "%{$search}%")
+              ->orWhere('poliza_hdi', 'like', "%{$search}%");
+        });
     }
+
+    // ====== Paginación (10 por página) ======
+    $vehiculos = $query->latest('id')->paginate(10);
+
+    // Mantener parámetro search en los links
+    $vehiculos->appends(['search' => $request->search]);
+
+    return view('vehiculos.index', compact('vehiculos'));
+}
+
 
     public function create()
     {

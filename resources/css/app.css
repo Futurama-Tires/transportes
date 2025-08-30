@@ -4,6 +4,17 @@
 
 /* resources/css/app.css */
 
+nav[role="navigation"] > div:first-child {
+    display: none !important;
+}
+
+@layer components {
+    nav[role="navigation"] > div:first-child {
+        @apply hidden;
+    }
+}
+
+
 .header_modulo {
   @apply text-xl font-semibold text-gray-800 dark:text-gray-200 leading-tight;
 }

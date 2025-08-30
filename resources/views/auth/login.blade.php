@@ -22,7 +22,7 @@
     {{-- Columna izquierda: imagen a pantalla completa (solo desktop) --}}
     <aside class="relative hidden md:block">
         <img
-            src="{{ asset('images/fondo_login.jpg') }}"
+            src="{{ asset('images/fondo_login2.png') }}"
             alt="Control de combustible para flotillas"
             class="absolute inset-0 h-full w-full object-cover"
         >
