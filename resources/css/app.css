@@ -1,3 +1,45 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* resources/css/app.css */
+
+.header_modulo {
+  @apply text-xl font-semibold text-gray-800 dark:text-gray-200 leading-tight;
+}
+
+.card_crud {
+  @apply bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg;
+}
+
+.card_crud-body {
+  @apply p-4;
+}
+
+.tabla_crud {
+  @apply min-w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800;
+}
+
+.tabla_crud_header {
+  @apply border px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase;
+}
+
+.tabla_crud_cell {
+  @apply border px-4 py-2 text-sm text-gray-700 dark:text-gray-300;
+}
+
+.tabla_crud_cell-center {
+  @apply border px-4 py-2 text-center text-gray-500 dark:text-gray-300;
+}
+
+.tabla_crud_acciones {
+  @apply border px-4 py-2 text-sm;
+}
+
+.tabla_crud_link-editar {
+  @apply text-blue-500 hover:underline;
+}
+
+.tabla_crud_link-eliminar {
+  @apply text-red-500 hover:underline ml-2;
+}
