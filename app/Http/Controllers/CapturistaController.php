@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Capturista;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class CapturistaController extends Controller
 {
@@ -14,7 +15,7 @@ class CapturistaController extends Controller
     {
         $query = Capturista::with('user');
 
-        // Si se escribe algo en el buscador, filtramos
+        // Búsqueda
         if ($request->filled('search')) {
             $search = $request->input('search');
 
@@ -28,10 +29,8 @@ class CapturistaController extends Controller
             });
         }
 
-        // Paginamos (25 por página, puedes cambiar el número)
+        // Paginación
         $capturistas = $query->paginate(25);
-
-        // Mantener búsqueda en la paginación
         $capturistas->appends(['search' => $request->search]);
 
         return view('capturistas.index', compact('capturistas'));
@@ -44,34 +43,41 @@ class CapturistaController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'nombre' => 'required|string|max:255',
-            'apellido_paterno' => 'required|string|max:255',
-            'apellido_materno' => 'nullable|string|max:255',
-            'email' => ['required', 'email', 'regex:/@futuramatiresmx\.com$/i', 'unique:users,email'],
+        $validated = $request->validate([
+            'nombre'            => 'required|string|max:255',
+            'apellido_paterno'  => 'required|string|max:255',
+            'apellido_materno'  => 'nullable|string|max:255',
+            'email'             => ['required', 'email', 'regex:/@futuramatiresmx\.com$/i', 'unique:users,email'],
         ]);
 
+        // Generar password temporal
         $randomPassword = Str::random(10);
 
+        // Crear usuario
         $user = User::create([
-            'name' => $request->nombre . ' ' . $request->apellido_paterno,
-            'email' => $request->email,
+            'name'     => trim($validated['nombre'].' '.$validated['apellido_paterno']),
+            'email'    => $validated['email'],
             'password' => Hash::make($randomPassword),
         ]);
 
+        // Asignar rol
         $user->assignRole('capturista');
 
+        // Crear capturista
         Capturista::create([
-            'user_id' => $user->id,
-            'nombre' => $request->nombre,
-            'apellido_paterno' => $request->apellido_paterno,
-            'apellido_materno' => $request->apellido_materno,
+            'user_id'          => $user->id,
+            'nombre'           => $validated['nombre'],
+            'apellido_paterno' => $validated['apellido_paterno'],
+            'apellido_materno' => $validated['apellido_materno'] ?? null,
         ]);
 
-        return view('capturistas.confirmacion', [
-            'email' => $user->email,
-            'password' => $randomPassword,
-        ]);
+        // REDIRECCIÓN A CREATE CON FLASH PARA MOSTRAR EL MODAL
+        return redirect()
+            ->route('capturistas.create')
+            ->with('created', true)
+            ->with('email', $user->email)
+            ->with('password', $randomPassword)
+            ->with('success', 'Capturista creado correctamente.');
     }
 
     public function edit($id)
@@ -82,23 +88,33 @@ class CapturistaController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'nombre' => 'required|string|max:255',
-            'apellido_paterno' => 'required|string|max:255',
-            'apellido_materno' => 'nullable|string|max:255',
-            'email' => ['required', 'email', 'regex:/@futuramatiresmx\.com$/i', 'unique:users,email,' . $id],
+        // Cargamos primero para poder ignorar el email actual del usuario relacionado
+        $capturista = Capturista::with('user')->findOrFail($id);
+
+        $validated = $request->validate([
+            'nombre'            => 'required|string|max:255',
+            'apellido_paterno'  => 'required|string|max:255',
+            'apellido_materno'  => 'nullable|string|max:255',
+            'email'             => [
+                'required',
+                'email',
+                'regex:/@futuramatiresmx\.com$/i',
+                // Ignoramos el email del usuario actual (no el id del capturista)
+                Rule::unique('users', 'email')->ignore($capturista->user_id),
+            ],
         ]);
 
-        $capturista = Capturista::findOrFail($id);
+        // Actualizar capturista
         $capturista->update([
-            'nombre' => $request->nombre,
-            'apellido_paterno' => $request->apellido_paterno,
-            'apellido_materno' => $request->apellido_materno,
+            'nombre'           => $validated['nombre'],
+            'apellido_paterno' => $validated['apellido_paterno'],
+            'apellido_materno' => $validated['apellido_materno'] ?? null,
         ]);
 
+        // Actualizar usuario relacionado
         $capturista->user->update([
-            'name' => $request->nombre . ' ' . $request->apellido_paterno,
-            'email' => $request->email
+            'name'  => trim($validated['nombre'].' '.$validated['apellido_paterno']),
+            'email' => $validated['email'],
         ]);
 
         return redirect()->route('capturistas.index')->with('success', 'Capturista actualizado correctamente');
@@ -106,8 +122,11 @@ class CapturistaController extends Controller
 
     public function destroy($id)
     {
-        $capturista = Capturista::findOrFail($id);
-        $capturista->user->delete(); // Elimina también capturista por la relación ON DELETE CASCADE
+        $capturista = Capturista::with('user')->findOrFail($id);
+
+        // Elimina el usuario (si la FK de capturistas -> users tiene ON DELETE CASCADE, eliminará el capturista)
+        $capturista->user->delete();
+
         return redirect()->route('capturistas.index')->with('success', 'Capturista eliminado correctamente');
     }
 }

@@ -1,8 +1,17 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 leading-tight">
-            Registrar Nuevo Capturista
-        </h2>
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Capturistas</p>
+                <h2 class="mt-1 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                    Registrar Nuevo Capturista
+                </h2>
+            </div>
+            <a href="{{ route('capturistas.index') }}"
+               class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
+                Volver al listado
+            </a>
+        </div>
     </x-slot>
 
     <div class="py-6">
@@ -60,7 +69,7 @@
                     </div>
 
                     {{-- Email --}}
-                    <div class="mb-4">
+                    <div class="mb-6">
                         <label class="block text-gray-700 dark:text-gray-300">Email (@futuramatiresmx.com) *</label>
                         <input type="email" name="email" value="{{ old('email') }}"
                                class="w-full border-gray-300 rounded" required>
@@ -84,4 +93,59 @@
             </div>
         </div>
     </div>
+
+    {{-- Modal flotante de confirmación (se muestra si hay datos en sesión) --}}
+    @if(session('created') && session('email') && session('password'))
+        <div x-data="{ open: true }"
+             x-show="open"
+             x-transition.opacity
+             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+             aria-modal="true" role="dialog">
+
+            <div x-transition
+                 class="w-full max-w-md rounded-xl bg-white p-6 shadow-lg dark:bg-slate-800">
+                <div class="flex items-start justify-between">
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                        Capturista creado exitosamente
+                    </h3>
+                    <button @click="open=false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" aria-label="Cerrar">
+                        ✕
+                    </button>
+                </div>
+
+                <div class="mt-4 space-y-2 text-sm">
+                    <p class="text-slate-600 dark:text-slate-300">
+                        Guarda estas credenciales de acceso:
+                    </p>
+
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                        <div class="mb-2 flex items-center justify-between gap-3">
+                            <span class="font-medium">Correo:</span>
+                            <code class="select-all">{{ session('email') }}</code>
+                        </div>
+                        <div class="flex items-center justify-between gap-3">
+                            <span class="font-medium">Contraseña:</span>
+                            <code id="gen-pass" class="select-all">{{ session('password') }}</code>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2">
+                        <button type="button"
+                                onclick="navigator.clipboard.writeText(document.getElementById('gen-pass').innerText)"
+                                class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
+                            Copiar contraseña
+                        </button>
+                        <button type="button"
+                                @click="open=false; window.location.href='{{ route('capturistas.index') }}';"
+                                class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                            Aceptar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Si tu proyecto NO carga AlpineJS por defecto, descomenta esto: --}}
+        {{-- <script src="//unpkg.com/alpinejs" defer></script> --}}
+    @endif
 </x-app-layout>
