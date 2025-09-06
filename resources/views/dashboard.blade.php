@@ -54,8 +54,8 @@
             {{-- Grid de accesos --}}
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
 
-                @hasanyrole('operador|capturista')
-                <a href="https://www.google.com"
+                @hasanyrole('administrador|capturista')
+                <a href="{{ route('cargas.index') }}"
                    class="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm ring-indigo-300 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 dark:border-slate-700 dark:bg-slate-800"
                    aria-label="Gestión de cargas">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">

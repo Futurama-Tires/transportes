@@ -6,6 +6,7 @@ use App\Http\Controllers\CapturistaController;
 use App\Http\Controllers\VehiculoController;
 use App\Http\Controllers\TarjetaSiValeController;
 use App\Http\Controllers\VerificacionController;
+use App\Http\Controllers\CargaCombustibleController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -57,6 +58,9 @@ Route::middleware('auth')->group(function () {
         Route::resource('verificaciones', VerificacionController::class)
         ->parameters(['verificaciones' => 'verificacion']); // <- clave del fix
     });
+
+    Route::resource('cargas', CargaCombustibleController::class)
+    ->parameters(['cargas' => 'carga']); 
 });
 
 // Rutas de autenticación (login, register, etc.)
