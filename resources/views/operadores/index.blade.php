@@ -28,34 +28,67 @@
 
             {{-- Barra superior: búsqueda + exportaciones --}}
             <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                {{-- Buscador (w-full en mobile, w-1/2 en desktop) --}}
-                <form method="GET" action="{{ route('operadores.index') }}" class="w-full lg:w-1/2">
-                    <div class="flex w-full items-center rounded-full border border-slate-300 bg-white px-3 py-2 shadow-sm ring-indigo-300 focus-within:ring dark:border-slate-700 dark:bg-slate-800">
-                        {{-- search icon --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
-                        </svg>
-                        <input
-                            type="text"
-                            name="search"
-                            value="{{ request('search') }}"
-                            placeholder="Buscar por nombre o correo…"
-                            class="w-full bg-transparent text-sm placeholder-slate-400 focus:outline-none dark:text-slate-100"
-                            aria-label="Buscar operadores"
-                        />
-                        @if(request('search'))
-                            <a href="{{ route('operadores.index') }}"
-                               class="ml-2 inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
-                               title="Limpiar búsqueda">
-                                Limpiar
-                            </a>
-                        @endif
-                        <button type="submit"
-                                class="ml-2 inline-flex items-center rounded-full bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                            Buscar
-                        </button>
-                    </div>
-                </form>
+                {{-- Buscador + Filtros (w-full en mobile, w-1/2 en desktop) --}}
+                <form method="GET" action="{{ route('operadores.index') }}" class="w-full lg:w-3/4 xl:w-4/5">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        {{-- Contenedor del buscador (más largo) --}}
+        <div class="flex w-full sm:flex-1 items-center rounded-full bg-white px-4 py-2 shadow-md ring-1 ring-gray-200 focus-within:ring dark:bg-slate-800 dark:ring-slate-700">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/>
+            </svg>
+            <input
+                type="text"
+                name="search"
+                value="{{ request('search') }}"
+                placeholder="Buscar en nombre, apellidos o correo..."
+                class="ml-3 w-full flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-slate-400"
+            />
+        </div>
+
+        {{-- Selects fijos (el buscador crece más) --}}
+        <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <div class="relative w-full sm:w-44">
+                <select
+                    name="sort_by"
+                    class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                    onchange="this.form.submit()"
+                    title="Ordenar por"
+                >
+                    <option value="nombre_completo" @selected(request('sort_by','nombre_completo')==='nombre_completo')>Nombre completo</option>
+                    <option value="email" @selected(request('sort_by')==='email')>Correo</option>
+                </select>
+                <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                </svg>
+            </div>
+
+            <div class="relative w-full sm:w-36">
+                <select
+                    name="sort_dir"
+                    class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                    onchange="this.form.submit()"
+                    title="Dirección"
+                >
+                    <option value="asc"  @selected(request('sort_dir','asc')==='asc')>Asc</option>
+                    <option value="desc" @selected(request('sort_dir')==='desc')>Desc</option>
+                </select>
+                <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                </svg>
+            </div>
+        </div>
+
+        {{-- Botón Buscar --}}
+        <button type="submit"
+                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/>
+            </svg>
+            Buscar
+        </button>
+    </div>
+</form>
+
 
                 {{-- Botones de exportación (placeholders) --}}
                 <div class="flex flex-wrap items-center gap-2">
@@ -124,6 +157,9 @@
                                 <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
                                     Correo
                                 </th>
+                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
+                                    ID
+                                </th>
                                 <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold text-right dark:border-slate-700">
                                     <span class="sr-only">Acciones</span>Acciones
                                 </th>
@@ -137,6 +173,9 @@
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
                                         {{ $operador->user->email }}
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
+                                        {{ $operador->id }}
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-end gap-2">
@@ -171,7 +210,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
+                                    <td colspan="4" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
                                         @if(request('search'))
                                             No se encontraron resultados para <span class="font-semibold">“{{ request('search') }}”</span>.
                                             <a href="{{ route('operadores.index') }}" class="text-indigo-600 hover:text-indigo-800">Limpiar búsqueda</a>

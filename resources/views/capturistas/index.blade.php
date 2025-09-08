@@ -28,56 +28,77 @@
 
             {{-- Barra superior: búsqueda + exportaciones --}}
             <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                {{-- Buscador (w-full en mobile, w-1/2 en desktop) --}}
-                <form method="GET" action="{{ route('capturistas.index') }}" class="w-full lg:w-1/2">
-                    <div class="flex w-full items-center rounded-full border border-slate-300 bg-white px-3 py-2 shadow-sm ring-indigo-300 focus-within:ring dark:border-slate-700 dark:bg-slate-800">
-                        {{-- search icon --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
-                        </svg>
-                        <input
-                            type="text"
-                            name="search"
-                            value="{{ request('search') }}"
-                            placeholder="Buscar por nombre o correo…"
-                            class="w-full bg-transparent text-sm placeholder-slate-400 focus:outline-none dark:text-slate-100"
-                            aria-label="Buscar capturistas"
-                        />
-                        @if(request('search'))
-                            <a href="{{ route('capturistas.index') }}"
-                               class="ml-2 inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
-                               title="Limpiar búsqueda">
-                                Limpiar
-                            </a>
-                        @endif
+                {{-- Buscador + Filtros --}}
+                <form method="GET" action="{{ route('capturistas.index') }}" class="w-full lg:w-3/4 xl:w-4/5">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        {{-- Buscador --}}
+                        <div class="flex w-full sm:flex-1 items-center rounded-full bg-white px-4 py-2 shadow-md ring-1 ring-gray-200 focus-within:ring dark:bg-slate-800 dark:ring-slate-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/>
+                            </svg>
+                            <input
+                                type="text"
+                                name="search"
+                                value="{{ request('search') }}"
+                                placeholder="Buscar en ID, nombre, apellidos, correo..."
+                                class="ml-3 w-full flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-slate-400"
+                            />
+                        </div>
+
+                        {{-- Selects --}}
+                        <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                            {{-- Ordenar por --}}
+                            <div class="relative w-full sm:w-44">
+                                <select
+                                    name="sort_by"
+                                    class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                    onchange="this.form.submit()"
+                                    title="Ordenar por"
+                                >
+                                    <option value="nombre_completo" @selected(request('sort_by','nombre_completo')==='nombre_completo')>Nombre completo</option>
+                                    <option value="email" @selected(request('sort_by')==='email')>Correo</option>
+                                </select>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+
+                            {{-- Dirección --}}
+                            <div class="relative w-full sm:w-36">
+                                <select
+                                    name="sort_dir"
+                                    class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                    onchange="this.form.submit()"
+                                    title="Dirección"
+                                >
+                                    <option value="asc"  @selected(request('sort_dir','asc')==='asc')>Asc</option>
+                                    <option value="desc" @selected(request('sort_dir')==='desc')>Desc</option>
+                                </select>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        {{-- Botón Buscar --}}
                         <button type="submit"
-                                class="ml-2 inline-flex items-center rounded-full bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/>
+                            </svg>
                             Buscar
                         </button>
                     </div>
                 </form>
 
-                {{-- Botones de exportación (placeholders) --}}
+                {{-- Botones de exportación (opcional / placeholder) --}}
                 <div class="flex flex-wrap items-center gap-2">
-                    {{-- Excel --}}
-                    <a href="#"
-                       class="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                       title="Exportar a Excel">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M19 2H8a2 2 0 0 0-2 2v3h6a2 2 0 0 1 2 2v9h5a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z"/>
-                            <path d="M3 9h9a1 1 0 0 1 1 1v10H5a2 2 0 0 1-2-2V9Zm6.8 7.5-.9-1.4-.9 1.4H6.1l1.6-2.4L6.1 12.7h1.9l.9 1.4.9-1.4h1.9l-1.6 2.4 1.6 2.4H9.8Z"/>
-                        </svg>
+                    <a href="#" class="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400" title="Exportar a Excel">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 2H8a2 2 0 0 0-2 2v3h6a2 2 0 0 1 2 2v9h5a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z"/><path d="M3 9h9a1 1 0 0 1 1 1v10H5a2 2 0 0 1-2-2V9Zm6.8 7.5-.9-1.4-.9 1.4H6.1l1.6-2.4L6.1 12.7h1.9l.9 1.4.9-1.4h1.9l-1.6 2.4 1.6 2.4H9.8Z"/></svg>
                         Excel
                     </a>
-
-                    {{-- PDF --}}
-                    <a href="#"
-                       class="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                       title="Exportar a PDF">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v14a4 4 0 0 0 4 4h8a2 2 0 0 0 2-2V6l-4-4Z"/>
-                            <path d="M14 2v4a2 2 0 0 0 2 2h4M7.5 15H9a1.5 1.5 0 0 0 0-3H7.5v3Zm0 0v2m5.5-5h-1v5h1m0-3h1a2 2 0 1 0 0-4h-1v2Z"/>
-                        </svg>
+                    <a href="#" class="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400" title="Exportar a PDF">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v14a4 4 0 0 0 4 4h8a2 2 0 0 0 2-2V6l-4-4Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M7.5 15H9a1.5 1.5 0 0 0 0-3H7.5v3Zm0 0v2m5.5-5h-1v5h1m0-3h1a2 2 0 1 0 0-4h-1v2Z"/></svg>
                         PDF
                     </a>
                 </div>
@@ -124,6 +145,9 @@
                                 <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
                                     Correo
                                 </th>
+                                <th scope="col" class="border-b border-slate-2 00 px-4 py-3 font-semibold dark:border-slate-700">
+                                    ID
+                                </th>
                                 <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold text-right dark:border-slate-700">
                                     <span class="sr-only">Acciones</span>Acciones
                                 </th>
@@ -137,6 +161,9 @@
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
                                         {{ $capturista->user->email }}
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
+                                        {{ $capturista->id }}
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-end gap-2">
@@ -171,7 +198,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
+                                    <td colspan="4" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
                                         @if(request('search'))
                                             No se encontraron resultados para <span class="font-semibold">“{{ request('search') }}”</span>.
                                             <a href="{{ route('capturistas.index') }}" class="text-indigo-600 hover:text-indigo-800">Limpiar búsqueda</a>
@@ -186,7 +213,7 @@
                 </div>
             </div>
 
-            {{-- Paginación + contador (siempre visible) --}}
+            {{-- Paginación + contador --}}
             @if(method_exists($capturistas, 'links'))
                 <div class="mt-6 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
                     @php
@@ -209,7 +236,12 @@
                     </p>
 
                     <div class="w-full sm:w-auto">
-                        {{ $capturistas->appends(['search' => request('search')])->links() }}
+                        {{-- Conserva todos los filtros en los enlaces --}}
+                        {{ $capturistas->appends([
+                            'search'   => request('search'),
+                            'sort_by'  => request('sort_by'),
+                            'sort_dir' => request('sort_dir'),
+                        ])->links() }}
                     </div>
                 </div>
             @endif

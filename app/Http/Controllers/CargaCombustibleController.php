@@ -10,28 +10,42 @@ use Carbon\Carbon;
 
 class CargaCombustibleController extends Controller
 {
-    public function index(Request $request)
-    {
-        $query = CargaCombustible::with(['operador', 'vehiculo'])->orderByDesc('fecha');
+    public function index(\Illuminate\Http\Request $request)
+{
+    $filters = $request->only([
+        'search',
+        'vehiculo_id', 'operador_id',
+        'ubicacion', 'tipo_combustible',
+        'from', 'to',
+        'litros_min','litros_max',
+        'precio_min','precio_max',
+        'total_min','total_max',
+        'rend_min','rend_max',
+        'km_ini_min','km_ini_max',
+        'km_fin_min','km_fin_max',
+        'destino','custodio',
+        'sort_by','sort_dir',
+    ]);
 
-        // Filtros opcionales
-        if ($request->filled('ubicacion')) {
-            $query->where('ubicacion', $request->ubicacion);
-        }
-        if ($request->filled('tipo')) {
-            $query->where('tipo_combustible', $request->tipo);
-        }
-        if ($request->filled('mes')) {
-            $query->where('mes', $request->mes);
-        }
+    // Catálogos para selects
+    $vehiculos = \App\Models\Vehiculo::orderBy('unidad')
+        ->get(['id','unidad','placa']);
+    $operadores = \App\Models\Operador::query()
+        ->select('id','nombre','apellido_paterno','apellido_materno')
+        ->orderBy('nombre')->orderBy('apellido_paterno')->get();
 
-        $cargas = $query->paginate(15)->withQueryString();
+    $ubicaciones = \App\Models\CargaCombustible::UBICACIONES;
+    $tipos       = \App\Models\CargaCombustible::TIPOS_COMBUSTIBLE;
 
-        return view('cargas.index', [
-            'cargas'      => $cargas,
-            'ubicaciones' => CargaCombustible::UBICACIONES,
-        ]);
-    }
+    $cargas = \App\Models\CargaCombustible::query()
+        ->with(['vehiculo','operador'])
+        ->filter($filters)
+        ->paginate(25)      // paginación solicitada
+        ->withQueryString();// conserva filtros al paginar
+
+    return view('cargas.index', compact('cargas','vehiculos','operadores','ubicaciones','tipos'));
+}
+
 
     public function create()
     {

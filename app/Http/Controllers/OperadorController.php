@@ -11,28 +11,15 @@ use Illuminate\Validation\Rule;
 
 class OperadorController extends Controller
 {
-    public function index(Request $request)
+    public function index(\Illuminate\Http\Request $request)
 {
-    $query = Operador::with('user');
+    $filters = $request->only(['search', 'sort_by', 'sort_dir']);
 
-    if ($request->filled('search')) {
-        $search = $request->input('search');
-
-        $query->where(function($q) use ($search) {
-            $q->where('nombre', 'like', "%{$search}%")
-              ->orWhere('apellido_paterno', 'like', "%{$search}%")
-              ->orWhere('apellido_materno', 'like', "%{$search}%")
-              ->orWhereHas('user', function($u) use ($search) {
-                  $u->where('email', 'like', "%{$search}%");
-              });
-        });
-    }
-
-    $query->orderBy('nombre')
-          ->orderBy('apellido_paterno')
-          ->orderBy('apellido_materno');
-
-    $operadores = $query->paginate(10);
+    $operadores = \App\Models\Operador::query()
+        ->with('user')
+        ->filter($filters)
+        ->paginate(20)          // paginación solicitada
+        ->withQueryString();      // conserva filtros en la paginación
 
     return view('operadores.index', compact('operadores'));
 }

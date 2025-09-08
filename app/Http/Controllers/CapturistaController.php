@@ -11,30 +11,19 @@ use Illuminate\Validation\Rule;
 
 class CapturistaController extends Controller
 {
-    public function index(Request $request)
+    public function index(\Illuminate\Http\Request $request)
     {
-        $query = Capturista::with('user');
+        $filters = $request->only(['search', 'sort_by', 'sort_dir']);
 
-        // Búsqueda
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-
-            $query->where(function($q) use ($search) {
-                $q->where('nombre', 'like', "%{$search}%")
-                  ->orWhere('apellido_paterno', 'like', "%{$search}%")
-                  ->orWhere('apellido_materno', 'like', "%{$search}%")
-                  ->orWhereHas('user', function($u) use ($search) {
-                      $u->where('email', 'like', "%{$search}%");
-                  });
-            });
-        }
-
-        // Paginación
-        $capturistas = $query->paginate(25);
-        $capturistas->appends(['search' => $request->search]);
+        $capturistas = \App\Models\Capturista::query()
+            ->with('user')
+            ->filter($filters)
+            ->paginate(25)           // paginación solicitada
+            ->withQueryString();     // conserva filtros al paginar
 
         return view('capturistas.index', compact('capturistas'));
     }
+
 
     public function create()
     {

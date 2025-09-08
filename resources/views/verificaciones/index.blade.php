@@ -27,40 +27,134 @@
                 </div>
             @endif
 
-            {{-- Barra superior: búsqueda + exportaciones --}}
+            {{-- Barra superior: búsqueda + filtros + exportaciones --}}
             <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                {{-- Buscador (w-full en mobile, w-1/2 en desktop) --}}
-                <form method="GET" action="{{ route('verificaciones.index') }}" class="w-full lg:w-1/2">
-                    <div class="flex w-full items-center rounded-full border border-slate-300 bg-white px-3 py-2 shadow-sm ring-indigo-300 focus-within:ring dark:border-slate-700 dark:bg-slate-800">
-                        {{-- search icon --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
-                        </svg>
+                {{-- Formulario de búsqueda y filtros (reordenado) --}}
+                <form method="GET" action="{{ route('verificaciones.index') }}" class="w-full lg:w-3/4 xl:w-4/5">
+                    {{-- Fila 1: BÚSQUEDA (solo) --}}
+                    <div class="flex">
+                        <div class="flex w-full items-center rounded-full bg-white px-4 py-2 shadow-md ring-1 ring-gray-200 focus-within:ring dark:bg-slate-800 dark:ring-slate-700">
+                            {{-- search icon --}}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
+                            </svg>
+                            <input
+                                type="text"
+                                name="search"
+                                value="{{ request('search') }}"
+                                placeholder="Buscar por estado, placa, propietario, comentarios, ID…"
+                                class="ml-3 w-full flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-slate-400"
+                                aria-label="Buscar verificaciones"
+                            />
+                        </div>
+                    </div>
+
+                    {{-- Fila 2: FILTROS + ORDEN + BOTÓN (en orden lógico) --}}
+                    <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                        {{-- Vehículo --}}
+                        <div class="relative w-full sm:w-56">
+                            <select
+                                name="vehiculo_id"
+                                class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                onchange="this.form.submit()"
+                                title="Filtrar por vehículo"
+                            >
+                                <option value="">Todos los vehículos</option>
+                                @foreach($vehiculos as $v)
+                                    <option value="{{ $v->id }}" @selected((string)$v->id === request('vehiculo_id'))>
+                                        {{ $v->unidad }} @if($v->placa) — {{ $v->placa }} @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                            {{-- chevron --}}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+
+                        {{-- Estado --}}
+                        <div class="relative w-full sm:w-44">
+                            <select
+                                name="estado"
+                                class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                onchange="this.form.submit()"
+                                title="Filtrar por estado"
+                            >
+                                <option value="">Todos los estados</option>
+                                @foreach($estados as $e)
+                                    <option value="{{ $e }}" @selected($e === request('estado'))>{{ $e }}</option>
+                                @endforeach
+                            </select>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+
+                        {{-- Desde --}}
                         <input
-                            type="text"
-                            name="search"
-                            value="{{ request('search') }}"
-                            placeholder="Buscar por estado, placa, propietario…"
-                            class="w-full bg-transparent text-sm placeholder-slate-400 focus:outline-none dark:text-slate-100"
-                            aria-label="Buscar verificaciones"
+                            type="date"
+                            name="from"
+                            value="{{ request('from') }}"
+                            class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900 sm:w-40"
+                            title="Desde"
                         />
-                        @if(request('search'))
-                            <a href="{{ route('verificaciones.index') }}"
-                               class="ml-2 inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
-                               title="Limpiar búsqueda">
-                                Limpiar
-                            </a>
-                        @endif
+
+                        {{-- Hasta --}}
+                        <input
+                            type="date"
+                            name="to"
+                            value="{{ request('to') }}"
+                            class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900 sm:w-40"
+                            title="Hasta"
+                        />
+
+                        {{-- Ordenar por --}}
+                        <div class="relative w-full sm:w-56">
+                            <select
+                                name="sort_by"
+                                class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                title="Ordenar por"
+                            >
+                                <option value="fecha_verificacion" @selected(request('sort_by','fecha_verificacion')==='fecha_verificacion')>Fecha</option>
+                                <option value="vehiculo" @selected(request('sort_by')==='vehiculo')>Vehículo</option>
+                                <option value="estado" @selected(request('sort_by')==='estado')>Estado</option>
+                                <option value="placa" @selected(request('sort_by')==='placa')>Placa</option>
+                                <option value="propietario" @selected(request('sort_by')==='propietario')>Propietario</option>
+                                <option value="id" @selected(request('sort_by')==='id')>ID</option>
+                            </select>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+
+                        {{-- Dirección --}}
+                        <div class="relative w-full sm:w-40">
+                            <select
+                                name="sort_dir"
+                                class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                title="Dirección"
+                            >
+                                <option value="asc"  @selected(request('sort_dir','desc')==='asc')>Asc</option>
+                                <option value="desc" @selected(request('sort_dir','desc')==='desc')>Desc</option>
+                            </select>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+
+                        {{-- Botón Buscar --}}
                         <button type="submit"
-                                class="ml-2 inline-flex items-center rounded-full bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
+                            </svg>
                             Buscar
                         </button>
                     </div>
                 </form>
 
-                {{-- Botones de exportación (placeholders) --}}
+                {{-- Botones de exportación (deja tus enlaces reales si ya los tienes) --}}
                 <div class="flex flex-wrap items-center gap-2">
-                    {{-- Excel --}}
                     <a href="#"
                        class="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
                        title="Exportar a Excel">
@@ -71,7 +165,6 @@
                         Excel
                     </a>
 
-                    {{-- PDF --}}
                     <a href="#"
                        class="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
                        title="Exportar a PDF">
@@ -119,7 +212,7 @@
                     <table class="min-w-full text-left text-sm">
                         <thead class="bg-slate-50 text-slate-600 dark:bg-slate-900/40 dark:text-slate-300">
                             <tr class="text-xs uppercase tracking-wide">
-                                <th scope="col" class="sticky left-0 z-10 border-b border-slate-200 px-4 py-3 font-semibold bg-slate-50 dark:bg-slate-900/40 dark:border-slate-700">
+                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
                                     Vehículo
                                 </th>
                                 <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
@@ -137,46 +230,45 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-                            @forelse ($verificaciones as $verificacion)
+                            @forelse($verificaciones as $verificacion)
                                 <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-700/40">
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-800 dark:text-slate-100">
-                                        {{ $verificacion->vehiculo->unidad ?? 'N/A' }}
-                                        <div class="text-xs text-slate-500 dark:text-slate-400">
-                                            {{ $verificacion->vehiculo->propietario ?? '' }}
-                                        </div>
+                                        @php
+                                            $unidad = $verificacion->vehiculo->unidad ?? '—';
+                                            $placa  = $verificacion->vehiculo->placa ?? null;
+                                        @endphp
+                                        {{ $unidad }} @if($placa) <span class="text-slate-500">({{ $placa }})</span> @endif
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
                                         {{ $verificacion->estado }}
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
-                                        {{ \Carbon\Carbon::parse($verificacion->fecha_verificacion)->format('d/m/Y') }}
+                                        {{ \Illuminate\Support\Carbon::parse($verificacion->fecha_verificacion)->format('Y-m-d') }}
                                     </td>
                                     <td class="px-4 py-3 text-slate-700 dark:text-slate-200">
-                                        {{ $verificacion->comentarios ?? '—' }}
+                                        {{ $verificacion->comentarios }}
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-end gap-2">
                                             {{-- Editar --}}
-                                            <a href="{{ route('verificaciones.edit', $verificacion) }}"
+                                            <a href="{{ route('verificaciones.edit', $verificacion->id) }}"
                                                class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                                               aria-label="Editar verificación {{ $verificacion->id }}">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                               aria-label="Editar verificación #{{ $verificacion->id }}">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232 18.768 8.768M4 20l4.586-1.146a2 2 0 0 0 .894-.514l9.94-9.94a2 2 0 0 0 0-2.828l-1.792-1.792a2 2 0 0 0-2.828 0l-9.94 9.94a2 2 0 0 0-.514.894L4 20z"/>
                                                 </svg>
                                                 Editar
                                             </a>
 
                                             {{-- Eliminar --}}
-                                            <form action="{{ route('verificaciones.destroy', $verificacion) }}"
-                                                  method="POST"
-                                                  class="inline"
-                                                  onsubmit="return confirm('¿Eliminar esta verificación?')">
+                                            <form action="{{ route('verificaciones.destroy', $verificacion->id) }}" method="POST" class="inline"
+                                                  onsubmit="return confirm('¿Seguro que quieres eliminar la verificación #{{ $verificacion->id }}?');">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit"
                                                         class="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                                                        aria-label="Eliminar verificación {{ $verificacion->id }}">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                                        aria-label="Eliminar verificación #{{ $verificacion->id }}">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-1-3H10a1 1 0 0 0-1 1v2h8V5a1 1 0 0 0-1-1z"/>
                                                     </svg>
                                                     Eliminar
@@ -188,9 +280,9 @@
                             @empty
                                 <tr>
                                     <td colspan="5" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
-                                        @if(request('search') || request('from') || request('to'))
-                                            No se encontraron resultados para los filtros aplicados.
-                                            <a href="{{ route('verificaciones.index') }}" class="text-indigo-600 hover:text-indigo-800">Limpiar búsqueda</a>
+                                        @if(request()->hasAny(['search','vehiculo_id','estado','from','to']))
+                                            No se encontraron resultados con los filtros aplicados.
+                                            <a href="{{ route('verificaciones.index') }}" class="text-indigo-600 hover:text-indigo-800">Limpiar filtros</a>
                                         @else
                                             No hay verificaciones registradas.
                                         @endif
@@ -202,7 +294,7 @@
                 </div>
             </div>
 
-            {{-- Paginación + contador (siempre visible) --}}
+            {{-- Paginación + contador --}}
             @if(method_exists($verificaciones, 'links'))
                 <div class="mt-6 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
                     @php
@@ -225,7 +317,15 @@
                     </p>
 
                     <div class="w-full sm:w-auto">
-                        {{ $verificaciones->appends(['search' => request('search')])->links() }}
+                        {{ $verificaciones->appends([
+                            'search'     => request('search'),
+                            'vehiculo_id'=> request('vehiculo_id'),
+                            'estado'     => request('estado'),
+                            'from'       => request('from'),
+                            'to'         => request('to'),
+                            'sort_by'    => request('sort_by'),
+                            'sort_dir'   => request('sort_dir'),
+                        ])->links() }}
                     </div>
                 </div>
             @endif

@@ -17,47 +17,28 @@ class VerificacionController extends Controller
     /**
      * Listar verificaciones
      */
-    public function index(Request $request)
-{
-    $query = Verificacion::with(['vehiculo' => function ($q) {
-        // Trae solo lo necesario a la tabla
-        $q->select('id', 'placa', 'unidad', 'marca', 'propietario');
-    }]);
+    public function index(\Illuminate\Http\Request $request)
+    {
+        $filters = $request->only([
+            'search', 'vehiculo_id', 'estado', 'from', 'to', 'sort_by', 'sort_dir'
+        ]);
 
-    // --- Búsqueda libre: estado, placa, unidad, marca, propietario
-    if ($request->filled('search')) {
-        $s = trim($request->string('search'));
-        $query->where(function ($q) use ($s) {
-            $q->where('estado', 'like', "%{$s}%")
-              ->orWhereHas('vehiculo', function ($v) use ($s) {
-                  $v->where('placa', 'like', "%{$s}%")
-                    ->orWhere('unidad', 'like', "%{$s}%")
-                    ->orWhere('marca', 'like', "%{$s}%")
-                    ->orWhere('propietario', 'like', "%{$s}%");
-              });
-        });
+        // Para selects en la vista
+        $vehiculos = \App\Models\Vehiculo::orderBy('unidad')
+            ->get(['id','unidad','placa','propietario']);
+
+        $estados = \App\Models\Verificacion::query()
+            ->select('estado')->distinct()->orderBy('estado')->pluck('estado');
+
+        $verificaciones = \App\Models\Verificacion::query()
+            ->with('vehiculo')
+            ->filter($filters)
+            ->paginate(25)           // paginación solicitada
+            ->withQueryString();     // conserva filtros en la paginación
+
+        return view('verificaciones.index', compact('verificaciones', 'vehiculos', 'estados'));
     }
 
-    // --- Filtro por rango de fechas (si tu columna es DATE/DATETIME)
-    // Acepta ?from=YYYY-MM-DD&to=YYYY-MM-DD
-    $from = $request->date('from'); // null si no viene / formato inválido
-    $to   = $request->date('to');
-
-    if ($from) {
-        $query->whereDate('fecha_verificacion', '>=', $from);
-    }
-    if ($to) {
-        $query->whereDate('fecha_verificacion', '<=', $to);
-    }
-
-    // Orden y paginación (server-side)
-    $verificaciones = $query
-        ->orderByDesc('fecha_verificacion')
-        ->paginate(25)
-        ->withQueryString(); // conserva search/from/to
-
-    return view('verificaciones.index', compact('verificaciones'));
-}
 
     /**
      * Mostrar formulario de creación

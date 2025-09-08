@@ -13,57 +13,39 @@ class VehiculoController extends Controller
     {
         // Listar/crear/editar para admin o capturista
         $this->middleware(['auth', 'role:administrador|capturista']);
-
-        // Borrar solo admin
-        $this->middleware(['role:administrador'])->only('destroy');
     }
 
+    /** Listado con filtros y paginación. */
     public function index(Request $request)
-{
-    $query = Vehiculo::with('tarjetaSiVale');
+    {
+        $vehiculos = Vehiculo::with('tarjetaSiVale')
+            ->filter($request->all())
+            ->sort($request->get('sort_by'), $request->get('sort_dir'))
+            ->paginate(25)
+            ->withQueryString();
 
-    // ====== Filtro de búsqueda ======
-    if ($request->filled('search')) {
-        $search = $request->input('search');
+        // Datos para filtros (opcionales)
+        $ubicaciones = Vehiculo::select('ubicacion')->whereNotNull('ubicacion')->distinct()->orderBy('ubicacion')->pluck('ubicacion');
+        $marcas      = Vehiculo::select('marca')->whereNotNull('marca')->distinct()->orderBy('marca')->pluck('marca');
+        $estados     = Vehiculo::select('estado')->whereNotNull('estado')->distinct()->orderBy('estado')->pluck('estado');
+        $anios       = Vehiculo::select('anio')->whereNotNull('anio')->distinct()->orderByDesc('anio')->pluck('anio');
+        $tarjetas    = class_exists(TarjetaSiVale::class) ? TarjetaSiVale::select('id')->orderBy('id')->get() : collect();
 
-        $query->where(function ($q) use ($search) {
-            $q->where('ubicacion', 'like', "%{$search}%")
-              ->orWhere('propietario', 'like', "%{$search}%")
-              ->orWhere('unidad', 'like', "%{$search}%")
-              ->orWhere('marca', 'like', "%{$search}%")
-              ->orWhere('anio', 'like', "%{$search}%")
-              ->orWhere('serie', 'like', "%{$search}%")
-              ->orWhere('motor', 'like', "%{$search}%")
-              ->orWhere('placa', 'like', "%{$search}%")
-              ->orWhere('estado', 'like', "%{$search}%")
-              ->orWhere('poliza_hdi', 'like', "%{$search}%");
-        });
+        return view('vehiculos.index', compact('vehiculos', 'ubicaciones', 'marcas', 'estados', 'anios', 'tarjetas'));
     }
-
-    // ====== Paginación (10 por página) ======
-    $vehiculos = $query->latest('id')->paginate(10);
-
-    // Mantener parámetro search en los links
-    $vehiculos->appends(['search' => $request->search]);
-
-    return view('vehiculos.index', compact('vehiculos'));
-}
-
 
     public function create()
     {
-        // Pasamos todas las tarjetas para que el usuario elija
-        $tarjetas = TarjetaSiVale::orderBy('numero_tarjeta')->get();
+        $tarjetas = class_exists(TarjetaSiVale::class) ? TarjetaSiVale::orderBy('id')->get() : collect();
         return view('vehiculos.create', compact('tarjetas'));
     }
 
     public function store(Request $request)
     {
-        $data = $this->validateData($request);
+        $data = $this->validateVehiculo($request);
         Vehiculo::create($data);
 
-        return redirect()
-            ->route('vehiculos.index')
+        return redirect()->route('vehiculos.index')
             ->with('success', 'Vehículo creado correctamente.');
     }
 
@@ -75,17 +57,16 @@ class VehiculoController extends Controller
 
     public function edit(Vehiculo $vehiculo)
     {
-        $tarjetas = TarjetaSiVale::orderBy('numero_tarjeta')->get();
+        $tarjetas = class_exists(TarjetaSiVale::class) ? TarjetaSiVale::orderBy('id')->get() : collect();
         return view('vehiculos.edit', compact('vehiculo', 'tarjetas'));
     }
 
     public function update(Request $request, Vehiculo $vehiculo)
     {
-        $data = $this->validateData($request, $vehiculo->id);
+        $data = $this->validateVehiculo($request, $vehiculo->id);
         $vehiculo->update($data);
 
-        return redirect()
-            ->route('vehiculos.index')
+        return redirect()->route('vehiculos.index')
             ->with('success', 'Vehículo actualizado correctamente.');
     }
 
@@ -93,12 +74,11 @@ class VehiculoController extends Controller
     {
         $vehiculo->delete();
 
-        return redirect()
-            ->route('vehiculos.index')
+        return redirect()->route('vehiculos.index')
             ->with('success', 'Vehículo eliminado correctamente.');
     }
 
-    private function validateData(Request $request, $vehiculoId = null): array
+    private function validateVehiculo(Request $request, $vehiculoId = null): array
     {
         return $request->validate([
             'ubicacion'                 => ['required', Rule::in(['CVC', 'IXT', 'QRO', 'VALL', 'GDL'])],
@@ -116,6 +96,7 @@ class VehiculoController extends Controller
                 Rule::unique('vehiculos', 'placa')->ignore($vehiculoId),
             ],
             'estado'                    => ['nullable', 'string', 'max:255'],
+            // Usa el nombre de tabla que tengas realmente. Conservo el tuyo:
             'tarjeta_si_vale_id'        => ['nullable', 'exists:tarjetasSiVale,id'],
             'nip'                       => ['nullable', 'string', 'max:255'],
             'fec_vencimiento'           => ['nullable', 'string', 'max:255'],
