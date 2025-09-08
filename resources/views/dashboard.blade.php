@@ -161,9 +161,7 @@
                    aria-label="Reportes y estadísticas">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300">
                         {{-- Icon: Chart Bar --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 19V5m5 14V9m5 10V7m5 12V3"/>
-                        </svg>
+                        <span class="material-symbols-outlined"> query_stats </span>
                     </div>
                     <h3 class="text-lg font-semibold text-slate-900 group-hover:text-slate-700 dark:text-slate-100 dark:group-hover:text-slate-300">
                         Reportes y estadísticas
