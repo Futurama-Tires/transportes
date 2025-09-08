@@ -59,10 +59,7 @@
                    class="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm ring-indigo-300 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 dark:border-slate-700 dark:bg-slate-800"
                    aria-label="Gestión de cargas">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
-                        {{-- Icon: Clipboard Document --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m-5 4h4m-7 8h8a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1.5a2 2 0 0 0-2-2h-1a2 2 0 0 0-2 2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"/>
-                        </svg>
+                        <span class="material-symbols-outlined"> local_gas_station </span>
                     </div>
                     <h3 class="text-lg font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-slate-100 dark:group-hover:text-indigo-400">
                         Gestión de cargas
@@ -76,10 +73,7 @@
                    class="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm ring-indigo-300 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 dark:border-slate-700 dark:bg-slate-800"
                    aria-label="Operadores">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-                        {{-- Icon: Users --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 14a4 4 0 1 0-8 0m8 0v3a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2v-3m8 0a4 4 0 1 1-8 0M12 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-                        </svg>
+                        <span class="material-symbols-outlined"> face </span>
                     </div>
                     <h3 class="text-lg font-semibold text-slate-900 group-hover:text-violet-600 dark:text-slate-100 dark:group-hover:text-violet-400">
                         Operadores
@@ -93,10 +87,7 @@
                    class="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm ring-indigo-300 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 dark:border-slate-700 dark:bg-slate-800"
                    aria-label="Capturistas">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                        {{-- Icon: Pencil Square --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 3.487 20.513 7.14a2 2 0 0 1 0 2.829l-8.94 8.94A2 2 0 0 1 10.68 19H7a1 1 0 0 1-1-1v-3.68a2 2 0 0 1 .586-1.414l8.94-8.94a2 2 0 0 1 2.829 0z"/>
-                        </svg>
+                        <span class="material-symbols-outlined"> checkbook </span>
                     </div>
                     <h3 class="text-lg font-semibold text-slate-900 group-hover:text-emerald-600 dark:text-slate-100 dark:group-hover:text-emerald-400">
                         Capturistas
@@ -107,30 +98,27 @@
 
                 @hasanyrole('administrador|capturista')
                 <a href="{{ route('vehiculos.index') }}"
-                   class="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm ring-indigo-300 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 dark:border-slate-700 dark:bg-slate-800"
-                   aria-label="Gestión de Vehículos">
+                class="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm ring-indigo-300 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 dark:border-slate-700 dark:bg-slate-800"
+                aria-label="Gestión de Vehículos">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                        {{-- Icon: Truck --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16V6a2 2 0 0 1 2-2h9v12m-2 0h7a2 2 0 0 0 2-2v-3h-5l-2-3H12M5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm12 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
-                        </svg>
+                        <span class="material-symbols-outlined text-3xl">local_shipping</span>
                     </div>
                     <h3 class="text-lg font-semibold text-slate-900 group-hover:text-amber-600 dark:text-slate-100 dark:group-hover:text-amber-400">
                         Gestión de Vehículos
                     </h3>
-                    <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Control de flota, registros y actualizaciones.</p>
+                    <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                        Control de flota, registros y actualizaciones.
+                    </p>
                 </a>
                 @endhasanyrole
+
 
                 @hasanyrole('administrador|capturista')
                 <a href="{{ route('verificaciones.index') }}"
                    class="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm ring-indigo-300 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 dark:border-slate-700 dark:bg-slate-800"
                    aria-label="Verificaciones">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
-                        {{-- Icon: Check Badge --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 12 2 2 4-4m5 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
-                        </svg>
+                        <span class="material-symbols-outlined"> garage_check </span>
                     </div>
                     <h3 class="text-lg font-semibold text-slate-900 group-hover:text-rose-600 dark:text-slate-100 dark:group-hover:text-rose-400">
                         Verificaciones
@@ -144,11 +132,7 @@
                    class="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm ring-indigo-300 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 dark:border-slate-700 dark:bg-slate-800"
                    aria-label="Tarjetas SiVale">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
-                        {{-- Icon: Credit Card --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <rect x="3" y="5" width="18" height="14" rx="2" ry="2" />
-                            <path d="M3 10h18"/>
-                        </svg>
+                        <span class="material-symbols-outlined"> credit_card </span>
                     </div>
                     <h3 class="text-lg font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-slate-100 dark:group-hover:text-indigo-400">
                         Tarjetas SiVale
@@ -162,11 +146,7 @@
                    class="group rounded-xl border border-slate-200 bg-white p-6 shadow-sm ring-indigo-300 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 dark:border-slate-700 dark:bg-slate-800"
                    aria-label="Bases de datos">
                     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300">
-                        {{-- Icon: Server Stack --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <ellipse cx="12" cy="5" rx="9" ry="3" />
-                            <path d="M3 5v6a9 3 0 0 0 18 0V5M3 11v6a9 3 0 0 0 18 0v-6"/>
-                        </svg>
+                        <span class="material-symbols-outlined"> database </span>
                     </div>
                     <h3 class="text-lg font-semibold text-slate-900 group-hover:text-fuchsia-600 dark:text-slate-100 dark:group-hover:text-fuchsia-400">
                         Bases de datos

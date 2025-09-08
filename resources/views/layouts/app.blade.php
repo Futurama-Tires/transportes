@@ -13,6 +13,16 @@
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+
+        <!-- Material Symbols (outline, rounded o sharp) -->
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+
+        <!-- O bien la familia clásica "Material Icons" -->
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+
     </head>
     <body class="font-sans antialiased">
         <div class="min-h-screen bg-gray-100 dark:bg-gray-900">

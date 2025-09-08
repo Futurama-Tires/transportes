@@ -8,9 +8,7 @@
             <a href="{{ route('operadores.create') }}"
                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
                 {{-- plus icon --}}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/>
-                </svg>
+                <span class="material-symbols-outlined"> add_box </span>
                 Agregar Nuevo Operador
             </a>
         </div>
@@ -33,9 +31,9 @@
     <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
         {{-- Contenedor del buscador (más largo) --}}
         <div class="flex w-full sm:flex-1 items-center rounded-full bg-white px-4 py-2 shadow-md ring-1 ring-gray-200 focus-within:ring dark:bg-slate-800 dark:ring-slate-700">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/>
-            </svg>
+            <span class="material-symbols-outlined">
+                search
+            </span>
             <input
                 type="text"
                 name="search"
@@ -48,9 +46,7 @@
         {{-- Botón Buscar --}}
         <button type="submit"
                 class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/>
-            </svg>
+            <span class="material-symbols-outlined"> search </span>
             Buscar
         </button>
 
@@ -98,10 +94,7 @@
                     <a href="#"
                        class="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
                        title="Exportar a Excel">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M19 2H8a2 2 0 0 0-2 2v3h6a2 2 0 0 1 2 2v9h5a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z"/>
-                            <path d="M3 9h9a1 1 0 0 1 1 1v10H5a2 2 0 0 1-2-2V9Zm6.8 7.5-.9-1.4-.9 1.4H6.1l1.6-2.4L6.1 12.7h1.9l.9 1.4.9-1.4h1.9l-1.6 2.4 1.6 2.4H9.8Z"/>
-                        </svg>
+                        <span class="material-symbols-outlined"> border_all </span>
                         Excel
                     </a>
 
@@ -109,10 +102,7 @@
                     <a href="#"
                        class="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
                        title="Exportar a PDF">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v14a4 4 0 0 0 4 4h8a2 2 0 0 0 2-2V6l-4-4Z"/>
-                            <path d="M14 2v4a2 2 0 0 0 2 2h4M7.5 15H9a1.5 1.5 0 0 0 0-3H7.5v3Zm0 0v2m5.5-5h-1v5h1m0-3h1a2 2 0 1 0 0-4h-1v2Z"/>
-                        </svg>
+                        <span class="material-symbols-outlined"> article </span>
                         PDF
                     </a>
                 </div>
@@ -181,13 +171,20 @@
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-end gap-2">
+
+                                            {{-- Ver --}}
+                                            <a href="{{ route('operadores.edit', $operador->id) }}"
+                                               class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                                               aria-label="Editar {{ $operador->nombre }}">
+                                                <span class="material-symbols-outlined">visibility</span>
+                                                Ver
+                                            </a>
+
                                             {{-- Editar --}}
                                             <a href="{{ route('operadores.edit', $operador->id) }}"
                                                class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                                                aria-label="Editar {{ $operador->nombre }}">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232 18.768 8.768M4 20l4.586-1.146a2 2 0 0 0 .894-.514l9.94-9.94a2 2 0 0 0 0-2.828l-1.792-1.792a2 2 0 0 0-2.828 0l-9.94 9.94a2 2 0 0 0-.514.894L4 20z"/>
-                                                </svg>
+                                                <span class="material-symbols-outlined">edit</span>
                                                 Editar
                                             </a>
 
@@ -201,12 +198,12 @@
                                                 <button type="submit"
                                                         class="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
                                                         aria-label="Eliminar {{ $operador->nombre }}">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-1-3H10a1 1 0 0 0-1 1v2h8V5a1 1 0 0 0-1-1z"/>
-                                                    </svg>
+                                                    <span class="material-symbols-outlined">delete</span>
                                                     Eliminar
                                                 </button>
                                             </form>
+
+                                            
                                         </div>
                                     </td>
                                 </tr>
