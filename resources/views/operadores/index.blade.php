@@ -11,7 +11,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/>
                 </svg>
-                Agregar Operador
+                Agregar Nuevo Operador
             </a>
         </div>
     </x-slot>
@@ -40,10 +40,19 @@
                 type="text"
                 name="search"
                 value="{{ request('search') }}"
-                placeholder="Buscar en nombre, apellidos o correo..."
+                placeholder="Buscar..."
                 class="ml-3 w-full flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-slate-400"
             />
         </div>
+
+        {{-- Botón Buscar --}}
+        <button type="submit"
+                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/>
+            </svg>
+            Buscar
+        </button>
 
         {{-- Selects fijos (el buscador crece más) --}}
         <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -55,7 +64,7 @@
                     title="Ordenar por"
                 >
                     <option value="nombre_completo" @selected(request('sort_by','nombre_completo')==='nombre_completo')>Nombre completo</option>
-                    <option value="email" @selected(request('sort_by')==='email')>Correo</option>
+                    <option value="email" @selected(request('sort_by')==='email')>Correo electrónico</option>
                 </select>
                 <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -69,8 +78,8 @@
                     onchange="this.form.submit()"
                     title="Dirección"
                 >
-                    <option value="asc"  @selected(request('sort_dir','asc')==='asc')>Asc</option>
-                    <option value="desc" @selected(request('sort_dir')==='desc')>Desc</option>
+                    <option value="asc"  @selected(request('sort_dir','asc')==='asc')>Ascendente</option>
+                    <option value="desc" @selected(request('sort_dir')==='desc')>Descendente</option>
                 </select>
                 <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -78,14 +87,7 @@
             </div>
         </div>
 
-        {{-- Botón Buscar --}}
-        <button type="submit"
-                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/>
-            </svg>
-            Buscar
-        </button>
+        
     </div>
 </form>
 
@@ -152,10 +154,10 @@
                         <thead class="bg-slate-50 text-slate-600 dark:bg-slate-900/40 dark:text-slate-300">
                             <tr class="text-xs uppercase tracking-wide">
                                 <th scope="col" class="sticky left-0 z-10 border-b border-slate-200 px-4 py-3 font-semibold bg-slate-50 dark:bg-slate-900/40 dark:border-slate-700">
-                                    Nombre
+                                    Nombre completo
                                 </th>
                                 <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
-                                    Correo
+                                    Correo electrónico
                                 </th>
                                 <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
                                     ID

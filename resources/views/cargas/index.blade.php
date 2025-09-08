@@ -1,5 +1,8 @@
 {{-- resources/views/cargas_combustible/index.blade.php --}}
 <x-app-layout>
+    {{-- Para evitar FOUC en Alpine --}}
+    <style>[x-cloak]{display:none!important}</style>
+
     {{-- Header --}}
     <x-slot name="header">
         <div class="flex items-center justify-between">
@@ -17,6 +20,17 @@
         </div>
     </x-slot>
 
+    @php
+        // Contar filtros activos (excluyendo búsqueda, orden y paginación)
+        $ignored = ['search','page','sort_by','sort_dir'];
+        $activeFilters = collect(request()->query())->filter(function($v,$k) use ($ignored){
+            if (in_array($k,$ignored)) return false;
+            if (is_array($v)) return collect($v)->filter(fn($x)=>$x!==null && $x!=='')->isNotEmpty();
+            return $v !== null && $v !== '';
+        });
+        $activeCount = $activeFilters->count();
+    @endphp
+
     <div class="py-8">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
@@ -27,9 +41,11 @@
                 </div>
             @endif
 
-            {{-- Barra superior: búsqueda + botones (Excel/PDF) + filtros (a la DERECHA) --}}
-            <div class="mb-4">
-                <form method="GET" action="{{ route('cargas.index') }}" class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            {{-- FORM ÚNICO: búsqueda + botones + panel de filtros (colapsable hacia ABAJO) --}}
+            <form method="GET" action="{{ route('cargas.index') }}"
+                  x-data="{ open: {{ $activeCount>0 ? 'true' : 'false' }} }" x-cloak>
+                {{-- Barra superior --}}
+                <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     {{-- IZQUIERDA: Búsqueda + Buscar --}}
                     <div class="flex w-full items-center gap-2">
                         {{-- Búsqueda global --}}
@@ -57,7 +73,7 @@
                         </button>
                     </div>
 
-                    {{-- DERECHA: Excel, PDF y Filtros (junto al borde derecho) --}}
+                    {{-- DERECHA: Excel, PDF y botón Filtros (abre panel abajo) --}}
                     <div class="flex flex-wrap items-center gap-2">
                         {{-- Excel --}}
                         <a href="#"
@@ -79,195 +95,196 @@
                             PDF
                         </a>
 
-                        {{-- Filtros (pegado al borde derecho) --}}
-                        <div class="relative">
-                            <details class="group">
-                                <summary class="list-none inline-flex h-10 cursor-pointer select-none items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
-                                    {{-- funnel icon --}}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M6 10h12m-7 6h2"/>
-                                    </svg>
-                                    Filtros
-                                    {{-- chevron --}}
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70 group-open:rotate-180 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                                    </svg>
-                                </summary>
+                        {{-- Botón para mostrar/ocultar filtros (abre panel hacia abajo) --}}
+                        <button type="button"
+                                @click="open = !open"
+                                class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" :class="{'rotate-180': open}" class="h-4 w-4 transition-transform"
+                                 viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11l3.71-3.77a.75.75 0 111.08 1.04l-4.25 4.33a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                            </svg>
+                            Filtros
+                            @if($activeCount>0)
+                                <span class="ml-1 inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                                    {{ $activeCount }}
+                                </span>
+                            @endif
+                        </button>
+                    </div>
+                </div>
 
-                                {{-- Dropdown: ANCLADO A LA DERECHA y dentro del viewport --}}
-                                <div
-                                    class="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,72rem)] max-h-[80vh] overflow-auto overscroll-contain
-                                           rounded-xl border border-slate-200 bg-white p-4 shadow-2xl ring-1 ring-slate-200
-                                           dark:border-slate-700 dark:bg-slate-900 dark:ring-slate-700">
-                                    <div class="space-y-4">
-                                        {{-- Grupo: Principales --}}
-                                        <div>
-                                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Principales</h4>
-                                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                                                {{-- Vehículo --}}
-                                                <div class="relative">
-                                                    <select name="vehiculo_id"
-                                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                                                            title="Vehículo">
-                                                        <option value="">Todos los vehículos</option>
-                                                        @foreach($vehiculos as $v)
-                                                            <option value="{{ $v->id }}" @selected((string)$v->id === request('vehiculo_id'))>
-                                                                {{ $v->unidad }} @if($v->placa) — {{ $v->placa }} @endif
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
-                                                </div>
+                {{-- PANEL COLAPSABLE DE FILTROS (aparece DEBAJO) --}}
+                <div x-show="open" x-transition
+                     class="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                    <div class="space-y-4">
 
-                                                {{-- Operador --}}
-                                                <div class="relative">
-                                                    <select name="operador_id"
-                                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                                                            title="Operador">
-                                                        <option value="">Todos los operadores</option>
-                                                        @foreach($operadores as $o)
-                                                            @php
-                                                                $nombreCompleto = trim(($o->nombre ?? '').' '.($o->apellido_paterno ?? '').' '.($o->apellido_materno ?? ''));
-                                                            @endphp
-                                                            <option value="{{ $o->id }}" @selected((string)$o->id === request('operador_id'))>
-                                                                {{ $nombreCompleto ?: 'Operador #'.$o->id }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
-                                                </div>
-
-                                                {{-- Ubicación --}}
-                                                <div class="relative">
-                                                    <select name="ubicacion"
-                                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                                                            title="Ubicación">
-                                                        <option value="">Todas las ubicaciones</option>
-                                                        @foreach($ubicaciones as $u)
-                                                            <option value="{{ $u }}" @selected($u === request('ubicacion'))>{{ $u }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
-                                                </div>
-
-                                                {{-- Tipo de combustible --}}
-                                                <div class="relative">
-                                                    <select name="tipo_combustible"
-                                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                                                            title="Tipo de combustible">
-                                                        <option value="">Todos los tipos</option>
-                                                        @foreach($tipos as $t)
-                                                            <option value="{{ $t }}" @selected($t === request('tipo_combustible'))>{{ $t }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {{-- Grupo: Fecha y orden --}}
-                                        <div>
-                                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Fecha y orden</h4>
-                                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                                                <input type="date" name="from" value="{{ request('from') }}"
-                                                       class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" title="Desde" />
-                                                <input type="date" name="to" value="{{ request('to') }}"
-                                                       class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" title="Hasta" />
-
-                                                <div class="relative">
-                                                    <select name="sort_by"
-                                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                                                            title="Ordenar por">
-                                                        @php
-                                                            $opts = [
-                                                                'fecha' => 'Fecha',
-                                                                'vehiculo' => 'Vehículo',
-                                                                'placa' => 'Placa',
-                                                                'operador' => 'Operador',
-                                                                'ubicacion' => 'Ubicación',
-                                                                'tipo_combustible' => 'Tipo',
-                                                                'litros' => 'Litros',
-                                                                'precio' => 'Precio',
-                                                                'total' => 'Total',
-                                                                'rendimiento' => 'Rendimiento',
-                                                                'km_inicial' => 'KM Inicial',
-                                                                'km_final' => 'KM Final',
-                                                                'id' => 'ID',
-                                                            ];
-                                                        @endphp
-                                                        @foreach($opts as $val => $label)
-                                                            <option value="{{ $val }}" @selected(request('sort_by','fecha')===$val)>{{ $label }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
-                                                </div>
-
-                                                <div class="relative">
-                                                    <select name="sort_dir"
-                                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                                                            title="Dirección">
-                                                        <option value="asc"  @selected(request('sort_dir','desc')==='asc')>Asc</option>
-                                                        <option value="desc" @selected(request('sort_dir','desc')==='desc')>Desc</option>
-                                                    </select>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {{-- Grupo: Métricas --}}
-                                        <div>
-                                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Métricas</h4>
-                                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                                                <input type="number" step="0.001" name="litros_min" value="{{ request('litros_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Litros mín">
-                                                <input type="number" step="0.001" name="litros_max" value="{{ request('litros_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Litros máx">
-
-                                                <input type="number" step="0.01" name="precio_min" value="{{ request('precio_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Precio mín">
-                                                <input type="number" step="0.01" name="precio_max" value="{{ request('precio_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Precio máx">
-
-                                                <input type="number" step="0.01" name="total_min" value="{{ request('total_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Total mín">
-                                                <input type="number" step="0.01" name="total_max" value="{{ request('total_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Total máx">
-
-                                                <input type="number" step="0.01" name="rend_min" value="{{ request('rend_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Rend mín">
-                                                <input type="number" step="0.01" name="rend_max" value="{{ request('rend_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Rend máx">
-
-                                                <input type="number" step="1" name="km_ini_min" value="{{ request('km_ini_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="KM inicial mín">
-                                                <input type="number" step="1" name="km_ini_max" value="{{ request('km_ini_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="KM inicial máx">
-
-                                                <input type="number" step="1" name="km_fin_min" value="{{ request('km_fin_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="KM final mín">
-                                                <input type="number" step="1" name="km_fin_max" value="{{ request('km_fin_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="KM final máx">
-                                            </div>
-                                        </div>
-
-                                        {{-- Grupo: Texto --}}
-                                        <div>
-                                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Campos de texto</h4>
-                                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                                                <input type="text" name="destino" value="{{ request('destino') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Destino (contiene)">
-                                                <input type="text" name="custodio" value="{{ request('custodio') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Custodio (contiene)">
-                                            </div>
-                                        </div>
-
-                                        {{-- Acciones del panel --}}
-                                        <div class="mt-2 flex items-center justify-between">
-                                            <a href="{{ route('cargas.index') }}"
-                                               class="text-sm text-slate-600 underline hover:text-slate-800 dark:text-slate-300 dark:hover:text-white">
-                                                Limpiar filtros
-                                            </a>
-                                            <button type="submit"
-                                                    class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
-                                                </svg>
-                                                Aplicar filtros
-                                            </button>
-                                        </div>
-                                    </div>
+                        {{-- Grupo: Principales --}}
+                        <div>
+                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Principales</h4>
+                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                                {{-- Vehículo --}}
+                                <div class="relative">
+                                    <select name="vehiculo_id"
+                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                            title="Vehículo">
+                                        <option value="">Todos los vehículos</option>
+                                        @foreach($vehiculos as $v)
+                                            <option value="{{ $v->id }}" @selected((string)$v->id === request('vehiculo_id'))>
+                                                {{ $v->unidad }} @if($v->placa) — {{ $v->placa }} @endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                                 </div>
-                            </details>
+
+                                {{-- Operador --}}
+                                <div class="relative">
+                                    <select name="operador_id"
+                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                            title="Operador">
+                                        <option value="">Todos los operadores</option>
+                                        @foreach($operadores as $o)
+                                            @php
+                                                $nombreCompleto = trim(($o->nombre ?? '').' '.($o->apellido_paterno ?? '').' '.($o->apellido_materno ?? ''));
+                                            @endphp
+                                            <option value="{{ $o->id }}" @selected((string)$o->id === request('operador_id'))>
+                                                {{ $nombreCompleto ?: 'Operador #'.$o->id }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                                </div>
+
+                                {{-- Ubicación --}}
+                                <div class="relative">
+                                    <select name="ubicacion"
+                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                            title="Ubicación">
+                                        <option value="">Todas las ubicaciones</option>
+                                        @foreach($ubicaciones as $u)
+                                            <option value="{{ $u }}" @selected($u === request('ubicacion'))>{{ $u }}</option>
+                                        @endforeach
+                                    </select>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                                </div>
+
+                                {{-- Tipo de combustible --}}
+                                <div class="relative">
+                                    <select name="tipo_combustible"
+                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                            title="Tipo de combustible">
+                                        <option value="">Todos los tipos</option>
+                                        @foreach($tipos as $t)
+                                            <option value="{{ $t }}" @selected($t === request('tipo_combustible'))>{{ $t }}</option>
+                                        @endforeach
+                                    </select>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Grupo: Fecha y orden --}}
+                        <div>
+                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Fecha y orden</h4>
+                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                                {{-- Desde / Hasta --}}
+                                <input type="date" name="from" value="{{ request('from') }}"
+                                       class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" title="Desde" />
+                                <input type="date" name="to" value="{{ request('to') }}"
+                                       class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" title="Hasta" />
+
+                                {{-- Ordenar por --}}
+                                <div class="relative">
+                                    <select name="sort_by"
+                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                            title="Ordenar por">
+                                        @php
+                                            $opts = [
+                                                'fecha' => 'Fecha',
+                                                'vehiculo' => 'Vehículo',
+                                                'placa' => 'Placa',
+                                                'operador' => 'Operador',
+                                                'ubicacion' => 'Ubicación',
+                                                'tipo_combustible' => 'Tipo',
+                                                'litros' => 'Litros',
+                                                'precio' => 'Precio',
+                                                'total' => 'Total',
+                                                'rendimiento' => 'Rendimiento',
+                                                'km_inicial' => 'KM Inicial',
+                                                'km_final' => 'KM Final',
+                                                'id' => 'ID',
+                                            ];
+                                        @endphp
+                                        @foreach($opts as $val => $label)
+                                            <option value="{{ $val }}" @selected(request('sort_by','fecha')===$val)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                                </div>
+
+                                {{-- Dirección --}}
+                                <div class="relative">
+                                    <select name="sort_dir"
+                                            class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                            title="Dirección">
+                                        <option value="asc"  @selected(request('sort_dir','desc')==='asc')>Asc</option>
+                                        <option value="desc" @selected(request('sort_dir','desc')==='desc')>Desc</option>
+                                    </select>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Grupo: Métricas numéricas --}}
+                        <div>
+                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Métricas</h4>
+                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                                <input type="number" step="0.001" name="litros_min" value="{{ request('litros_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Litros mín">
+                                <input type="number" step="0.001" name="litros_max" value="{{ request('litros_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Litros máx">
+
+                                <input type="number" step="0.01" name="precio_min" value="{{ request('precio_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Precio mín">
+                                <input type="number" step="0.01" name="precio_max" value="{{ request('precio_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Precio máx">
+
+                                <input type="number" step="0.01" name="total_min" value="{{ request('total_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Total mín">
+                                <input type="number" step="0.01" name="total_max" value="{{ request('total_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Total máx">
+
+                                <input type="number" step="0.01" name="rend_min" value="{{ request('rend_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Rend mín">
+                                <input type="number" step="0.01" name="rend_max" value="{{ request('rend_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Rend máx">
+
+                                <input type="number" step="1" name="km_ini_min" value="{{ request('km_ini_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="KM inicial mín">
+                                <input type="number" step="1" name="km_ini_max" value="{{ request('km_ini_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="KM inicial máx">
+
+                                <input type="number" step="1" name="km_fin_min" value="{{ request('km_fin_min') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="KM final mín">
+                                <input type="number" step="1" name="km_fin_max" value="{{ request('km_fin_max') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="KM final máx">
+                            </div>
+                        </div>
+
+                        {{-- Grupo: Texto libre --}}
+                        <div>
+                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Campos de texto</h4>
+                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                                <input type="text" name="destino" value="{{ request('destino') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Destino (contiene)">
+                                <input type="text" name="custodio" value="{{ request('custodio') }}" class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900" placeholder="Custodio (contiene)">
+                            </div>
+                        </div>
+
+                        {{-- Acciones panel --}}
+                        <div class="mt-2 flex items-center justify-between">
+                            <a href="{{ route('cargas.index') }}"
+                               class="text-sm text-slate-600 underline hover:text-slate-800 dark:text-slate-300 dark:hover:text-white">
+                                Limpiar filtros
+                            </a>
+                            <button type="submit"
+                                    class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
+                                </svg>
+                                Aplicar filtros
+                            </button>
                         </div>
                     </div>
-                </form>
-            </div>
+                </div>
+            </form>
 
             {{-- Tabla --}}
             <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
