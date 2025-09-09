@@ -1,4 +1,8 @@
+{{-- resources/views/vehiculos/edit.blade.php --}}
 <x-app-layout>
+    {{-- Ocultar FOUC de Alpine --}}
+    <style>[x-cloak]{display:none!important}</style>
+
     {{-- Header --}}
     <x-slot name="header">
         <div class="flex items-center justify-between">
@@ -10,15 +14,11 @@
             </div>
             <a href="{{ route('vehiculos.tanques.index', $vehiculo) }}"
                class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-300 dark:border-slate-600 dark:bg-amber-600 dark:hover:bg-amber-500">
-                {{-- fuel icon --}}
-                <span class="material-symbols-outlined">
-                    local_gas_station
-                </span>
+                <span class="material-symbols-outlined">local_gas_station</span>
                 Editar capacidad del Tanque
             </a>
             <a href="{{ route('vehiculos.index') }}"
                class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
-                {{-- back icon --}}
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 19-7-7 7-7M3 12h18"/>
                 </svg>
@@ -240,7 +240,7 @@
                         </div>
                     </div>
 
-                    {{-- Subir nuevas fotos (Sigue dentro del form principal) --}}
+                    {{-- Subir nuevas fotos (dentro del form principal) --}}
                     <div class="border-t border-slate-200 px-6 py-6 dark:border-slate-700">
                         <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Agregar nuevas fotos</h3>
                         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">JPG, JPEG, PNG o WEBP. Máx 8MB c/u.</p>
@@ -251,59 +251,144 @@
                             @error('fotos.*') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                         </div>
                     </div>
-
-                    {{-- IMPORTANTE: Cerramos el form principal antes de la galería para evitar forms anidados --}}
+                </div> {{-- /tarjeta principal --}}
             </form>
 
-                    {{-- Galería actual (fuera del form principal) --}}
-                    <div class="border-t border-slate-200 px-6 py-6 dark:border-slate-700">
-                        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-                            Fotos actuales ({{ $vehiculo->fotos->count() }})
-                        </h3>
+            {{-- Galería actual (fuera del form principal) --}}
+            <div class="border-t border-slate-200 px-6 py-6 dark:border-slate-700"
+                 x-data='{
+                    open:false,
+                    index:0,
+                    items:@json(
+                        $vehiculo->fotos->values()->map(function($f){
+                            return [
+                                "src" => route("vehiculos.fotos.show", $f),
+                                "alt" => "Foto del vehículo #".$f->id
+                            ];
+                        })
+                    )
+                 }'
+                 x-on:keydown.window.prevent.stop="
+                    if(!open) return;
+                    if($event.key === 'Escape') open=false;
+                    if($event.key === 'ArrowRight') index = (index+1) % items.length;
+                    if($event.key === 'ArrowLeft')  index = (index-1+items.length) % items.length;
+                 "
+            >
+                <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    Fotos actuales ({{ $vehiculo->fotos->count() }})
+                </h3>
 
-                        @if($vehiculo->fotos->isEmpty())
-                            <p class="mt-3 text-sm text-slate-500">Este vehículo aún no tiene fotos.</p>
-                        @else
-                            <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                                @foreach($vehiculo->fotos as $foto)
-                                    <div class="group relative rounded-xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                                        <a href="{{ route('vehiculos.fotos.show', $foto) }}" target="_blank" title="Ver en tamaño completo">
-                                            <img src="{{ route('vehiculos.fotos.show', $foto) }}"
-                                                 class="h-40 w-full rounded-lg object-cover transition-all group-hover:opacity-90"
-                                                 alt="Foto del vehículo">
-                                        </a>
+                @if($vehiculo->fotos->isEmpty())
+                    <p class="mt-3 text-sm text-slate-500">Este vehículo aún no tiene fotos.</p>
+                @else
+                    <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                        @foreach($vehiculo->fotos as $foto)
+                            <div class="group relative rounded-xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                                {{-- BOTÓN que abre el lightbox (ya no abre nueva pestaña) --}}
+                                <button type="button"
+                                        class="block w-full"
+                                        @click="open=true; index={{ $loop->index }}"
+                                        title="Ver grande">
+                                    <img
+                                        src="{{ route('vehiculos.fotos.show', $foto) }}"
+                                        alt="Foto del vehículo"
+                                        loading="lazy"
+                                        draggable="false"
+                                        class="h-40 w-full rounded-lg object-cover transition-all group-hover:opacity-90 cursor-zoom-in"
+                                    >
+                                </button>
 
-                                        {{-- Form independiente para eliminar la foto --}}
-                                        <form method="POST" action="{{ route('vehiculos.fotos.destroy', [$vehiculo, $foto]) }}"
-                                              onsubmit="return confirm('¿Eliminar esta foto?')"
-                                              class="absolute right-2 top-2">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit"
-                                                    class="rounded-full bg-rose-600/90 px-2 py-1 text-xs font-medium text-white shadow hover:bg-rose-700">
-                                                Eliminar
-                                            </button>
-                                        </form>
-                                    </div>
-                                @endforeach
+                                {{-- Form independiente para eliminar la foto --}}
+                                <form method="POST" action="{{ route('vehiculos.fotos.destroy', [$vehiculo, $foto]) }}"
+                                      onsubmit="return confirm('¿Eliminar esta foto?')"
+                                      class="absolute right-2 top-2">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                            class="rounded-full bg-rose-600/90 px-2 py-1 text-xs font-medium text-white shadow hover:bg-rose-700">
+                                        Eliminar
+                                    </button>
+                                </form>
                             </div>
-                        @endif
+                        @endforeach
                     </div>
 
-                    {{-- Footer de acciones (fuera del form principal; el botón usa form="vehiculo-form") --}}
-                    <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
-                        <a href="{{ url()->previous() ?: route('vehiculos.index') }}"
-                           class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
-                            Cancelar
-                        </a>
-                        <button type="submit"
-                                form="vehiculo-form"
-                                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                            Guardar cambios
-                        </button>
-                    </div>
+                    {{-- Lightbox / Modal --}}
+                    <div
+                        x-cloak
+                        x-show="open"
+                        x-transition.opacity
+                        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+                        role="dialog" aria-modal="true"
+                        @click.self="open=false"
+                    >
+                        <div class="relative max-h-[90vh] w-full max-w-5xl">
+                            {{-- Cerrar --}}
+                            <button
+                                @click="open=false"
+                                class="absolute -top-10 right-0 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-sm font-medium text-slate-700 shadow hover:bg-white"
+                                aria-label="Cerrar"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/>
+                                </svg>
+                                Cerrar
+                            </button>
 
-                </div> {{-- /tarjeta principal --}}
+                            {{-- Anterior --}}
+                            <button
+                                @click.stop="index = (index-1+items.length) % items.length"
+                                class="absolute left-0 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow hover:bg-white"
+                                aria-label="Anterior"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"/>
+                                </svg>
+                            </button>
+
+                            {{-- Siguiente --}}
+                            <button
+                                @click.stop="index = (index+1) % items.length"
+                                class="absolute right-0 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow hover:bg-white"
+                                aria-label="Siguiente"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7"/>
+                                </svg>
+                            </button>
+
+                            {{-- Imagen grande --}}
+                            <div class="flex justify-center">
+                                <img
+                                    :src="items[index]?.src"
+                                    :alt="items[index]?.alt || 'Foto del vehículo'"
+                                    class="max-h-[85vh] w-auto rounded-lg object-contain select-none"
+                                    draggable="false"
+                                >
+                            </div>
+
+                            {{-- Pie / contador --}}
+                            <div class="mt-3 text-center text-sm text-white/80">
+                                <span x-text="(index+1) + ' / ' + items.length"></span>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+            </div>
+
+            {{-- Footer de acciones (fuera del form principal; el botón usa form="vehiculo-form") --}}
+            <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
+                <a href="{{ url()->previous() ?: route('vehiculos.index') }}"
+                   class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
+                    Cancelar
+                </a>
+                <button type="submit"
+                        form="vehiculo-form"
+                        class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                    Guardar cambios
+                </button>
+            </div>
 
             {{-- Nota para campos de fecha si en BD son VARCHAR --}}
             <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">
