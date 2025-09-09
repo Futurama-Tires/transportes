@@ -246,7 +246,7 @@
                                     <td class="px-4 py-3">{{ $v->propietario ?? '—' }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-end gap-2">
-                                            {{-- VER -> abre modal con datos del vehículo + tanques --}}
+                                            {{-- VER -> abre modal con datos + tanques + fotos --}}
                                             <button type="button"
                                                     @click="showVehicle(@js($v->toArray()))"
                                                     class="inline-flex items-center rounded-full bg-slate-700 px-2.5 py-1 text-xs font-medium text-white shadow hover:bg-slate-800">
@@ -288,139 +288,233 @@
         </div>
 
         {{-- ===== Slide-over redimensionable ===== --}}
-<div x-show="drawerOpen" x-transition.opacity class="fixed inset-0 z-40 bg-slate-900/50">
-    <div
-        class="absolute inset-y-0 right-0 z-50 bg-white shadow-xl dark:bg-slate-900 flex h-screen"
-        :class="sizeClass()"
-        x-transition:enter="transform transition ease-in-out duration-300"
-        x-transition:enter-start="translate-x-full"
-        x-transition:enter-end="translate-x-0"
-        x-transition:leave="transform transition ease-in-out duration-200"
-        x-transition:leave-start="translate-x-0"
-        x-transition:leave-end="translate-x-full"
-        @click.away="close()"
-    >
-        {{-- Estructura interna en columna: header fijo + contenido scrollable --}}
-        <div class="flex h-full w-full flex-col">
+        <div x-show="drawerOpen" x-transition.opacity class="fixed inset-0 z-40 bg-slate-900/50">
+            <div
+                class="absolute inset-y-0 right-0 z-50 bg-white shadow-xl dark:bg-slate-900 flex h-screen"
+                :class="sizeClass()"
+                x-transition:enter="transform transition ease-in-out duration-300"
+                x-transition:enter-start="translate-x-full"
+                x-transition:enter-end="translate-x-0"
+                x-transition:leave="transform transition ease-in-out duration-200"
+                x-transition:leave-start="translate-x-0"
+                x-transition:leave-end="translate-x-full"
+                @click.away="close()"
+            >
+                {{-- Estructura interna en columna: header fijo + contenido scrollable --}}
+                <div class="flex h-full w-full flex-col">
 
-            {{-- Header slide-over --}}
-            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-                <div class="min-w-0">
-                    <p class="truncate text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Detalle de Vehículo</p>
-                    <h3 class="mt-0.5 truncate text-lg font-semibold text-slate-900 dark:text-slate-100"
-                        x-text="selected?.unidad ? `Unidad: ${selected.unidad}` : `Vehículo #${selected?.id ?? ''}`"></h3>
-                    <p class="truncate text-xs text-slate-500 dark:text-slate-400" x-text="selected?.placa ? `Placa: ${selected.placa}` : ''"></p>
-                </div>
-
-                <div class="flex items-center gap-2">
-                    {{-- Redimensionar --}}
-                    <button @click="shrink()"
-                            class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                            title="Más chico">−</button>
-                    <button @click="expand()"
-                            class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                            title="Más ancho">+</button>
-                    <button @click="toggleFull()"
-                            class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                            x-text="size === 'full' ? 'Salir pantalla completa' : 'Pantalla completa'"></button>
-
-                    {{-- Acciones rápidas --}}
-                    <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/edit` : '#'"
-                       class="hidden sm:inline-flex items-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
-                        Editar vehículo
-                    </a>
-                    <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/tanques` : '#'"
-                       class="hidden sm:inline-flex items-center rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600">
-                        Editar tanques
-                    </a>
-                    <button @click="close()"
-                            class="inline-flex items-center rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
-                        Cerrar
-                    </button>
-                </div>
-            </div>
-
-            {{-- Contenido scrollable --}}
-            <div class="flex-1 overflow-y-auto p-5">
-                {{-- Datos del vehículo --}}
-                <div class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800">
-                    <div class="border-b border-slate-200 px-5 py-3 dark:border-slate-700">
-                        <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Datos generales</h4>
-                    </div>
-                    <div class="grid grid-cols-1 gap-4 px-5 py-4 md:grid-cols-2">
-                        <div><p class="text-xs text-slate-500">Id</p><p class="font-medium" x-text="selected?.id ?? '—'"></p></div>
-                        <div><p class="text-xs text-slate-500">Unidad</p><p class="font-medium" x-text="fmt(selected.unidad)"></p></div>
-                        <div><p class="text-xs text-slate-500">Placa</p><p class="font-medium" x-text="fmt(selected.placa)"></p></div>
-                        <div><p class="text-xs text-slate-500">Serie (VIN)</p><p class="font-medium" x-text="fmt(selected.serie)"></p></div>
-                        <div><p class="text-xs text-slate-500">Marca</p><p class="font-medium" x-text="fmt(selected.marca)"></p></div>
-                        <div><p class="text-xs text-slate-500">Año</p><p class="font-medium" x-text="fmt(selected.anio)"></p></div>
-                        <div><p class="text-xs text-slate-500">Propietario</p><p class="font-medium" x-text="fmt(selected.propietario)"></p></div>
-                        <div><p class="text-xs text-slate-500">Ubicación</p><p class="font-medium" x-text="fmt(selected.ubicacion)"></p></div>
-                        <div><p class="text-xs text-slate-500">Estado</p><p class="font-medium" x-text="fmt(selected.estado)"></p></div>
-                        <div><p class="text-xs text-slate-500">Motor</p><p class="font-medium" x-text="fmt(selected.motor)"></p></div>
-                        <div><p class="text-xs text-slate-500">Tarjeta SiVale</p>
-                             <p class="font-medium" x-text="selected?.tarjeta_si_vale?.numero_tarjeta ?? (selected?.tarjeta_si_vale_id ?? '—')"></p>
+                    {{-- Header slide-over --}}
+                    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+                        <div class="min-w-0">
+                            <p class="truncate text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Detalle de Vehículo</p>
+                            <h3 class="mt-0.5 truncate text-lg font-semibold text-slate-900 dark:text-slate-100"
+                                x-text="selected?.unidad ? `Unidad: ${selected.unidad}` : `Vehículo #${selected?.id ?? ''}`"></h3>
+                            <p class="truncate text-xs text-slate-500 dark:text-slate-400" x-text="selected?.placa ? `Placa: ${selected.placa}` : ''"></p>
                         </div>
-                        <div><p class="text-xs text-slate-500">NIP</p><p class="font-medium" x-text="fmt(selected.nip)"></p></div>
-                        <div><p class="text-xs text-slate-500">Venc. tarjeta</p><p class="font-medium" x-text="fmtDate(selected.fec_vencimiento)"></p></div>
-                        <div><p class="text-xs text-slate-500">Venc. circ.</p><p class="font-medium" x-text="fmtDate(selected.vencimiento_t_circulacion)"></p></div>
-                        <div><p class="text-xs text-slate-500">Cambio de placas</p><p class="font-medium" x-text="fmtDate(selected.cambio_placas)"></p></div>
-                        <div class="md:col-span-2"><p class="text-xs text-slate-500">Póliza HDI</p><p class="font-medium" x-text="fmt(selected.poliza_hdi)"></p></div>
-                    </div>
-                </div>
 
-                {{-- Tanques --}}
-                <div class="mt-5 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800">
-                    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-700">
-                        <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Tanques del vehículo</h4>
-                        <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/tanques/create` : '#'"
-                           class="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
-                            Agregar tanque
-                        </a>
+                        <div class="flex items-center gap-2">
+                            {{-- Redimensionar --}}
+                            <button @click="shrink()"
+                                    class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                                    title="Más chico">−</button>
+                            <button @click="expand()"
+                                    class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                                    title="Más ancho">+</button>
+                            <button @click="toggleFull()
+                                    "
+                                    class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                                    x-text="size === 'full' ? 'Salir pantalla completa' : 'Pantalla completa'"></button>
+
+                            {{-- Acciones rápidas --}}
+                            <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/edit` : '#'"
+                               class="hidden sm:inline-flex items-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
+                                Editar vehículo
+                            </a>
+                            <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/tanques` : '#'"
+                               class="hidden sm:inline-flex items-center rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600">
+                                Editar tanques
+                            </a>
+                            <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/fotos` : '#'"
+                               class="hidden sm:inline-flex items-center rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">
+                                Gestor de fotos
+                            </a>
+                            <button @click="close()"
+                                    class="inline-flex items-center rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                                Cerrar
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="overflow-x-auto px-5 py-4">
-                        <table class="min-w-[700px] w-full text-sm">
-                            <thead class="text-left text-xs uppercase text-slate-500">
-                                <tr>
-                                    <th class="py-2">#</th>
-                                    <th class="py-2">Tipo</th>
-                                    <th class="py-2">Capacidad (L)</th>
-                                    <th class="py-2">Rend. (km/L)</th>
-                                    <th class="py-2">Km recorre</th>
-                                    <th class="py-2">Costo tanque lleno</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-                                <template x-if="!selected?.tanques || selected.tanques.length === 0">
-                                    <tr><td colspan="6" class="py-4 text-center text-slate-500">Este vehículo no tiene tanques.</td></tr>
+                    {{-- Contenido scrollable --}}
+                    <div class="flex-1 overflow-y-auto p-5">
+                        {{-- Datos del vehículo --}}
+                        <div class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800">
+                            <div class="border-b border-slate-200 px-5 py-3 dark:border-slate-700">
+                                <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Datos generales</h4>
+                            </div>
+                            <div class="grid grid-cols-1 gap-4 px-5 py-4 md:grid-cols-2">
+                                <div><p class="text-xs text-slate-500">Id</p><p class="font-medium" x-text="selected?.id ?? '—'"></p></div>
+                                <div><p class="text-xs text-slate-500">Unidad</p><p class="font-medium" x-text="fmt(selected.unidad)"></p></div>
+                                <div><p class="text-xs text-slate-500">Placa</p><p class="font-medium" x-text="fmt(selected.placa)"></p></div>
+                                <div><p class="text-xs text-slate-500">Serie (VIN)</p><p class="font-medium" x-text="fmt(selected.serie)"></p></div>
+                                <div><p class="text-xs text-slate-500">Marca</p><p class="font-medium" x-text="fmt(selected.marca)"></p></div>
+                                <div><p class="text-xs text-slate-500">Año</p><p class="font-medium" x-text="fmt(selected.anio)"></p></div>
+                                <div><p class="text-xs text-slate-500">Propietario</p><p class="font-medium" x-text="fmt(selected.propietario)"></p></div>
+                                <div><p class="text-xs text-slate-500">Ubicación</p><p class="font-medium" x-text="fmt(selected.ubicacion)"></p></div>
+                                <div><p class="text-xs text-slate-500">Estado</p><p class="font-medium" x-text="fmt(selected.estado)"></p></div>
+                                <div><p class="text-xs text-slate-500">Motor</p><p class="font-medium" x-text="fmt(selected.motor)"></p></div>
+                                <div><p class="text-xs text-slate-500">Tarjeta SiVale</p>
+                                     <p class="font-medium" x-text="selected?.tarjeta_si_vale?.numero_tarjeta ?? (selected?.tarjeta_si_vale_id ?? '—')"></p>
+                                </div>
+                                <div><p class="text-xs text-slate-500">NIP</p><p class="font-medium" x-text="fmt(selected.nip)"></p></div>
+                                <div><p class="text-xs text-slate-500">Venc. tarjeta</p><p class="font-medium" x-text="fmtDate(selected.fec_vencimiento)"></p></div>
+                                <div><p class="text-xs text-slate-500">Venc. circ.</p><p class="font-medium" x-text="fmtDate(selected.vencimiento_t_circulacion)"></p></div>
+                                <div><p class="text-xs text-slate-500">Cambio de placas</p><p class="font-medium" x-text="fmtDate(selected.cambio_placas)"></p></div>
+                                <div class="md:col-span-2"><p class="text-xs text-slate-500">Póliza HDI</p><p class="font-medium" x-text="fmt(selected.poliza_hdi)"></p></div>
+                            </div>
+                        </div>
+
+                        {{-- FOTOS DEL VEHÍCULO --}}
+                        <div class="mt-5 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
+                             x-data>
+                            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-700">
+                                <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Fotos del vehículo</h4>
+                                <div class="flex items-center gap-2">
+                                    <template x-if="selected?.fotos?.length">
+                                        <button @click="openGallery(0)"
+                                                class="inline-flex items-center rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">
+                                            Ver galería
+                                        </button>
+                                    </template>
+                                    <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/fotos` : '#'"
+                                       class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                                        Gestionar fotos
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="px-5 py-4">
+                                <template x-if="!selected?.fotos || selected.fotos.length === 0">
+                                    <p class="text-sm text-slate-500">Este vehículo no tiene fotos.</p>
                                 </template>
-                                <template x-for="t in selected?.tanques ?? []" :key="t.id">
-                                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                                        <td class="py-2" x-text="t.numero_tanque ?? '—'"></td>
-                                        <td class="py-2" x-text="fmt(t.tipo_combustible)"></td>
-                                        <td class="py-2" x-text="fmtNum(t.capacidad_litros)"></td>
-                                        <td class="py-2" x-text="fmtNum(t.rendimiento_estimado)"></td>
-                                        <td class="py-2" x-text="fmtNum(t.km_recorre)"></td>
-                                        <td class="py-2" x-text="fmtMoney(t.costo_tanque_lleno)"></td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
 
-                <div class="mt-6 flex justify-end">
-                    <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/tanques` : '#'"
-                       class="inline-flex items-center rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">
-                        Ir al gestor de tanques
-                    </a>
+                                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4" x-show="selected?.fotos?.length">
+                                    <template x-for="(f,i) in selected.fotos" :key="f.id">
+                                        <button type="button" class="group relative rounded-lg border border-slate-200 p-1 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700/30"
+                                                @click="openGallery(i)">
+                                            <img :src="photoSrc(f)" alt="Foto del vehículo"
+                                                 class="h-32 w-full rounded object-cover transition group-hover:opacity-90 cursor-zoom-in">
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Tanques --}}
+                        <div class="mt-5 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800">
+                            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-700">
+                                <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Tanques de combustible</h4>
+                                <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/tanques/create` : '#'"
+                                   class="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
+                                    + Agregar
+                                </a>
+                            </div>
+
+                            <div class="overflow-x-auto px-5 py-4">
+                                <table class="min-w-[700px] w-full text-sm">
+                                    <thead class="text-left text-xs uppercase text-slate-500">
+                                        <tr>
+                                            <th class="py-2">#</th>
+                                            <th class="py-2">Tipo</th>
+                                            <th class="py-2">Capacidad (L)</th>
+                                            <th class="py-2">Rend. (km/L)</th>
+                                            <th class="py-2">Km recorre</th>
+                                            <th class="py-2">Costo tanque lleno</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                                        <template x-if="!selected?.tanques || selected.tanques.length === 0">
+                                            <tr><td colspan="6" class="py-4 text-center text-slate-500">Este vehículo no tiene tanques.</td></tr>
+                                        </template>
+                                        <template x-for="t in selected?.tanques ?? []" :key="t.id">
+                                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                                <td class="py-2" x-text="t.numero_tanque ?? '—'"></td>
+                                                <td class="py-2" x-text="fmt(t.tipo_combustible)"></td>
+                                                <td class="py-2" x-text="fmtNum(t.capacidad_litros)"></td>
+                                                <td class="py-2" x-text="fmtNum(t.rendimiento_estimado)"></td>
+                                                <td class="py-2" x-text="fmtNum(t.km_recorre)"></td>
+                                                <td class="py-2" x-text="fmtMoney(t.costo_tanque_lleno)"></td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
+        {{-- ===== Lightbox global para fotos (sobre todo) ===== --}}
+        <div
+            x-cloak
+            x-show="galleryOpen"
+            x-transition.opacity
+            class="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4"
+            @click.self="galleryOpen=false"
+            @keydown.window.prevent.stop="
+                if(!galleryOpen) return;
+                if($event.key==='Escape') galleryOpen=false;
+                if($event.key==='ArrowRight') nextPhoto();
+                if($event.key==='ArrowLeft')  prevPhoto();
+            "
+            role="dialog" aria-modal="true"
+        >
+            <div class="relative max-h-[90vh] w-full max-w-6xl">
+                {{-- Cerrar --}}
+                <button
+                    @click="galleryOpen=false"
+                    class="absolute -top-10 right-0 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-sm font-medium text-slate-700 shadow hover:bg-white"
+                    aria-label="Cerrar">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/>
+                    </svg>
+                    Cerrar
+                </button>
+
+                {{-- Prev --}}
+                <button
+                    @click.stop="prevPhoto()"
+                    class="absolute left-0 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow hover:bg-white"
+                    aria-label="Anterior">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"/>
+                    </svg>
+                </button>
+
+                {{-- Next --}}
+                <button
+                    @click.stop="nextPhoto()"
+                    class="absolute right-0 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow hover:bg-white"
+                    aria-label="Siguiente">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7"/>
+                    </svg>
+                </button>
+
+                <div class="flex justify-center">
+                    <img
+                        :src="currentPhotoSrc()"
+                        :alt="`Foto ${galleryIndex+1} de ${selected?.fotos?.length ?? 0}`"
+                        class="max-h-[85vh] w-auto rounded-lg object-contain select-none"
+                        draggable="false">
+                </div>
+
+                <div class="mt-3 text-center text-sm text-white/90">
+                    <span x-text="(galleryIndex+1) + ' / ' + (selected?.fotos?.length ?? 0)"></span>
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- Alpine helpers --}}
@@ -431,6 +525,13 @@ function vehiculosModal() {
         drawerOpen: false,
         selected: null,
 
+        // Lightbox
+        galleryOpen: false,
+        galleryIndex: 0,
+
+        // Rutas base para servir imágenes privadas
+        basePhotosUrl: "{{ url('/vehiculos/fotos') }}",
+
         // Tamaños disponibles del slide-over
         sizes: ['sm','md','lg','xl','full'],
         size: 'lg', // tamaño por defecto
@@ -440,11 +541,11 @@ function vehiculosModal() {
         // Clases tailwind para cada tamaño
         sizeClass() {
             switch (this.size) {
-                case 'sm':   return 'w-full max-w-md';   // ~28rem
-                case 'md':   return 'w-full max-w-2xl';  // ~42rem
-                case 'lg':   return 'w-full max-w-3xl';  // ~48rem
-                case 'xl':   return 'w-full max-w-5xl';  // ~64rem
-                case 'full': return 'w-screen max-w-none'; // toda la pantalla
+                case 'sm':   return 'w-full max-w-md';
+                case 'md':   return 'w-full max-w-2xl';
+                case 'lg':   return 'w-full max-w-3xl';
+                case 'xl':   return 'w-full max-w-5xl';
+                case 'full': return 'w-screen max-w-none';
             }
         },
         expand() {
@@ -478,12 +579,43 @@ function vehiculosModal() {
             if (isNaN(num)) return '—';
             return num.toLocaleString('es-MX', { style:'currency', currency:'MXN' });
         },
+
+        // --- Fotos ---
+        photoSrc(foto) {
+            // acepta objeto {id,...} o id numérico
+            const id = (typeof foto === 'object') ? foto.id : foto;
+            return `${this.basePhotosUrl}/${id}`;
+        },
+        openGallery(i = 0) {
+            if (!this.selected?.fotos || this.selected.fotos.length === 0) return;
+            this.galleryIndex = Math.max(0, Math.min(i, this.selected.fotos.length - 1));
+            this.galleryOpen = true;
+        },
+        currentPhotoSrc() {
+            if (!this.selected?.fotos || this.selected.fotos.length === 0) return '';
+            const f = this.selected.fotos[this.galleryIndex];
+            return this.photoSrc(f);
+        },
+        nextPhoto() {
+            if (!this.selected?.fotos || this.selected.fotos.length === 0) return;
+            this.galleryIndex = (this.galleryIndex + 1) % this.selected.fotos.length;
+        },
+        prevPhoto() {
+            if (!this.selected?.fotos || this.selected.fotos.length === 0) return;
+            this.galleryIndex = (this.galleryIndex - 1 + this.selected.fotos.length) % this.selected.fotos.length;
+        },
+
+        // --- Modal principal ---
         showVehicle(v) {
-            this.selected = v; // incluye relaciones
+            // v proviene de $v->toArray() e incluye relaciones cargadas con ->with(['tanques','fotos','tarjetaSiVale'])
+            this.selected = v || {};
+            if (!Array.isArray(this.selected.fotos)) this.selected.fotos = []; // fallback seguro
+            if (!Array.isArray(this.selected.tanques)) this.selected.tanques = [];
             this.drawerOpen = true;
         },
         close() {
             this.drawerOpen = false;
+            this.galleryOpen = false;
             this.selected = null;
         }
     }
