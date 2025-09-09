@@ -8,6 +8,8 @@ use App\Http\Controllers\TarjetaSiValeController;
 use App\Http\Controllers\VerificacionController;
 use App\Http\Controllers\CargaCombustibleController;
 use App\Http\Controllers\TanqueController;
+use App\Http\Controllers\VehiculoFotoController;
+
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -67,7 +69,17 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::resource('cargas', CargaCombustibleController::class)
-    ->parameters(['cargas' => 'carga']); 
+    ->parameters(['cargas' => 'carga']);
+    
+    Route::middleware(['auth', 'role:administrador|capturista'])->group(function () {
+    // Gestor de fotos por vehículo (anidadas al vehículo)
+    Route::get   ('/vehiculos/{vehiculo}/fotos',             [VehiculoFotoController::class, 'index'])->name('vehiculos.fotos.index');
+    Route::post  ('/vehiculos/{vehiculo}/fotos',             [VehiculoFotoController::class, 'store'])->name('vehiculos.fotos.store');
+    Route::delete('/vehiculos/{vehiculo}/fotos/{foto}',      [VehiculoFotoController::class, 'destroy'])->name('vehiculos.fotos.destroy');
+
+    // Servir imagen privada por ID de foto (no anidada para URL corta)
+    Route::get   ('/vehiculos/fotos/{foto}',                 [VehiculoFotoController::class, 'show'])->name('vehiculos.fotos.show');
+});
 });
 
 // Rutas de autenticación (login, register, etc.)

@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Vehiculo;
 use App\Models\TarjetaSiVale;
+use App\Models\VehiculoFoto;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class VehiculoController extends Controller
 {
@@ -18,7 +21,7 @@ class VehiculoController extends Controller
     /** Listado con filtros y paginación. */
     public function index(Request $request)
     {
-        $vehiculos = Vehiculo::with(['tarjetaSiVale','tanques']) // <- AÑADIDO
+        $vehiculos = Vehiculo::with(['tarjetaSiVale','tanques','fotos'])
             ->filter($request->all())
             ->sort($request->get('sort_by'), $request->get('sort_dir'))
             ->paginate(25)
@@ -42,8 +45,39 @@ class VehiculoController extends Controller
 
     public function store(Request $request)
     {
+        // Validación de campos del vehículo
         $data = $this->validateVehiculo($request);
-        Vehiculo::create($data);
+
+        // Crear vehículo
+        $vehiculo = Vehiculo::create($data);
+
+        // Si vienen fotos en el create, validarlas y guardarlas (opcional)
+        if ($request->hasFile('fotos')) {
+            $request->validate([
+                'fotos'   => ['array'],
+                'fotos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            ], [
+                'fotos.*.image' => 'Cada archivo debe ser una imagen.',
+                'fotos.*.mimes' => 'Formatos permitidos: jpg, jpeg, png, webp.',
+                'fotos.*.max'   => 'Cada imagen no debe superar los 8 MB.',
+            ]);
+
+            $saved = 0;
+            foreach ($request->file('fotos', []) as $file) {
+                $dir = "vehiculos/{$vehiculo->id}";
+                $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+
+                // Guarda en disco local (privado)
+                $relativePath = $file->storeAs($dir, $filename, 'local');
+
+                VehiculoFoto::create([
+                    'vehiculo_id' => $vehiculo->id,
+                    'ruta'        => $relativePath,
+                    'orden'       => 0,
+                ]);
+                $saved++;
+            }
+        }
 
         return redirect()->route('vehiculos.index')
             ->with('success', 'Vehículo creado correctamente.');
@@ -51,7 +85,7 @@ class VehiculoController extends Controller
 
     public function show(Vehiculo $vehiculo)
     {
-        $vehiculo->load('tarjetaSiVale');
+        $vehiculo->load(['tarjetaSiVale','fotos','tanques']);
         return view('vehiculos.show', compact('vehiculo'));
     }
 
@@ -63,8 +97,39 @@ class VehiculoController extends Controller
 
     public function update(Request $request, Vehiculo $vehiculo)
     {
+        // Validación de campos del vehículo
         $data = $this->validateVehiculo($request, $vehiculo->id);
+
+        // Actualizar vehículo
         $vehiculo->update($data);
+
+        // Si se agregan nuevas fotos desde el formulario de edición
+        if ($request->hasFile('fotos')) {
+            $request->validate([
+                'fotos'   => ['array'],
+                'fotos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            ], [
+                'fotos.*.image' => 'Cada archivo debe ser una imagen.',
+                'fotos.*.mimes' => 'Formatos permitidos: jpg, jpeg, png, webp.',
+                'fotos.*.max'   => 'Cada imagen no debe superar los 8 MB.',
+            ]);
+
+            $saved = 0;
+            foreach ($request->file('fotos', []) as $file) {
+                $dir = "vehiculos/{$vehiculo->id}";
+                $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+
+                // Guarda en disco local (privado)
+                $relativePath = $file->storeAs($dir, $filename, 'local');
+
+                VehiculoFoto::create([
+                    'vehiculo_id' => $vehiculo->id,
+                    'ruta'        => $relativePath,
+                    'orden'       => 0,
+                ]);
+                $saved++;
+            }
+        }
 
         return redirect()->route('vehiculos.index')
             ->with('success', 'Vehículo actualizado correctamente.');
@@ -107,7 +172,7 @@ class VehiculoController extends Controller
         ], [
             'serie.unique' => 'La serie ya está registrada.',
             'placa.unique' => 'La placa ya está registrada.',
-            'tarjeta_si_vale_id.exists' => 'La tarjeta seleccionada no es válida.'
+            'tarjeta_si_vale_id.exists' => 'La tarjeta seleccionada no es válida.',
         ]);
     }
 }

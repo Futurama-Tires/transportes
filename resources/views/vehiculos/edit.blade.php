@@ -29,7 +29,9 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-            <form method="POST" action="{{ route('vehiculos.update', $vehiculo) }}" novalidate>
+
+            {{-- FORM PRINCIPAL (UPDATE VEHÍCULO) --}}
+            <form id="vehiculo-form" method="POST" action="{{ route('vehiculos.update', $vehiculo) }}" novalidate enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
 
@@ -235,24 +237,73 @@
                                     <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
                                 @enderror
                             </div>
-
-                            {{-- (Se eliminó el bloque de Rendimiento) --}}
                         </div>
                     </div>
 
-                    {{-- Footer de acciones --}}
+                    {{-- Subir nuevas fotos (Sigue dentro del form principal) --}}
+                    <div class="border-t border-slate-200 px-6 py-6 dark:border-slate-700">
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Agregar nuevas fotos</h3>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">JPG, JPEG, PNG o WEBP. Máx 8MB c/u.</p>
+                        <div class="mt-3">
+                            <input type="file" name="fotos[]" accept="image/*" multiple
+                                   class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
+                            @error('fotos')   <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                            @error('fotos.*') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
+                    {{-- IMPORTANTE: Cerramos el form principal antes de la galería para evitar forms anidados --}}
+            </form>
+
+                    {{-- Galería actual (fuera del form principal) --}}
+                    <div class="border-t border-slate-200 px-6 py-6 dark:border-slate-700">
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                            Fotos actuales ({{ $vehiculo->fotos->count() }})
+                        </h3>
+
+                        @if($vehiculo->fotos->isEmpty())
+                            <p class="mt-3 text-sm text-slate-500">Este vehículo aún no tiene fotos.</p>
+                        @else
+                            <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                                @foreach($vehiculo->fotos as $foto)
+                                    <div class="group relative rounded-xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                                        <a href="{{ route('vehiculos.fotos.show', $foto) }}" target="_blank" title="Ver en tamaño completo">
+                                            <img src="{{ route('vehiculos.fotos.show', $foto) }}"
+                                                 class="h-40 w-full rounded-lg object-cover transition-all group-hover:opacity-90"
+                                                 alt="Foto del vehículo">
+                                        </a>
+
+                                        {{-- Form independiente para eliminar la foto --}}
+                                        <form method="POST" action="{{ route('vehiculos.fotos.destroy', [$vehiculo, $foto]) }}"
+                                              onsubmit="return confirm('¿Eliminar esta foto?')"
+                                              class="absolute right-2 top-2">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit"
+                                                    class="rounded-full bg-rose-600/90 px-2 py-1 text-xs font-medium text-white shadow hover:bg-rose-700">
+                                                Eliminar
+                                            </button>
+                                        </form>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
+                    {{-- Footer de acciones (fuera del form principal; el botón usa form="vehiculo-form") --}}
                     <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
                         <a href="{{ url()->previous() ?: route('vehiculos.index') }}"
                            class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
                             Cancelar
                         </a>
                         <button type="submit"
+                                form="vehiculo-form"
                                 class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
                             Guardar cambios
                         </button>
                     </div>
-                </div>
-            </form>
+
+                </div> {{-- /tarjeta principal --}}
 
             {{-- Nota para campos de fecha si en BD son VARCHAR --}}
             <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">

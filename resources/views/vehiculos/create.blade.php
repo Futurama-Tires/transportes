@@ -22,7 +22,7 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-            <form method="POST" action="{{ route('vehiculos.store') }}" novalidate>
+            <form method="POST" action="{{ route('vehiculos.store') }}" novalidate enctype="multipart/form-data">
                 @csrf
 
                 {{-- Alerta de errores globales --}}
@@ -225,8 +225,18 @@
                                     <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
                                 @enderror
                             </div>
+                        </div>
+                    </div>
 
-                            {{-- (Se eliminó el bloque de Rendimiento) --}}
+                    {{-- Bloque: Fotos (opcional) --}}
+                    <div class="border-t border-slate-200 px-6 py-6 dark:border-slate-700">
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Fotos (opcional)</h3>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Puedes seleccionar varias. JPG, JPEG, PNG o WEBP. Máx 8MB c/u.</p>
+                        <div class="mt-3">
+                            <input type="file" name="fotos[]" accept="image/*" multiple
+                                   class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
+                            @error('fotos')   <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                            @error('fotos.*') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                         </div>
                     </div>
 

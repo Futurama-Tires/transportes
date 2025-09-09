@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\VehiculoFoto;
+
 
 class Vehiculo extends Model
 {
@@ -204,5 +206,13 @@ class Vehiculo extends Model
         }
 
         return $query->orderBy('created_at', 'desc'); // por defecto, recientes primero
+    }
+
+    public function fotos()
+    {
+        // Orden por 'orden' y luego por fecha (útil para galerías)
+        return $this->hasMany(VehiculoFoto::class)
+                    ->orderBy('orden')
+                    ->orderByDesc('created_at');
     }
 }
