@@ -7,6 +7,7 @@ use App\Http\Controllers\VehiculoController;
 use App\Http\Controllers\TarjetaSiValeController;
 use App\Http\Controllers\VerificacionController;
 use App\Http\Controllers\CargaCombustibleController;
+use App\Http\Controllers\TanqueController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -57,6 +58,12 @@ Route::middleware('auth')->group(function () {
 
         Route::resource('verificaciones', VerificacionController::class)
         ->parameters(['verificaciones' => 'verificacion']); // <- clave del fix
+    });
+
+    Route::middleware(['auth','role:administrador|capturista'])
+    ->scopeBindings()
+    ->group(function () {
+        Route::resource('vehiculos.tanques', TanqueController::class)->except(['show']);
     });
 
     Route::resource('cargas', CargaCombustibleController::class)

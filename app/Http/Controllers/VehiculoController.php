@@ -18,7 +18,7 @@ class VehiculoController extends Controller
     /** Listado con filtros y paginación. */
     public function index(Request $request)
     {
-        $vehiculos = Vehiculo::with('tarjetaSiVale')
+        $vehiculos = Vehiculo::with(['tarjetaSiVale','tanques']) // <- AÑADIDO
             ->filter($request->all())
             ->sort($request->get('sort_by'), $request->get('sort_dir'))
             ->paginate(25)
@@ -96,14 +96,14 @@ class VehiculoController extends Controller
                 Rule::unique('vehiculos', 'placa')->ignore($vehiculoId),
             ],
             'estado'                    => ['nullable', 'string', 'max:255'],
-            // Usa el nombre de tabla que tengas realmente. Conservo el tuyo:
-            'tarjeta_si_vale_id'        => ['nullable', 'exists:tarjetasSiVale,id'],
+            // Usa el nombre de tabla real en tu BD:
+            'tarjeta_si_vale_id'        => ['nullable', 'exists:tarjetassivale,id'],
             'nip'                       => ['nullable', 'string', 'max:255'],
             'fec_vencimiento'           => ['nullable', 'string', 'max:255'],
             'vencimiento_t_circulacion' => ['nullable', 'string', 'max:255'],
             'cambio_placas'             => ['nullable', 'string', 'max:255'],
             'poliza_hdi'                => ['nullable', 'string', 'max:255'],
-            'rend'                      => ['nullable', 'numeric'],
+            // eliminado: 'rend'
         ], [
             'serie.unique' => 'La serie ya está registrada.',
             'placa.unique' => 'La placa ya está registrada.',

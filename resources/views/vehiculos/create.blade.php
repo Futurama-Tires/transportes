@@ -226,19 +226,7 @@
                                 @enderror
                             </div>
 
-                            {{-- Rendimiento --}}
-                            <div>
-                                <label for="rend" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Rendimiento (km/l)
-                                </label>
-                                <input id="rend" type="number" step="0.01" name="rend"
-                                       value="{{ old('rend') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('rend')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
-                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Usa dos decimales. Ej.: 12.50</p>
-                            </div>
+                            {{-- (Se eliminó el bloque de Rendimiento) --}}
                         </div>
                     </div>
 
