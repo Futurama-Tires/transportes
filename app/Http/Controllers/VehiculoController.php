@@ -27,14 +27,15 @@ class VehiculoController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        // Datos para filtros (opcionales)
-        $ubicaciones = Vehiculo::select('ubicacion')->whereNotNull('ubicacion')->distinct()->orderBy('ubicacion')->pluck('ubicacion');
-        $marcas      = Vehiculo::select('marca')->whereNotNull('marca')->distinct()->orderBy('marca')->pluck('marca');
-        $estados     = Vehiculo::select('estado')->whereNotNull('estado')->distinct()->orderBy('estado')->pluck('estado');
-        $anios       = Vehiculo::select('anio')->whereNotNull('anio')->distinct()->orderByDesc('anio')->pluck('anio');
-        $tarjetas    = class_exists(TarjetaSiVale::class) ? TarjetaSiVale::select('id')->orderBy('id')->get() : collect();
+        // Único catálogo requerido ahora: marcas
+        $marcas = Vehiculo::select('marca')
+            ->whereNotNull('marca')
+            ->where('marca', '!=', '')
+            ->distinct()
+            ->orderBy('marca')
+            ->pluck('marca');
 
-        return view('vehiculos.index', compact('vehiculos', 'ubicaciones', 'marcas', 'estados', 'anios', 'tarjetas'));
+        return view('vehiculos.index', compact('vehiculos', 'marcas'));
     }
 
     public function create()
@@ -62,7 +63,6 @@ class VehiculoController extends Controller
                 'fotos.*.max'   => 'Cada imagen no debe superar los 8 MB.',
             ]);
 
-            $saved = 0;
             foreach ($request->file('fotos', []) as $file) {
                 $dir = "vehiculos/{$vehiculo->id}";
                 $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
@@ -75,7 +75,6 @@ class VehiculoController extends Controller
                     'ruta'        => $relativePath,
                     'orden'       => 0,
                 ]);
-                $saved++;
             }
         }
 
@@ -114,7 +113,6 @@ class VehiculoController extends Controller
                 'fotos.*.max'   => 'Cada imagen no debe superar los 8 MB.',
             ]);
 
-            $saved = 0;
             foreach ($request->file('fotos', []) as $file) {
                 $dir = "vehiculos/{$vehiculo->id}";
                 $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
@@ -127,7 +125,6 @@ class VehiculoController extends Controller
                     'ruta'        => $relativePath,
                     'orden'       => 0,
                 ]);
-                $saved++;
             }
         }
 

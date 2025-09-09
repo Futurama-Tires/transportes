@@ -1,4 +1,3 @@
-{{-- resources/views/vehiculos/index.blade.php --}}
 <x-app-layout>
     <style>[x-cloak]{display:none!important}</style>
 
@@ -10,9 +9,7 @@
             </h2>
             <a href="{{ route('vehiculos.create') }}"
                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/>
-                </svg>
+                <span class="material-symbols-outlined"> add_box </span>
                 Agregar Vehículo
             </a>
         </div>
@@ -28,243 +25,301 @@
         $activeCount = $activeFilters->count();
     @endphp
 
-    {{-- Alpine root --}}
-    <div class="py-6" x-data="vehiculosModal()" x-init="init()" x-cloak>
+    <div class="py-8" x-data="vehiculosModal()" x-init="init()" x-cloak>
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
-            {{-- Flash success --}}
+            {{-- Flash éxito --}}
             @if(session('success'))
-                <div class="mb-4 rounded-lg bg-green-100 px-4 py-3 text-green-800 ring-1 ring-green-300">
+                <div class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900/40 dark:bg-green-900/30 dark:text-green-100">
                     {{ session('success') }}
                 </div>
             @endif
 
-            {{-- Search + Sort + Filters --}}
-            <form method="GET" action="{{ route('vehiculos.index') }}" x-data="{open: {{ $activeCount > 0 ? 'true' : 'false' }} }" x-cloak>
-                <div class="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    {{-- Búsqueda --}}
-                    <div class="flex w-full items-center rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200 focus-within:ring-indigo-400 dark:bg-slate-900 dark:ring-slate-700 md:max-w-2xl">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 103.5 3.5a7.5 7.5 0 0013.65 13.65z"/>
-                        </svg>
-                        <input type="text" name="search" value="{{ request('search') }}"
-                               placeholder="Buscar: Placa, serie, unidad, propietario, marca, año, ubicación, etc."
-                               class="block w-full bg-transparent text-sm outline-none placeholder:text-slate-400"/>
+            {{-- Barra superior: búsqueda + filtros + exportaciones --}}
+            <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                {{-- Buscador + Selects + Filtros (w-full en mobile, crece en desktop) --}}
+                <form method="GET" action="{{ route('vehiculos.index') }}" class="w-full lg:w-3/4 xl:w-4/5" x-data="{open: {{ $activeCount > 0 ? 'true' : 'false' }} }">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        {{-- Buscador --}}
+                        <div class="flex w-full sm:flex-1 items-center rounded-full bg-white px-4 py-2 shadow-md ring-1 ring-gray-200 focus-within:ring dark:bg-slate-800 dark:ring-slate-700">
+                            <span class="material-symbols-outlined"> search </span>
+                            <input
+                                type="text"
+                                name="search"
+                                value="{{ request('search') }}"
+                                placeholder="Buscar por: ID, Unidad, Placa, Serie, Año, Propietario"
+                                autocomplete="off"
+                                class="ml-3 w-full flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-slate-400"
+                            />
+                        </div>
+
+                        {{-- Botón Buscar --}}
+                        <button type="submit"
+                                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                            <span class="material-symbols-outlined"> search </span>
+                            Buscar
+                        </button>
+
+                        {{-- Selects & botón de Filtros --}}
+                        <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                            {{-- Ordenar por --}}
+                            <div class="relative w-full sm:w-44">
+                                <select
+                                    name="sort_by"
+                                    class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                    onchange="this.form.submit()"
+                                    title="Ordenar por"
+                                >
+                                    @php
+                                        $columns = [
+                                            'created_at' => 'Fecha',
+                                            'id'         => 'ID',
+                                            'placa'      => 'Placa',
+                                            'serie'      => 'Serie',
+                                            'unidad'     => 'Unidad',
+                                            'marca'      => 'Marca',
+                                            'anio'       => 'Año',
+                                            'propietario'=> 'Propietario',
+                                        ];
+                                    @endphp
+                                    @foreach($columns as $k => $label)
+                                        <option value="{{ $k }}" @selected(request('sort_by','created_at')===$k)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+
+                            {{-- Dirección --}}
+                            <div class="relative w-full sm:w-36">
+                                <select
+                                    name="sort_dir"
+                                    class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                    onchange="this.form.submit()"
+                                    title="Dirección"
+                                >
+                                    <option value="asc"  @selected(request('sort_dir','asc')==='asc')>Ascendente</option>
+                                    <option value="desc" @selected(request('sort_dir')==='desc')>Descendente</option>
+                                </select>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+
+                            {{-- Toggle Filtros --}}
+                            <button type="button"
+                                    @click="open = !open"
+                                    class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                                    title="Mostrar/Ocultar filtros">
+                                <span class="material-symbols-outlined" :class="{'rotate-180': open}"> tune </span>
+                                Filtros
+                                @if($activeCount>0)
+                                    <span class="ml-1 inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+                                        {{ $activeCount }}
+                                    </span>
+                                @endif
+                            </button>
+                        </div>
                     </div>
 
-                    {{-- Orden --}}
-                    <div class="flex items-center gap-2">
-                        <select name="sort_by" class="rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                            @php
-                                $columns = [
-                                    'created_at' => 'Fecha',
-                                    'placa' => 'Placa',
-                                    'serie' => 'Serie',
-                                    'unidad' => 'Unidad',
-                                    'marca' => 'Marca',
-                                    'anio' => 'Año',
-                                    'propietario' => 'Propietario',
-                                    'ubicacion' => 'Ubicación',
-                                    'estado' => 'Estado',
-                                ];
-                            @endphp
-                            @foreach($columns as $k => $label)
-                                <option value="{{ $k }}" @selected(request('sort_by', 'created_at') == $k)>{{ $label }}</option>
-                            @endforeach
-                        </select>
-                        <select name="sort_dir"
-                                class="rounded-lg border border-slate-200 bg-white p-2 pr-6 text-sm dark:border-slate-700 dark:bg-slate-900">
-                            <option value="desc" @selected(request('sort_dir','desc')=='desc')>Desc</option>
-                            <option value="asc"  @selected(request('sort_dir')=='asc')>Asc</option>
-                        </select>
+                    {{-- Filtros avanzados (reducidos a los solicitados) --}}
+                    <div x-show="open" x-transition
+                         class="mt-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            {{-- ID --}}
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">ID</label>
+                                <input type="number" name="id" value="{{ request('id') }}"
+                                       class="block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+                            </div>
 
-                        <button type="button"
-                                @click="open = !open"
-                                class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" :class="{'rotate-180': open}" class="h-4 w-4 transition-transform"
-                                 viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11l3.71-3.77a.75.75 0 111.08 1.04l-4.25 4.33a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                            </svg>
-                            Filtros
-                            @if($activeCount>0)
-                                <span class="ml-1 inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
-                                    {{ $activeCount }}
-                                </span>
-                            @endif
-                        </button>
+                            {{-- Unidad --}}
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Unidad</label>
+                                <input type="text" name="unidad" value="{{ request('unidad') }}"
+                                       class="block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+                            </div>
 
-                        <a href="{{ route('vehiculos.index') }}"
-                           class="hidden md:inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700">
-                            Limpiar
-                        </a>
-                        <button type="submit"
-                                class="hidden md:inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                            Aplicar
-                        </button>
+                            {{-- Placa --}}
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Placa</label>
+                                <input type="text" name="placa" value="{{ request('placa') }}"
+                                       class="block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+                            </div>
+
+                            {{-- Serie --}}
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Serie (VIN)</label>
+                                <input type="text" name="serie" value="{{ request('serie') }}"
+                                       class="block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+                            </div>
+
+                            {{-- Año (rango) --}}
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Año</label>
+                                <div class="flex gap-2">
+                                    <input type="number" name="anio_min" value="{{ request('anio_min') }}" placeholder="mín"
+                                           class="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+                                    <input type="number" name="anio_max" value="{{ request('anio_max') }}" placeholder="máx"
+                                           class="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+                                </div>
+                            </div>
+
+                            {{-- Propietario --}}
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Propietario</label>
+                                <input type="text" name="propietario" value="{{ request('propietario') }}"
+                                       class="block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+                            </div>
+
+                            {{-- Marca --}}
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Marca</label>
+                                <select name="marca" class="block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+                                    <option value="">Todas</option>
+                                    @foreach(($marcas ?? []) as $m)
+                                        <option value="{{ $m }}" @selected(request('marca') == $m)>{{ $m }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 flex items-center justify-end gap-2">
+                            <a href="{{ route('vehiculos.index') }}"
+                               class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700">
+                                <span class="material-symbols-outlined"> layers_clear </span>
+                                Limpiar
+                            </a>
+                            <button type="submit"
+                                    class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                                <span class="material-symbols-outlined"> done_all </span>
+                                Aplicar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                {{-- Botones de exportación (placeholders) --}}
+                <div class="flex flex-wrap items-center gap-2">
+                    {{-- Excel --}}
+                    <a href="#"
+                       class="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                       title="Exportar a Excel">
+                        <span class="material-symbols-outlined"> border_all </span>
+                        Excel
+                    </a>
+
+                    {{-- PDF --}}
+                    <a href="#"
+                       class="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                       title="Exportar a PDF">
+                        <span class="material-symbols-outlined"> article </span>
+                        PDF
+                    </a>
+                </div>
+            </div>
+            <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            </div>
+
+            {{-- Resumen (cuando hay búsqueda) --}}
+            @if(request('search'))
+                <div class="mb-4 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+                    <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        <span class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700 dark:bg-slate-700 dark:text-slate-100">Filtro</span>
+                        <span class="font-medium">“{{ request('search') }}”</span>
+                    </div>
+
+                    @php
+                        $total = $vehiculos->total();
+                        $first = $vehiculos->firstItem();
+                        $last  = $vehiculos->lastItem();
+                        $current = $vehiculos->currentPage();
+                        $lastPage = $vehiculos->lastPage();
+                    @endphp
+
+                    <div class="text-sm text-slate-600 dark:text-slate-300">
+                        @if($total === 1)
+                            Resultado <span class="font-semibold">(1 de 1)</span>
+                        @elseif($total > 1)
+                            Página <span class="font-semibold">{{ $current }}</span> de <span class="font-semibold">{{ $lastPage }}</span> —
+                            Mostrando <span class="font-semibold">{{ $first }}–{{ $last }}</span> de <span class="font-semibold">{{ $total }}</span> resultados
+                        @else
+                            Sin resultados para la búsqueda.
+                        @endif
                     </div>
                 </div>
-
-                {{-- Filtros avanzados --}}
-                <div x-show="open" x-transition
-                     class="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        {{-- Ubicación (multi) --}}
-                        <div>
-                            <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Ubicación</label>
-                            <select name="ubicacion[]" multiple
-                                    class="block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                                @foreach(($ubicaciones ?? []) as $u)
-                                    <option value="{{ $u }}" @if(collect(request('ubicacion'))->contains($u)) selected @endif>{{ $u }}</option>
-                                @endforeach
-                            </select>
-                            <p class="mt-1 text-xs text-slate-400">Ctrl/Cmd + click para seleccionar varias</p>
-                        </div>
-
-                        {{-- Marca --}}
-                        <div>
-                            <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Marca</label>
-                            <select name="marca" class="block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                                <option value="">Todas</option>
-                                @foreach(($marcas ?? []) as $m)
-                                    <option value="{{ $m }}" @selected(request('marca') == $m)>{{ $m }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        {{-- Estado --}}
-                        <div>
-                            <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Estado</label>
-                            <select name="estado" class="block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                                <option value="">Todos</option>
-                                @foreach(($estados ?? []) as $e)
-                                    <option value="{{ $e }}" @selected(request('estado') == $e)>{{ $e }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        {{-- Año (rango) --}}
-                        <div>
-                            <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Año</label>
-                            <div class="flex gap-2">
-                                <input type="number" name="anio_min" value="{{ request('anio_min') }}" placeholder="mín"
-                                    class="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                                <input type="number" name="anio_max" value="{{ request('anio_max') }}" placeholder="máx"
-                                    class="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                            </div>
-                        </div>
-
-                        {{-- Tarjeta SiVale --}}
-                        <div>
-                            <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tarjeta SiVale</label>
-                            <select name="tarjeta" class="block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                                <option value="">Todas</option>
-                                <option value="con" @selected(request('tarjeta')==='con')>Con tarjeta</option>
-                                <option value="sin" @selected(request('tarjeta')==='sin')>Sin tarjeta</option>
-                            </select>
-                        </div>
-
-                        {{-- Póliza HDI --}}
-                        <div>
-                            <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Póliza HDI</label>
-                            <select name="poliza" class="block w-full rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                                <option value="">Todas</option>
-                                <option value="con" @selected(request('poliza')==='con')>Con póliza</option>
-                                <option value="sin" @selected(request('poliza')==='sin')>Sin póliza</option>
-                            </select>
-                        </div>
-
-                        {{-- Venc. tarjeta (rango) --}}
-                        <div>
-                            <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Venc. tarjeta (de → hasta)</label>
-                            <div class="flex gap-2">
-                                <input type="date" name="fec_vencimiento_desde" value="{{ request('fec_vencimiento_desde') }}"
-                                    class="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                                <input type="date" name="fec_vencimiento_hasta" value="{{ request('fec_vencimiento_hasta') }}"
-                                    class="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                            </div>
-                        </div>
-
-                        {{-- Venc. circulación (rango) --}}
-                        <div>
-                            <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Venc. circulación (de → hasta)</label>
-                            <div class="flex gap-2">
-                                <input type="date" name="vtc_desde" value="{{ request('vtc_desde') }}"
-                                    class="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                                <input type="date" name="vtc_hasta" value="{{ request('vtc_hasta') }}"
-                                    class="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                            </div>
-                        </div>
-
-                        {{-- Fechas de creación --}}
-                        <div>
-                            <label class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Creado (de → hasta)</label>
-                            <div class="flex gap-2">
-                                <input type="date" name="created_from" value="{{ request('created_from') }}"
-                                    class="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                                <input type="date" name="created_to" value="{{ request('created_to') }}"
-                                    class="w-1/2 rounded-lg border border-slate-200 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 flex items-center justify-end gap-2">
-                        <a href="{{ route('vehiculos.index') }}"
-                           class="inline-flex items-center rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700">
-                            Limpiar
-                        </a>
-                        <button type="submit"
-                                class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                            Aplicar
-                        </button>
-                    </div>
-                </div>
-            </form>
+            @endif
 
             {{-- Tabla --}}
             <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
                 <div class="overflow-x-auto">
-                    <table class="min-w-[1000px] w-full divide-y divide-slate-200 dark:divide-slate-700">
-                        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-                            <tr>
-                                <th class="px-4 py-3">Id</th>
-                                <th class="px-4 py-3">Unidad</th>
-                                <th class="px-4 py-3">Placa</th>
-                                <th class="px-4 py-3">Serie</th>
-                                <th class="px-4 py-3">Año</th>
-                                <th class="px-4 py-3">Propietario</th>
-                                <th class="px-4 py-3 text-right">Acciones</th>
+                    <table class="min-w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-600 dark:bg-slate-900/40 dark:text-slate-300">
+                            <tr class="text-xs uppercase tracking-wide">
+                                <th scope="col" class="sticky left-0 z-10 border-b border-slate-200 bg-slate-50 px-4 py-3 font-semibold dark:border-slate-700 dark:bg-slate-900/40">
+                                    ID
+                                </th>
+                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
+                                    Unidad
+                                </th>
+                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
+                                    Placa
+                                </th>
+                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
+                                    Serie
+                                </th>
+                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
+                                    Año
+                                </th>
+                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
+                                    Propietario
+                                </th>
+                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold text-right dark:border-slate-700">
+                                    <span class="sr-only">Acciones</span>Acciones
+                                </th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100 bg-white text-sm dark:divide-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                             @forelse($vehiculos as $v)
-                                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                                    <td class="px-4 py-3 font-medium">{{ $v->id }}</td>
-                                    <td class="px-4 py-3">{{ $v->unidad ?? '—' }}</td>
-                                    <td class="px-4 py-3">{{ $v->placa ?? '—' }}</td>
-                                    <td class="px-4 py-3">{{ $v->serie ?? '—' }}</td>
-                                    <td class="px-4 py-3">{{ $v->anio ?? '—' }}</td>
-                                    <td class="px-4 py-3">{{ $v->propietario ?? '—' }}</td>
+                                <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-700/40">
+                                    <td class="sticky left-0 z-[1] whitespace-nowrap border-r border-slate-100 bg-white px-4 py-3 font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                                        {{ $v->id }}
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-800 dark:text-slate-100">{{ $v->unidad ?? '—' }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $v->placa ?? '—' }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $v->serie ?? '—' }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $v->anio ?? '—' }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $v->propietario ?? '—' }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-end gap-2">
-                                            {{-- VER -> abre modal con datos + tanques + fotos --}}
+                                            {{-- Ver (abre slide-over) --}}
                                             <button type="button"
                                                     @click="showVehicle(@js($v->toArray()))"
-                                                    class="inline-flex items-center rounded-full bg-slate-700 px-2.5 py-1 text-xs font-medium text-white shadow hover:bg-slate-800">
+                                                    class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                                                    title="Ver detalles">
+                                                <span class="material-symbols-outlined"> visibility </span>
                                                 Ver
                                             </button>
 
-                                            {{-- EDITAR --}}
+                                            {{-- Editar --}}
                                             <a href="{{ route('vehiculos.edit', $v) }}"
-                                               class="inline-flex items-center rounded-full bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white shadow hover:bg-indigo-700">
+                                               class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                                               title="Editar vehículo">
+                                                <span class="material-symbols-outlined"> edit </span>
                                                 Editar
                                             </a>
 
-                                            {{-- ELIMINAR --}}
-                                            <form action="{{ route('vehiculos.destroy', $v) }}" method="POST" onsubmit="return confirm('¿Eliminar este vehículo?')">
+                                            {{-- Eliminar --}}
+                                            <form action="{{ route('vehiculos.destroy', $v) }}" method="POST"
+                                                  onsubmit="return confirm('¿Eliminar este vehículo?')"
+                                                  class="inline">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit"
-                                                        class="inline-flex items-center rounded-full bg-rose-600 px-2.5 py-1 text-xs font-medium text-white shadow hover:bg-rose-700">
+                                                        class="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                                                        title="Eliminar vehículo">
+                                                    <span class="material-symbols-outlined"> delete </span>
                                                     Eliminar
                                                 </button>
                                             </form>
@@ -273,7 +328,14 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="px-4 py-6 text-center text-slate-500">No hay vehículos que coincidan con el criterio.</td>
+                                    <td colspan="7" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
+                                        @if(request('search'))
+                                            No se encontraron resultados para <span class="font-semibold">“{{ request('search') }}”</span>.
+                                            <a href="{{ route('vehiculos.index') }}" class="text-indigo-600 hover:text-indigo-800">Limpiar búsqueda</a>
+                                        @else
+                                            No hay vehículos registrados.
+                                        @endif
+                                    </td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -281,10 +343,33 @@
                 </div>
             </div>
 
-            {{-- Paginación --}}
-            <div class="mt-6 flex justify-center">
-                {{ $vehiculos->appends(request()->query())->links() }}
-            </div>
+            {{-- Paginación + contador (siempre visible) --}}
+            @if(method_exists($vehiculos, 'links'))
+                <div class="mt-6 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+                    @php
+                        $totalAll = $vehiculos->total();
+                        $firstAll = $vehiculos->firstItem();
+                        $lastAll  = $vehiculos->lastItem();
+                        $currentAll = $vehiculos->currentPage();
+                        $lastPageAll = $vehiculos->lastPage();
+                    @endphp
+
+                    <p class="text-sm text-slate-600 dark:text-slate-300">
+                        @if($totalAll === 0)
+                            Mostrando 0 resultados
+                        @elseif($totalAll === 1)
+                            Resultado <span class="font-semibold">(1 de 1)</span>
+                        @else
+                            Página <span class="font-semibold">{{ $currentAll }}</span> de <span class="font-semibold">{{ $lastPageAll }}</span> —
+                            Mostrando <span class="font-semibold">{{ $firstAll }}–{{ $lastAll }}</span> de <span class="font-semibold">{{ $totalAll }}</span> resultados
+                        @endif
+                    </p>
+
+                    <div class="w-full sm:w-auto">
+                        {{ $vehiculos->appends(request()->query())->links() }}
+                    </div>
+                </div>
+            @endif
         </div>
 
         {{-- ===== Slide-over redimensionable ===== --}}
@@ -300,49 +385,17 @@
                 x-transition:leave-end="translate-x-full"
                 @click.away="close()"
             >
-                {{-- Estructura interna en columna: header fijo + contenido scrollable --}}
                 <div class="flex h-full w-full flex-col">
-
                     {{-- Header slide-over --}}
                     <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                         <div class="min-w-0">
-                            <p class="truncate text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Detalle de Vehículo</p>
+                            <br><br><br>
+                            <p class="truncate text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Detalles del Vehículo</p>
                             <h3 class="mt-0.5 truncate text-lg font-semibold text-slate-900 dark:text-slate-100"
                                 x-text="selected?.unidad ? `Unidad: ${selected.unidad}` : `Vehículo #${selected?.id ?? ''}`"></h3>
                             <p class="truncate text-xs text-slate-500 dark:text-slate-400" x-text="selected?.placa ? `Placa: ${selected.placa}` : ''"></p>
                         </div>
 
-                        <div class="flex items-center gap-2">
-                            {{-- Redimensionar --}}
-                            <button @click="shrink()"
-                                    class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                                    title="Más chico">−</button>
-                            <button @click="expand()"
-                                    class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                                    title="Más ancho">+</button>
-                            <button @click="toggleFull()
-                                    "
-                                    class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                                    x-text="size === 'full' ? 'Salir pantalla completa' : 'Pantalla completa'"></button>
-
-                            {{-- Acciones rápidas --}}
-                            <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/edit` : '#'"
-                               class="hidden sm:inline-flex items-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
-                                Editar vehículo
-                            </a>
-                            <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/tanques` : '#'"
-                               class="hidden sm:inline-flex items-center rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600">
-                                Editar tanques
-                            </a>
-                            <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/fotos` : '#'"
-                               class="hidden sm:inline-flex items-center rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">
-                                Gestor de fotos
-                            </a>
-                            <button @click="close()"
-                                    class="inline-flex items-center rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
-                                Cerrar
-                            </button>
-                        </div>
                     </div>
 
                     {{-- Contenido scrollable --}}
@@ -375,19 +428,20 @@
                         </div>
 
                         {{-- FOTOS DEL VEHÍCULO --}}
-                        <div class="mt-5 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-                             x-data>
+                        <div class="mt-5 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800" x-data>
                             <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-700">
                                 <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Fotos del vehículo</h4>
                                 <div class="flex items-center gap-2">
                                     <template x-if="selected?.fotos?.length">
                                         <button @click="openGallery(0)"
-                                                class="inline-flex items-center rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">
+                                                class="inline-flex items-center gap-1 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">
+                                            <span class="material-symbols-outlined"> slideshow </span>
                                             Ver galería
                                         </button>
                                     </template>
                                     <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/fotos` : '#'"
-                                       class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                                       class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                                        <span class="material-symbols-outlined"> imagesmode </span>
                                         Gestionar fotos
                                     </a>
                                 </div>
@@ -400,7 +454,8 @@
 
                                 <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4" x-show="selected?.fotos?.length">
                                     <template x-for="(f,i) in selected.fotos" :key="f.id">
-                                        <button type="button" class="group relative rounded-lg border border-slate-200 p-1 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700/30"
+                                        <button type="button"
+                                                class="group relative rounded-lg border border-slate-200 p-1 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700/30"
                                                 @click="openGallery(i)">
                                             <img :src="photoSrc(f)" alt="Foto del vehículo"
                                                  class="h-32 w-full rounded object-cover transition group-hover:opacity-90 cursor-zoom-in">
@@ -415,8 +470,9 @@
                             <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-700">
                                 <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Tanques de combustible</h4>
                                 <a :href="selected ? `{{ url('/vehiculos') }}/${selected.id}/tanques/create` : '#'"
-                                   class="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
-                                    + Agregar
+                                   class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
+                                    <span class="material-symbols-outlined"> add_circle </span>
+                                    Agregar
                                 </a>
                             </div>
 
@@ -455,19 +511,20 @@
             </div>
         </div>
 
-        {{-- ===== Lightbox global para fotos (sobre todo) ===== --}}
+        {{-- ===== Lightbox global para fotos ===== --}}
         <div
             x-cloak
             x-show="galleryOpen"
             x-transition.opacity
             class="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4"
             @click.self="galleryOpen=false"
-            @keydown.window.prevent.stop="
-                if(!galleryOpen) return;
-                if($event.key==='Escape') galleryOpen=false;
-                if($event.key==='ArrowRight') nextPhoto();
-                if($event.key==='ArrowLeft')  prevPhoto();
-            "
+            {{-- Importante: no bloqueamos escritura en inputs fuera del lightbox --}}
+            @keydown.window="if (galleryOpen) {
+                if ($event.key==='Escape') { galleryOpen=false; }
+                else if ($event.key==='ArrowRight') { nextPhoto(); }
+                else if ($event.key==='ArrowLeft') { prevPhoto(); }
+                $event.preventDefault(); $event.stopPropagation();
+            }"
             role="dialog" aria-modal="true"
         >
             <div class="relative max-h-[90vh] w-full max-w-6xl">
@@ -476,9 +533,7 @@
                     @click="galleryOpen=false"
                     class="absolute -top-10 right-0 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-sm font-medium text-slate-700 shadow hover:bg-white"
                     aria-label="Cerrar">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/>
-                    </svg>
+                    <span class="material-symbols-outlined"> close </span>
                     Cerrar
                 </button>
 
@@ -487,9 +542,7 @@
                     @click.stop="prevPhoto()"
                     class="absolute left-0 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow hover:bg-white"
                     aria-label="Anterior">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"/>
-                    </svg>
+                    <span class="material-symbols-outlined"> chevron_left </span>
                 </button>
 
                 {{-- Next --}}
@@ -497,9 +550,7 @@
                     @click.stop="nextPhoto()"
                     class="absolute right-0 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow hover:bg-white"
                     aria-label="Siguiente">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7"/>
-                    </svg>
+                    <span class="material-symbols-outlined"> chevron_right </span>
                 </button>
 
                 <div class="flex justify-center">
@@ -519,107 +570,111 @@
 
     {{-- Alpine helpers --}}
     <script>
-function vehiculosModal() {
-    return {
-        open: false,
-        drawerOpen: false,
-        selected: null,
+    function vehiculosModal() {
+        return {
+            open: false,
+            drawerOpen: false,
+            selected: null,
 
-        // Lightbox
-        galleryOpen: false,
-        galleryIndex: 0,
+            // Lightbox
+            galleryOpen: false,
+            galleryIndex: 0,
 
-        // Rutas base para servir imágenes privadas
-        basePhotosUrl: "{{ url('/vehiculos/fotos') }}",
+            // Rutas base para servir imágenes privadas
+            basePhotosUrl: "{{ url('/vehiculos/fotos') }}",
 
-        // Tamaños disponibles del slide-over
-        sizes: ['sm','md','lg','xl','full'],
-        size: 'lg', // tamaño por defecto
+            // Tamaños disponibles del slide-over
+            sizes: ['sm','md','lg','xl','full'],
+            size: 'lg', // tamaño por defecto
 
-        init() {},
+            init() {},
 
-        // Clases tailwind para cada tamaño
-        sizeClass() {
-            switch (this.size) {
-                case 'sm':   return 'w-full max-w-md';
-                case 'md':   return 'w-full max-w-2xl';
-                case 'lg':   return 'w-full max-w-3xl';
-                case 'xl':   return 'w-full max-w-5xl';
-                case 'full': return 'w-screen max-w-none';
+            // Clases tailwind para cada tamaño
+            sizeClass() {
+                switch (this.size) {
+                    case 'sm':   return 'w-full max-w-md';
+                    case 'md':   return 'w-full max-w-2xl';
+                    case 'lg':   return 'w-full max-w-3xl';
+                    case 'xl':   return 'w-full max-w-5xl';
+                    case 'full': return 'w-screen max-w-none';
+                }
+            },
+            expand() {
+                const i = this.sizes.indexOf(this.size);
+                if (i < this.sizes.length - 1) this.size = this.sizes[i + 1];
+            },
+            shrink() {
+                const i = this.sizes.indexOf(this.size);
+                if (i > 0) this.size = this.sizes[i - 1];
+            },
+            toggleFull() {
+                this.size = this.size === 'full' ? 'xl' : 'full';
+            },
+
+            fmt(v) { return (v ?? '') !== '' ? v : '—'; },
+            fmtDate(v) {
+                if(!v) return '—';
+                const d = new Date(v);
+                if (isNaN(d)) return v;
+                return d.toLocaleDateString('es-MX', { year:'numeric', month:'2-digit', day:'2-digit' });
+            },
+            fmtNum(n) {
+                if (n === null || n === undefined || n === '') return '—';
+                const num = Number(n);
+                if (isNaN(num)) return '—';
+                return num.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            },
+            fmtMoney(n) {
+                if (n === null || n === undefined || n === '') return '—';
+                const num = Number(n);
+                if (isNaN(num)) return '—';
+                return num.toLocaleString('es-MX', { style:'currency', currency:'MXN' });
+            },
+
+            // --- Fotos ---
+            photoSrc(foto) {
+                const id = (typeof foto === 'object') ? foto.id : foto;
+                return `${this.basePhotosUrl}/${id}`;
+            },
+            openGallery(i = 0) {
+                if (!this.selected?.fotos || this.selected.fotos.length === 0) return;
+                this.galleryIndex = Math.max(0, Math.min(i, this.selected.fotos.length - 1));
+                this.galleryOpen = true;
+            },
+            currentPhotoSrc() {
+                if (!this.selected?.fotos || this.selected.fotos.length === 0) return '';
+                const f = this.selected.fotos[this.galleryIndex];
+                return this.photoSrc(f);
+            },
+            nextPhoto() {
+                if (!this.selected?.fotos || this.selected.fotos.length === 0) return;
+                this.galleryIndex = (this.galleryIndex + 1) % this.selected.fotos.length;
+            },
+            prevPhoto() {
+                if (!this.selected?.fotos || this.selected.fotos.length === 0) return;
+                this.galleryIndex = (this.galleryIndex - 1 + this.selected.fotos.length) % this.selected.fotos.length;
+            },
+
+            // --- Modal principal ---
+            showVehicle(v) {
+                this.selected = v || {};
+                if (!Array.isArray(this.selected.fotos)) this.selected.fotos = [];
+                if (!Array.isArray(this.selected.tanques)) this.selected.tanques = [];
+                this.drawerOpen = true;
+            },
+            close() {
+                this.drawerOpen = false;
+                this.galleryOpen = false;
+                this.selected = null;
             }
-        },
-        expand() {
-            const i = this.sizes.indexOf(this.size);
-            if (i < this.sizes.length - 1) this.size = this.sizes[i + 1];
-        },
-        shrink() {
-            const i = this.sizes.indexOf(this.size);
-            if (i > 0) this.size = this.sizes[i - 1];
-        },
-        toggleFull() {
-            this.size = this.size === 'full' ? 'xl' : 'full';
-        },
-
-        fmt(v) { return (v ?? '') !== '' ? v : '—'; },
-        fmtDate(v) {
-            if(!v) return '—';
-            const d = new Date(v);
-            if (isNaN(d)) return v;
-            return d.toLocaleDateString('es-MX', { year:'numeric', month:'2-digit', day:'2-digit' });
-        },
-        fmtNum(n) {
-            if (n === null || n === undefined || n === '') return '—';
-            const num = Number(n);
-            if (isNaN(num)) return '—';
-            return num.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        },
-        fmtMoney(n) {
-            if (n === null || n === undefined || n === '') return '—';
-            const num = Number(n);
-            if (isNaN(num)) return '—';
-            return num.toLocaleString('es-MX', { style:'currency', currency:'MXN' });
-        },
-
-        // --- Fotos ---
-        photoSrc(foto) {
-            // acepta objeto {id,...} o id numérico
-            const id = (typeof foto === 'object') ? foto.id : foto;
-            return `${this.basePhotosUrl}/${id}`;
-        },
-        openGallery(i = 0) {
-            if (!this.selected?.fotos || this.selected.fotos.length === 0) return;
-            this.galleryIndex = Math.max(0, Math.min(i, this.selected.fotos.length - 1));
-            this.galleryOpen = true;
-        },
-        currentPhotoSrc() {
-            if (!this.selected?.fotos || this.selected.fotos.length === 0) return '';
-            const f = this.selected.fotos[this.galleryIndex];
-            return this.photoSrc(f);
-        },
-        nextPhoto() {
-            if (!this.selected?.fotos || this.selected.fotos.length === 0) return;
-            this.galleryIndex = (this.galleryIndex + 1) % this.selected.fotos.length;
-        },
-        prevPhoto() {
-            if (!this.selected?.fotos || this.selected.fotos.length === 0) return;
-            this.galleryIndex = (this.galleryIndex - 1 + this.selected.fotos.length) % this.selected.fotos.length;
-        },
-
-        // --- Modal principal ---
-        showVehicle(v) {
-            // v proviene de $v->toArray() e incluye relaciones cargadas con ->with(['tanques','fotos','tarjetaSiVale'])
-            this.selected = v || {};
-            if (!Array.isArray(this.selected.fotos)) this.selected.fotos = []; // fallback seguro
-            if (!Array.isArray(this.selected.tanques)) this.selected.tanques = [];
-            this.drawerOpen = true;
-        },
-        close() {
-            this.drawerOpen = false;
-            this.galleryOpen = false;
-            this.selected = null;
         }
     }
-}
-</script>
+    </script>
 
+    {{-- Footer --}}
+    <footer class="py-8">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500">
+            © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+        </div>
+    </footer>
 </x-app-layout>

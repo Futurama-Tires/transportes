@@ -1,6 +1,6 @@
 {{-- resources/views/cargas_combustible/index.blade.php --}}
 <x-app-layout>
-    {{-- Para evitar FOUC en Alpine --}}
+    {{-- Evitar FOUC en Alpine --}}
     <style>[x-cloak]{display:none!important}</style>
 
     {{-- Header --}}
@@ -12,9 +12,7 @@
             <a href="{{ route('cargas.create') }}"
                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
                 {{-- plus icon --}}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/>
-                </svg>
+                <span class="material-symbols-outlined"> add_box </span>
                 Nueva Carga
             </a>
         </div>
@@ -50,9 +48,7 @@
                     <div class="flex w-full items-center gap-2">
                         {{-- Búsqueda global --}}
                         <div class="flex w-full items-center rounded-full bg-white px-4 py-2 shadow-md ring-1 ring-gray-200 focus-within:ring dark:bg-slate-800 dark:ring-slate-700">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
-                            </svg>
+                            <span class="material-symbols-outlined text-gray-400">search</span>
                             <input
                                 type="text"
                                 name="search"
@@ -66,43 +62,34 @@
                         {{-- Botón Buscar --}}
                         <button type="submit"
                                 class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
-                            </svg>
+                            <span class="material-symbols-outlined">search</span>
                             Buscar
                         </button>
                     </div>
 
-                    {{-- DERECHA: Excel, PDF y botón Filtros (abre panel abajo) --}}
+                    {{-- DERECHA: Excel, PDF y botón Filtros --}}
                     <div class="flex flex-wrap items-center gap-2">
                         {{-- Excel --}}
                         <a href="#"
-                           class="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                <path d="M19 2H8a2 2 0 0 0-2 2v3h6a2 2 0 0 1 2 2v9h5a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z"/>
-                                <path d="M3 9h9a1 1 0 0 1 1 1v10H5a2 2 0 0 1-2-2V9Zm6.8 7.5-.9-1.4-.9 1.4H6.1l1.6-2.4L6.1 12.7h1.9l.9 1.4.9-1.4h1.9l-1.6 2.4 1.6 2.4H9.8Z"/>
-                            </svg>
+                           class="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                           title="Exportar a Excel">
+                            <span class="material-symbols-outlined">border_all</span>
                             Excel
                         </a>
 
                         {{-- PDF --}}
                         <a href="#"
-                           class="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v14a4 4 0 0 0 4 4h8a2 2 0 0 0 2-2V6l-4-4Z"/>
-                                <path d="M14 2v4a2 2 0 0 0 2 2h4M7.5 15H9a1.5 1.5 0 0 0 0-3H7.5v3Zm0 0v2m5.5-5h-1v5h1m0-3h1a2 2 0 1 0 0-4h-1v2Z"/>
-                            </svg>
+                           class="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                           title="Exportar a PDF">
+                            <span class="material-symbols-outlined">article</span>
                             PDF
                         </a>
 
-                        {{-- Botón para mostrar/ocultar filtros (abre panel hacia abajo) --}}
+                        {{-- Botón filtros --}}
                         <button type="button"
                                 @click="open = !open"
                                 class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" :class="{'rotate-180': open}" class="h-4 w-4 transition-transform"
-                                 viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11l3.71-3.77a.75.75 0 111.08 1.04l-4.25 4.33a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                            </svg>
+                            <span class="material-symbols-outlined" :class="open ? 'rotate-180 transition-transform' : ''">tune</span>
                             Filtros
                             @if($activeCount>0)
                                 <span class="ml-1 inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
@@ -113,11 +100,38 @@
                     </div>
                 </div>
 
-                {{-- PANEL COLAPSABLE DE FILTROS (aparece DEBAJO) --}}
+                {{-- Resumen (cuando hay búsqueda) --}}
+                @if(request('search'))
+                    @php
+                        $total = $cargas->total();
+                        $first = $cargas->firstItem();
+                        $last  = $cargas->lastItem();
+                        $current = $cargas->currentPage();
+                        $lastPage = $cargas->lastPage();
+                    @endphp
+                    <div class="mb-4 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+                        <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                            <span class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700 dark:bg-slate-700 dark:text-slate-100">Filtro</span>
+                            <span class="font-medium">“{{ request('search') }}”</span>
+                        </div>
+
+                        <div class="text-sm text-slate-600 dark:text-slate-300">
+                            @if($total === 1)
+                                Resultado <span class="font-semibold">(1 de 1)</span>
+                            @elseif($total > 1)
+                                Página <span class="font-semibold">{{ $current }}</span> de <span class="font-semibold">{{ $lastPage }}</span> —
+                                Mostrando <span class="font-semibold">{{ $first }}–{{ $last }}</span> de <span class="font-semibold">{{ $total }}</span> resultados
+                            @else
+                                Sin resultados para la búsqueda.
+                            @endif
+                        </div>
+                    </div>
+                @endif
+
+                {{-- PANEL DE FILTROS (debajo) --}}
                 <div x-show="open" x-transition
                      class="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
                     <div class="space-y-4">
-
                         {{-- Grupo: Principales --}}
                         <div>
                             <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Principales</h4>
@@ -276,9 +290,7 @@
                             </a>
                             <button type="submit"
                                     class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
-                                </svg>
+                                <span class="material-symbols-outlined">filter_alt</span>
                                 Aplicar filtros
                             </button>
                         </div>
@@ -286,13 +298,14 @@
                 </div>
             </form>
 
-            {{-- Tabla --}}
+            {{-- Tabla (TODOS LOS CAMPOS) --}}
             <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-left text-sm">
                         <thead class="bg-slate-50 text-slate-600 dark:bg-slate-900/40 dark:text-slate-300">
                             <tr class="text-xs uppercase tracking-wide">
-                                <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">Fecha</th>
+                                <th class="sticky left-0 z-10 border-b border-slate-200 bg-slate-50 px-4 py-3 font-semibold dark:border-slate-700 dark:bg-slate-900/40">Fecha</th>
+                                <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">ID</th>
                                 <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">Vehículo</th>
                                 <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">Operador</th>
                                 <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">Tipo</th>
@@ -302,8 +315,12 @@
                                 <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">Rend.</th>
                                 <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">KM Ini</th>
                                 <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">KM Fin</th>
+                                <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">KM Rec.</th>
                                 <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">Ubicación</th>
-                                <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700 text-right"><span class="sr-only">Acciones</span>Acciones</th>
+                                <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">Destino</th>
+                                <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">Custodio</th>
+                                <th class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">Observaciones</th>
+                                <th class="border-b border-slate-200 px-4 py-3 font-semibold text-right dark:border-slate-700"><span class="sr-only">Acciones</span>Acciones</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
@@ -312,32 +329,56 @@
                                     $veh = $c->vehiculo;
                                     $ope = $c->operador;
                                     $nombreOperador = $ope ? trim(($ope->nombre ?? '').' '.($ope->apellido_paterno ?? '').' '.($ope->apellido_materno ?? '')) : '—';
+                                    $kmRec = (is_numeric($c->km_final ?? null) && is_numeric($c->km_inicial ?? null))
+                                            ? ((int)$c->km_final - (int)$c->km_inicial) : null;
+                                    $obs = $c->observaciones ?? $c->comentarios ?? null;
                                 @endphp
                                 <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-700/40">
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-800 dark:text-slate-100">
+                                    <td class="sticky left-0 z-10 whitespace-nowrap bg-white px-4 py-3 text-slate-800 dark:bg-slate-800 dark:text-slate-100">
                                         {{ \Illuminate\Support\Carbon::parse($c->fecha)->format('Y-m-d') }}
                                     </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">#{{ $c->id }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
                                         {{ $veh->unidad ?? '—' }} @if(($veh->placa ?? null)) <span class="text-slate-500">({{ $veh->placa }})</span> @endif
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $nombreOperador }}</td>
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $c->tipo_combustible }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ number_format($c->litros, 3) }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">${{ number_format($c->precio, 2) }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">${{ number_format($c->total, 2) }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $c->rendimiento }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $c->km_inicial }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $c->km_final }}</td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $c->ubicacion }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ number_format((float)($c->litros ?? 0), 3) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">${{ number_format((float)($c->precio ?? 0), 2) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">${{ number_format((float)($c->total ?? 0), 2) }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
+                                        @if(!is_null($c->rendimiento)) {{ number_format((float)$c->rendimiento, 2) }} @else — @endif
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $c->km_inicial ?? '—' }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $c->km_final ?? '—' }}</td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
+                                        @if(!is_null($kmRec)) {{ $kmRec }} @else — @endif
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $c->ubicacion ?? '—' }}</td>
+                                    <td class="px-4 py-3 text-slate-700 dark:text-slate-200">
+                                        <div class="max-w-[16rem] truncate" title="{{ $c->destino }}">{{ $c->destino ?? '—' }}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-slate-700 dark:text-slate-200">
+                                        <div class="max-w-[12rem] truncate" title="{{ $c->custodio }}">{{ $c->custodio ?? '—' }}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-slate-700 dark:text-slate-200">
+                                        <div class="max-w-[24rem] line-clamp-2" title="{{ $obs }}">{{ $obs ?? '—' }}</div>
+                                    </td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-end gap-2">
+                                            {{-- Ver (si no hay show, apunta a edit) --}}
+                                            <a href="{{ route('cargas.edit', $c->id) }}"
+                                               class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                                               aria-label="Ver carga #{{ $c->id }}">
+                                                <span class="material-symbols-outlined">visibility</span>
+                                                Ver
+                                            </a>
+
                                             {{-- Editar --}}
                                             <a href="{{ route('cargas.edit', $c->id) }}"
                                                class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                                                aria-label="Editar carga #{{ $c->id }}">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232 18.768 8.768M4 20l4.586-1.146a2 2 0 0 0 .894-.514l9.94-9.94a2 2 0 0 0 0-2.828l-1.792-1.792a2 2 0 0 0-2.828 0l-9.94 9.94a2 2 0 0 0-.514.894L4 20z"/>
-                                                </svg>
+                                                <span class="material-symbols-outlined">edit</span>
                                                 Editar
                                             </a>
 
@@ -349,9 +390,7 @@
                                                 <button type="submit"
                                                         class="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
                                                         aria-label="Eliminar carga #{{ $c->id }}">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-1-3H10a1 1 0 0 0-1 1v2h8V5a1 1 0 0 0-1-1z"/>
-                                                    </svg>
+                                                    <span class="material-symbols-outlined">delete</span>
                                                     Eliminar
                                                 </button>
                                             </form>
@@ -360,7 +399,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="12" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
+                                    <td colspan="16" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
                                         @if(request()->hasAny(['search','vehiculo_id','operador_id','ubicacion','tipo_combustible','from','to','litros_min','litros_max','precio_min','precio_max','total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max','destino','custodio']))
                                             No se encontraron resultados con los filtros aplicados.
                                             <a href="{{ route('cargas.index') }}" class="text-indigo-600 hover:text-indigo-800">Limpiar filtros</a>

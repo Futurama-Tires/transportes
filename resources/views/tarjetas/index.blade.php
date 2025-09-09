@@ -1,5 +1,7 @@
 {{-- resources/views/tarjetas/index.blade.php --}}
 <x-app-layout>
+    <style>[x-cloak]{display:none!important}</style>
+
     {{-- Header --}}
     <x-slot name="header">
         <div class="flex items-center justify-between">
@@ -8,10 +10,7 @@
             </h2>
             <a href="{{ route('tarjetas.create') }}"
                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
-                {{-- plus icon --}}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/>
-                </svg>
+                <span class="material-symbols-outlined"> add_box </span>
                 Nueva Tarjeta
             </a>
         </div>
@@ -19,7 +18,6 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-
             {{-- Flash éxito --}}
             @if(session('success'))
                 <div class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900/40 dark:bg-green-900/30 dark:text-green-100">
@@ -27,58 +25,86 @@
                 </div>
             @endif
 
-            {{-- Barra superior: búsqueda + exportaciones --}}
+            {{-- Barra superior: búsqueda + orden + exportaciones --}}
             <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                {{-- Buscador --}}
-                <form method="GET" action="{{ route('tarjetas.index') }}" class="w-full lg:w-1/2">
-                    <div class="flex w-full items-center rounded-full border border-slate-300 bg-white px-3 py-2 shadow-sm ring-indigo-300 focus-within:ring dark:border-slate-700 dark:bg-slate-800">
-                        {{-- search icon --}}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
-                        </svg>
-                        <input
-                            type="text"
-                            name="search"
-                            value="{{ request('search') }}"
-                            placeholder="Buscar por número, NIP o vencimiento…"
-                            class="w-full bg-transparent text-sm placeholder-slate-400 focus:outline-none dark:text-slate-100"
-                            aria-label="Buscar tarjetas"
-                        />
-                        @if(request('search'))
-                            <a href="{{ route('tarjetas.index') }}"
-                               class="ml-2 inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
-                               title="Limpiar búsqueda">
-                                Limpiar
-                            </a>
-                        @endif
+                {{-- Buscador + orden (crece más) --}}
+                <form method="GET" action="{{ route('tarjetas.index') }}" class="w-full lg:w-3/4 xl:w-4/5">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        {{-- Buscador redondeado --}}
+                        <div class="flex w-full sm:flex-1 items-center rounded-full bg-white px-4 py-2 shadow-md ring-1 ring-gray-200 focus-within:ring dark:bg-slate-800 dark:ring-slate-700">
+                            <span class="material-symbols-outlined"> search </span>
+                            <input
+                                type="text"
+                                name="search"
+                                value="{{ request('search') }}"
+                                placeholder="Buscar por número, NIP o vencimiento…"
+                                class="ml-3 w-full flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-slate-400"
+                                aria-label="Buscar tarjetas"
+                            />
+                            @if(request('search'))
+                                <a href="{{ route('tarjetas.index') }}"
+                                   class="ml-2 inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600"
+                                   title="Limpiar búsqueda">
+                                    Limpiar
+                                </a>
+                            @endif
+                        </div>
+
+                        {{-- Botón Buscar --}}
                         <button type="submit"
-                                class="ml-2 inline-flex items-center rounded-full bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                            <span class="material-symbols-outlined"> search </span>
                             Buscar
                         </button>
+
+                        {{-- Selects de orden --}}
+                        <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                            <div class="relative w-full sm:w-48">
+                                <select
+                                    name="sort_by"
+                                    class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                    onchange="this.form.submit()"
+                                    title="Ordenar por"
+                                >
+                                    <option value="numero_tarjeta" @selected(request('sort_by','numero_tarjeta')==='numero_tarjeta')>Número de Tarjeta</option>
+                                    <option value="fecha_vencimiento" @selected(request('sort_by')==='fecha_vencimiento')>Fecha de Vencimiento</option>
+                                </select>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+
+                            <div class="relative w-full sm:w-36">
+                                <select
+                                    name="sort_dir"
+                                    class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
+                                    onchange="this.form.submit()"
+                                    title="Dirección"
+                                >
+                                    <option value="asc"  @selected(request('sort_dir','asc')==='asc')>Ascendente</option>
+                                    <option value="desc" @selected(request('sort_dir')==='desc')>Descendente</option>
+                                </select>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
                     </div>
                 </form>
 
                 {{-- Botones de exportación (placeholders) --}}
                 <div class="flex flex-wrap items-center gap-2">
-                    {{-- Excel --}}
                     <a href="#"
                        class="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
                        title="Exportar a Excel">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M19 2H8a2 2 0 0 0-2 2v3h6a2 2 0 0 1 2 2v9h5a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z"/>
-                            <path d="M3 9h9a1 1 0 0 1 1 1v10H5a2 2 0 0 1-2-2V9Zm6.8 7.5-.9-1.4-.9 1.4H6.1l1.6-2.4L6.1 12.7h1.9l.9 1.4.9-1.4h1.9l-1.6 2.4 1.6 2.4H9.8Z"/>
-                        </svg>
+                        <span class="material-symbols-outlined"> grid_on </span>
                         Excel
                     </a>
 
-                    {{-- PDF --}}
                     <a href="#"
                        class="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
                        title="Exportar a PDF">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v14a4 4 0 0 0 4 4h8a2 2 0 0 0 2-2V6l-4-4Z"/>
-                            <path d="M14 2v4a2 2 0 0 0 2 2h4M7.5 15H9a1.5 1.5 0 0 0 0-3H7.5v3Zm0 0v2m5.5-5h-1v5h1m0-3h1a2 2 0 1 0 0-4h-1v2Z"/>
-                        </svg>
+                        <span class="material-symbols-outlined"> picture_as_pdf </span>
                         PDF
                     </a>
                 </div>
@@ -128,6 +154,9 @@
                                 <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
                                     Fecha de Vencimiento
                                 </th>
+                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
+                                    Estado
+                                </th>
                                 <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold text-right dark:border-slate-700">
                                     <span class="sr-only">Acciones</span>Acciones
                                 </th>
@@ -135,6 +164,26 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                             @forelse ($tarjetas as $tarjeta)
+                                @php
+                                    $fv = $tarjeta->fecha_vencimiento ? \Carbon\Carbon::parse($tarjeta->fecha_vencimiento) : null;
+                                    $hoy = \Carbon\Carbon::today();
+                                    $estado = '—';
+                                    $badgeClasses = 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-100';
+                                    if ($fv) {
+                                        if ($fv->isPast()) {
+                                            $estado = 'Vencida';
+                                            $badgeClasses = 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-100';
+                                        } elseif ($fv->diffInDays($hoy, false) >= -30 && $fv->greaterThanOrEqualTo($hoy)) {
+                                            $estado = 'Por vencer';
+                                            $badgeClasses = 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100';
+                                        } else {
+                                            $estado = 'Vigente';
+                                            $badgeClasses = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100';
+                                        }
+                                    }
+                                    $nip = $tarjeta->nip ?? '—';
+                                    $hasNip = $nip !== '—' && $nip !== '';
+                                @endphp
                                 <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-700/40">
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-800 dark:text-slate-100 font-mono tracking-wider">
                                         {{ $tarjeta->numero_tarjeta }}
@@ -142,41 +191,42 @@
 
                                     {{-- NIP + toggle por fila --}}
                                     <td class="px-4 py-3 text-slate-700 dark:text-slate-200">
-                                        @php
-                                            $nip = $tarjeta->nip ?? '—';
-                                            $hasNip = $nip !== '—' && $nip !== '';
-                                        @endphp
                                         <div class="flex items-center gap-3">
-                                            <span
-                                                class="nip-field font-mono"
-                                                data-real="{{ $hasNip ? e($nip) : '' }}">
+                                            <span class="nip-field font-mono" data-real="{{ $hasNip ? e($nip) : '' }}">
                                                 {{ $hasNip ? '••••' : '—' }}
                                             </span>
-
                                             @if($hasNip)
                                                 <button
                                                     type="button"
-                                                    class="toggle-nip text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
-                                                    aria-label="Mostrar NIP">
+                                                    class="toggle-nip inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:hover:bg-slate-700"
+                                                    aria-label="Mostrar NIP" title="Mostrar NIP">
+                                                    <span class="material-symbols-outlined text-sm"> visibility </span>
                                                     Mostrar
                                                 </button>
                                             @endif
                                         </div>
                                     </td>
 
+                                    {{-- Vencimiento --}}
                                     <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
-                                        {{ $tarjeta->fecha_vencimiento ? \Carbon\Carbon::parse($tarjeta->fecha_vencimiento)->format('d/m/Y') : '—' }}
+                                        {{ $fv ? $fv->format('d/m/Y') : '—' }}
                                     </td>
 
+                                    {{-- Estado con badge --}}
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $badgeClasses }}">
+                                            {{ $estado }}
+                                        </span>
+                                    </td>
+
+                                    {{-- Acciones --}}
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-end gap-2">
                                             {{-- Editar --}}
                                             <a href="{{ route('tarjetas.edit', $tarjeta) }}"
                                                class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                                               aria-label="Editar tarjeta {{ $tarjeta->id }}">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232 18.768 8.768M4 20l4.586-1.146a2 2 0 0 0 .894-.514l9.94-9.94a2 2 0 0 0 0-2.828l-1.792-1.792a2 2 0 0 0-2.828 0l-9.94 9.94a2 2 0 0 0-.514.894L4 20z"/>
-                                                </svg>
+                                               aria-label="Editar tarjeta {{ $tarjeta->id }}" title="Editar">
+                                                <span class="material-symbols-outlined"> edit </span>
                                                 Editar
                                             </a>
 
@@ -189,10 +239,8 @@
                                                 @method('DELETE')
                                                 <button type="submit"
                                                         class="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                                                        aria-label="Eliminar tarjeta {{ $tarjeta->id }}">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-1-3H10a1 1 0 0 0-1 1v2h8V5a1 1 0 0 0-1-1z"/>
-                                                    </svg>
+                                                        aria-label="Eliminar tarjeta {{ $tarjeta->id }}" title="Eliminar">
+                                                    <span class="material-symbols-outlined"> delete </span>
                                                     Eliminar
                                                 </button>
                                             </form>
@@ -201,7 +249,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
+                                    <td colspan="5" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
                                         @if(request('search'))
                                             No se encontraron resultados para <span class="font-semibold">“{{ request('search') }}”</span>.
                                             <a href="{{ route('tarjetas.index') }}" class="text-indigo-600 hover:text-indigo-800">Limpiar búsqueda</a>
@@ -239,11 +287,14 @@
                     </p>
 
                     <div class="w-full sm:w-auto">
-                        {{ $tarjetas->appends(['search' => request('search')])->links() }}
+                        {{ $tarjetas->appends([
+                            'search'   => request('search'),
+                            'sort_by'  => request('sort_by'),
+                            'sort_dir' => request('sort_dir'),
+                        ])->links() }}
                     </div>
                 </div>
             @endif
-
         </div>
     </div>
 
@@ -257,7 +308,6 @@
     {{-- Script: toggle por fila (oculto = siempre "••••") --}}
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // Delegación de eventos para manejar cualquier botón "Mostrar/Ocultar"
             document.body.addEventListener("click", function(e) {
                 const btn = e.target.closest(".toggle-nip");
                 if (!btn) return;
@@ -271,12 +321,14 @@
                 const isHidden = field.textContent.trim() === "••••";
                 if (isHidden) {
                     field.textContent = real;
-                    btn.textContent = "Ocultar";
+                    btn.innerHTML = '<span class="material-symbols-outlined text-sm"> visibility_off </span> Ocultar';
                     btn.setAttribute("aria-label", "Ocultar NIP");
+                    btn.setAttribute("title", "Ocultar NIP");
                 } else {
                     field.textContent = "••••";
-                    btn.textContent = "Mostrar";
+                    btn.innerHTML = '<span class="material-symbols-outlined text-sm"> visibility </span> Mostrar';
                     btn.setAttribute("aria-label", "Mostrar NIP");
+                    btn.setAttribute("title", "Mostrar NIP");
                 }
             });
         });
