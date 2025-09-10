@@ -1,263 +1,314 @@
+{{-- resources/views/operadores/index.blade.php — versión Tabler (acciones separadas y filtros en offcanvas) --}}
 <x-app-layout>
-    {{-- Header --}}
+    {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
+    @vite(['resources/js/app.js'])
+
+    @php
+        // Cuenta de filtros activos (excluye búsqueda, orden y paginación)
+        $ignored = ['search','page','sort_by','sort_dir'];
+        $activeFilters = collect(request()->query())->filter(function($v,$k) use ($ignored){
+            if (in_array($k,$ignored)) return false;
+            if (is_array($v)) return collect($v)->filter(fn($x)=>$x!==null && $x!=='')->isNotEmpty();
+            return $v !== null && $v !== '';
+        });
+        $activeCount = $activeFilters->count();
+    @endphp
+
+    {{-- HEADER --}}
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                Gestión de Operadores
-            </h2>
-            <a href="{{ route('operadores.create') }}"
-               class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
-                {{-- plus icon --}}
-                <span class="material-symbols-outlined"> add_box </span>
-                Agregar Nuevo Operador
-            </a>
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <h2 class="page-title mb-0">Gestión de Operadores</h2>
+                        <div class="text-secondary small mt-1">Consulta, filtra y gestiona a tus operadores.</div>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <a href="{{ route('operadores.create') }}" class="btn btn-primary">
+                            <i class="ti ti-plus me-1"></i>
+                            Agregar Nuevo Operador
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
     </x-slot>
 
-    <div class="py-8">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="page-body">
+        <div class="container-xl">
 
-            {{-- Flash éxito --}}
+            {{-- FLASH ÉXITO --}}
             @if(session('success'))
-                <div class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900/40 dark:bg-green-900/30 dark:text-green-100">
-                    {{ session('success') }}
+                <div class="alert alert-success" role="alert">
+                    <i class="ti ti-check me-2"></i>{{ session('success') }}
                 </div>
             @endif
 
-            {{-- Barra superior: búsqueda + exportaciones --}}
-            <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                {{-- Buscador + Filtros (w-full en mobile, w-1/2 en desktop) --}}
-                <form method="GET" action="{{ route('operadores.index') }}" class="w-full lg:w-3/4 xl:w-4/5">
-    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-        {{-- Contenedor del buscador (más largo) --}}
-        <div class="flex w-full sm:flex-1 items-center rounded-full bg-white px-4 py-2 shadow-md ring-1 ring-gray-200 focus-within:ring dark:bg-slate-800 dark:ring-slate-700">
-            <span class="material-symbols-outlined">
-                search
-            </span>
-            <input
-                type="text"
-                name="search"
-                value="{{ request('search') }}"
-                placeholder="Buscar..."
-                class="ml-3 w-full flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-slate-400"
-            />
-        </div>
+            {{-- FORM GLOBAL (GET) --}}
+            <form method="GET" action="{{ route('operadores.index') }}">
 
-        {{-- Botón Buscar --}}
-        <button type="submit"
-                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-            <span class="material-symbols-outlined"> search </span>
-            Buscar
-        </button>
+                {{-- TOOLBAR: búsqueda + acciones rápidas --}}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row g-2 align-items-center">
+                            {{-- Búsqueda global --}}
+                            <div class="col-12 col-xl">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="ti ti-search"></i></span>
+                                    <input type="text"
+                                           name="search"
+                                           value="{{ request('search') }}"
+                                           class="form-control"
+                                           placeholder="Buscar por nombre, apellidos, correo…"
+                                           aria-label="Búsqueda global">
+                                    <button class="btn btn-primary" type="submit">
+                                        <i class="ti ti-search me-1"></i>Buscar
+                                    </button>
+                                </div>
+                            </div>
 
-        {{-- Selects fijos (el buscador crece más) --}}
-        <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <div class="relative w-full sm:w-44">
-                <select
-                    name="sort_by"
-                    class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                    onchange="this.form.submit()"
-                    title="Ordenar por"
-                >
-                    <option value="nombre_completo" @selected(request('sort_by','nombre_completo')==='nombre_completo')>Nombre completo</option>
-                    <option value="email" @selected(request('sort_by')==='email')>Correo electrónico</option>
-                </select>
-                <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                </svg>
-            </div>
+                            {{-- Acciones --}}
+                            <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="ti ti-download me-1"></i>Exportar
+                                    </button>
+                                    <div class="dropdown-menu dropdown-menu-end">
+                                        <a class="dropdown-item" href="#"><i class="ti ti-file-spreadsheet me-2"></i>Excel</a>
+                                        <a class="dropdown-item" href="#"><i class="ti ti-file-description me-2"></i>PDF</a>
+                                    </div>
+                                </div>
 
-            <div class="relative w-full sm:w-36">
-                <select
-                    name="sort_dir"
-                    class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                    onchange="this.form.submit()"
-                    title="Dirección"
-                >
-                    <option value="asc"  @selected(request('sort_dir','asc')==='asc')>Ascendente</option>
-                    <option value="desc" @selected(request('sort_dir')==='desc')>Descendente</option>
-                </select>
-                <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                </svg>
-            </div>
-        </div>
+                                {{-- Botón Filtros (abre Offcanvas) --}}
+                                <button type="button"
+                                        class="btn btn-outline-secondary position-relative"
+                                        data-bs-toggle="offcanvas"
+                                        data-bs-target="#filtersOffcanvas"
+                                        aria-controls="filtersOffcanvas">
+                                    <i class="ti ti-adjustments"></i>
+                                    <span class="ms-2">Filtros</span>
+                                    @if($activeCount>0)
+                                        <span class="badge bg-primary ms-2">{{ $activeCount }}</span>
+                                    @endif
+                                </button>
+                            </div>
+                        </div>
 
-        
-    </div>
-</form>
-
-
-                {{-- Botones de exportación (placeholders) --}}
-                <div class="flex flex-wrap items-center gap-2">
-                    {{-- Excel --}}
-                    <a href="#"
-                       class="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                       title="Exportar a Excel">
-                        <span class="material-symbols-outlined"> border_all </span>
-                        Excel
-                    </a>
-
-                    {{-- PDF --}}
-                    <a href="#"
-                       class="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                       title="Exportar a PDF">
-                        <span class="material-symbols-outlined"> article </span>
-                        PDF
-                    </a>
-                </div>
-            </div>
-
-            {{-- Resumen (cuando hay búsqueda) --}}
-            @if(request('search'))
-                <div class="mb-4 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-                    <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                        <span class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700 dark:bg-slate-700 dark:text-slate-100">Filtro</span>
-                        <span class="font-medium">“{{ request('search') }}”</span>
-                    </div>
-
-                    @php
-                        $total = $operadores->total();
-                        $first = $operadores->firstItem();
-                        $last  = $operadores->lastItem();
-                        $current = $operadores->currentPage();
-                        $lastPage = $operadores->lastPage();
-                    @endphp
-
-                    <div class="text-sm text-slate-600 dark:text-slate-300">
-                        @if($total === 1)
-                            Resultado <span class="font-semibold">(1 de 1)</span>
-                        @elseif($total > 1)
-                            Página <span class="font-semibold">{{ $current }}</span> de <span class="font-semibold">{{ $lastPage }}</span> —
-                            Mostrando <span class="font-semibold">{{ $first }}–{{ $last }}</span> de <span class="font-semibold">{{ $total }}</span> resultados
-                        @else
-                            Sin resultados para la búsqueda.
+                        {{-- Resumen de resultados cuando hay búsqueda --}}
+                        @if(request('search'))
+                            @php
+                                $total   = $operadores->total();
+                                $first   = $operadores->firstItem();
+                                $last    = $operadores->lastItem();
+                                $current = $operadores->currentPage();
+                                $lastPage= $operadores->lastPage();
+                            @endphp
+                            <div class="mt-3 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between">
+                                <div class="small">
+                                    <span class="badge bg-secondary text-uppercase">Filtro</span>
+                                    <span class="ms-2">“{{ request('search') }}”</span>
+                                </div>
+                                <div class="text-secondary small mt-2 mt-sm-0">
+                                    @if($total === 1)
+                                        Resultado <strong>(1 de 1)</strong>
+                                    @elseif($total > 1)
+                                        Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> — Mostrando <strong>{{ $first }}–{{ $last }}</strong> de <strong>{{ $total }}</strong>
+                                    @else
+                                        Sin resultados para la búsqueda.
+                                    @endif
+                                </div>
+                            </div>
                         @endif
                     </div>
                 </div>
-            @endif
 
-            {{-- Tabla --}}
-            <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full text-left text-sm">
-                        <thead class="bg-slate-50 text-slate-600 dark:bg-slate-900/40 dark:text-slate-300">
-                            <tr class="text-xs uppercase tracking-wide">
-                                <th scope="col" class="sticky left-0 z-10 border-b border-slate-200 px-4 py-3 font-semibold bg-slate-50 dark:bg-slate-900/40 dark:border-slate-700">
-                                    Nombre completo
-                                </th>
-                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
-                                    Correo electrónico
-                                </th>
-                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
-                                    ID
-                                </th>
-                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold text-right dark:border-slate-700">
-                                    <span class="sr-only">Acciones</span>Acciones
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-                            @forelse($operadores as $operador)
-                                <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-700/40">
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-800 dark:text-slate-100">
-                                        {{ $operador->nombre }} {{ $operador->apellido_paterno }} {{ $operador->apellido_materno }}
-                                    </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
-                                        {{ $operador->user->email }}
-                                    </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
-                                        {{ $operador->id }}
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center justify-end gap-2">
+                {{-- OFFCANVAS DE FILTROS (incluye ordenación) --}}
+                <div class="offcanvas offcanvas-end" tabindex="-1" id="filtersOffcanvas" aria-labelledby="filtersOffcanvasLabel">
+                    <div class="offcanvas-header">
+                        <h2 class="offcanvas-title h4" id="filtersOffcanvasLabel">
+                            <i class="ti ti-adjustments me-2"></i>Filtros
+                        </h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="offcanvas-body">
+                        {{-- Orden y dirección --}}
+                        <div class="mb-4">
+                            <div class="text-secondary text-uppercase fw-semibold small mb-2">Orden y vista</div>
+                            <div class="row g-2">
+                                <div class="col-12 col-sm-6">
+                                    @php
+                                        $opts = [
+                                            'nombre_completo' => 'Nombre completo',
+                                            'email'           => 'Correo electrónico',
+                                            'id'              => 'ID',
+                                        ];
+                                    @endphp
+                                    <label class="form-label">Ordenar por</label>
+                                    <select name="sort_by" class="form-select">
+                                        @foreach($opts as $val => $label)
+                                            <option value="{{ $val }}" @selected(request('sort_by','nombre_completo')===$val)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <label class="form-label">Dirección</label>
+                                    <select name="sort_dir" class="form-select">
+                                        <option value="asc"  @selected(request('sort_dir','asc')==='asc')>Ascendente</option>
+                                        <option value="desc" @selected(request('sort_dir','asc')==='desc')>Descendente</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
 
-                                            {{-- Ver --}}
-                                            <a href="{{ route('operadores.edit', $operador->id) }}"
-                                               class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                                               aria-label="Editar {{ $operador->nombre }}">
-                                                <span class="material-symbols-outlined">visibility</span>
-                                                Ver
-                                            </a>
+                        {{-- Espacio para futuros filtros (estatus, etc.) --}}
+                        <div class="mb-2">
+                            <div class="text-secondary small">Puedes añadir más filtros aquí cuando existan en el modelo.</div>
+                        </div>
+                    </div>
 
-                                            {{-- Editar --}}
-                                            <a href="{{ route('operadores.edit', $operador->id) }}"
-                                               class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                                               aria-label="Editar {{ $operador->nombre }}">
-                                                <span class="material-symbols-outlined">edit</span>
-                                                Editar
-                                            </a>
-
-                                            {{-- Eliminar --}}
-                                            <form action="{{ route('operadores.destroy', $operador->id) }}"
-                                                  method="POST"
-                                                  class="inline"
-                                                  onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $operador->nombre }}?');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit"
-                                                        class="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                                                        aria-label="Eliminar {{ $operador->nombre }}">
-                                                    <span class="material-symbols-outlined">delete</span>
-                                                    Eliminar
-                                                </button>
-                                            </form>
-
-                                            
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="4" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
-                                        @if(request('search'))
-                                            No se encontraron resultados para <span class="font-semibold">“{{ request('search') }}”</span>.
-                                            <a href="{{ route('operadores.index') }}" class="text-indigo-600 hover:text-indigo-800">Limpiar búsqueda</a>
-                                        @else
-                                            No hay operadores registrados.
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                    <div class="offcanvas-footer d-flex justify-content-between align-items-center p-3 border-top">
+                        <a href="{{ route('operadores.index') }}" class="btn btn-link">Limpiar filtros</a>
+                        <div>
+                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="offcanvas">Cerrar</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ti ti-filter me-1"></i>Aplicar filtros
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
+                {{-- /OFFCANVAS --}}
 
-            {{-- Paginación + contador (siempre visible) --}}
-            @if(method_exists($operadores, 'links'))
-                <div class="mt-6 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+                {{-- TABLA --}}
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="table table-vcenter table-striped table-hover">
+                            <thead>
+                                <tr class="text-uppercase text-secondary small">
+                                    <th>Nombre completo</th>
+                                    <th>Correo electrónico</th>
+                                    <th class="text-nowrap">ID</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($operadores as $op)
+                                    @php
+                                        $nombreCompleto = trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
+                                        $correo = optional($op->user)->email ?? '—';
+                                    @endphp
+                                    <tr>
+                                        <td class="text-nowrap">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="avatar avatar-sm avatar-rounded bg-blue-lt">
+                                                    <i class="ti ti-user"></i>
+                                                </span>
+                                                <div class="lh-1">
+                                                    <div class="fw-semibold">{{ $nombreCompleto ?: 'Operador #'.$op->id }}</div>
+                                                    <div class="text-secondary small">#{{ $op->id }}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-nowrap">
+                                            <div class="text-truncate" style="max-width: 280px" title="{{ $correo }}">{{ $correo }}</div>
+                                        </td>
+                                        <td class="text-nowrap">#{{ $op->id }}</td>
+                                        <td class="text-end">
+                                            <div class="d-inline-flex gap-1">
+                                                {{-- Ver (placeholder hacia edit si no hay show) --}}
+                                                <a href="{{ route('operadores.edit', $op->id) }}"
+                                                   class="btn btn-outline-secondary btn-sm"
+                                                   title="Ver">
+                                                    <i class="ti ti-eye me-1"></i>Ver
+                                                </a>
+
+                                                {{-- Editar --}}
+                                                <a href="{{ route('operadores.edit', $op->id) }}"
+                                                   class="btn btn-outline-secondary btn-sm"
+                                                   title="Editar">
+                                                    <i class="ti ti-edit me-1"></i>Editar
+                                                </a>
+
+                                                {{-- Eliminar --}}
+                                                <form action="{{ route('operadores.destroy', $op->id) }}"
+                                                      method="POST"
+                                                      class="d-inline"
+                                                      onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $nombreCompleto ?: 'Operador #'.$op->id }}?');">
+                                                    @csrf @method('DELETE')
+                                                    <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
+                                                        <i class="ti ti-trash me-1"></i>Eliminar
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="py-6">
+                                            <div class="empty">
+                                                <div class="empty-icon">
+                                                    <i class="ti ti-database-off"></i>
+                                                </div>
+                                                <p class="empty-title">No hay datos</p>
+                                                <p class="empty-subtitle text-secondary">
+                                                    @if(request()->hasAny(['search']))
+                                                        No se encontraron resultados con los filtros aplicados.
+                                                    @else
+                                                        Aún no has registrado operadores.
+                                                    @endif
+                                                </p>
+                                                <div class="empty-action">
+                                                    @if(request()->hasAny(['search']))
+                                                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
+                                                            Limpiar filtros
+                                                        </a>
+                                                    @endif
+                                                    <a href="{{ route('operadores.create') }}" class="btn btn-primary">
+                                                        <i class="ti ti-plus me-2"></i>Agregar Nuevo Operador
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- PAGINACIÓN + CONTADOR --}}
+                @if(method_exists($operadores, 'links'))
                     @php
-                        $totalAll = $operadores->total();
-                        $firstAll = $operadores->firstItem();
-                        $lastAll  = $operadores->lastItem();
+                        $totalAll   = $operadores->total();
+                        $firstAll   = $operadores->firstItem();
+                        $lastAll    = $operadores->lastItem();
                         $currentAll = $operadores->currentPage();
-                        $lastPageAll = $operadores->lastPage();
+                        $lastPageAll= $operadores->lastPage();
                     @endphp
-
-                    <p class="text-sm text-slate-600 dark:text-slate-300">
-                        @if($totalAll === 0)
-                            Mostrando 0 resultados
-                        @elseif($totalAll === 1)
-                            Resultado <span class="font-semibold">(1 de 1)</span>
-                        @else
-                            Página <span class="font-semibold">{{ $currentAll }}</span> de <span class="font-semibold">{{ $lastPageAll }}</span> —
-                            Mostrando <span class="font-semibold">{{ $firstAll }}–{{ $lastAll }}</span> de <span class="font-semibold">{{ $totalAll }}</span> resultados
-                        @endif
-                    </p>
-
-                    <div class="w-full sm:w-auto">
-                        {{ $operadores->appends(['search' => request('search')])->links() }}
+                    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
+                        <p class="text-secondary small mb-2 mb-sm-0">
+                            @if($totalAll === 0)
+                                Mostrando 0 resultados
+                            @elseif($totalAll === 1)
+                                Resultado <strong>(1 de 1)</strong>
+                            @else
+                                Página <strong>{{ $currentAll }}</strong> de <strong>{{ $lastPageAll }}</strong> —
+                                Mostrando <strong>{{ $firstAll }}–{{ $lastAll }}</strong> de <strong>{{ $totalAll }}</strong> resultados
+                            @endif
+                        </p>
+                        <div>
+                            {{ $operadores->appends(request()->only([
+                                'search','sort_by','sort_dir',
+                            ]))->links() }}
+                        </div>
                     </div>
-                </div>
-            @endif
+                @endif
+
+            </form>
+
+            {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
         </div>
     </div>
-
-    {{-- Footer --}}
-    <footer class="py-8">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500">
-            © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
-        </div>
-    </footer>
 </x-app-layout>

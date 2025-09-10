@@ -54,3 +54,4 @@ nav[role="navigation"] > div:first-child {
 .tabla_crud_link-eliminar {
   @apply text-red-500 hover:underline ml-2;
 }
+

@@ -1,400 +1,392 @@
-{{-- resources/views/vehiculos/edit.blade.php --}}
+{{-- resources/views/vehiculos/edit.blade.php — Versión Tabler (estilo ejecutivo + galería con modal) --}}
 <x-app-layout>
-    {{-- Ocultar FOUC de Alpine --}}
-    <style>[x-cloak]{display:none!important}</style>
+    {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
+    @vite(['resources/js/app.js'])
 
-    {{-- Header --}}
+    {{-- ===== HEADER ===== --}}
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Vehículos</p>
-                <h2 class="mt-1 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                    Editar Vehículo
-                </h2>
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <h2 class="page-title mb-0 d-flex align-items-center gap-2">
+                            <i class="ti ti-steering-wheel"></i>
+                            Editar Vehículo
+                        </h2>
+                        <div class="text-secondary small mt-1">Actualiza la información general del vehículo.</div>
+                    </div>
+                    <div class="col-auto ms-auto d-flex gap-2">
+                        <a href="{{ route('vehiculos.tanques.index', $vehiculo) }}" class="btn btn-warning">
+                            <i class="ti ti-gas-station me-1"></i>
+                            Editar capacidad del tanque
+                        </a>
+                        <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-secondary">
+                            <i class="ti ti-arrow-left me-1"></i>
+                            Volver al listado
+                        </a>
+                    </div>
+                </div>
             </div>
-            <a href="{{ route('vehiculos.tanques.index', $vehiculo) }}"
-               class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-300 dark:border-slate-600 dark:bg-amber-600 dark:hover:bg-amber-500">
-                <span class="material-symbols-outlined">local_gas_station</span>
-                Editar capacidad del Tanque
-            </a>
-            <a href="{{ route('vehiculos.index') }}"
-               class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m10 19-7-7 7-7M3 12h18"/>
-                </svg>
-                Volver al listado
-            </a>
         </div>
     </x-slot>
 
-    <div class="py-8">
-        <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+    <div class="page-body">
+        <div class="container-xl">
 
-            {{-- FORM PRINCIPAL (UPDATE VEHÍCULO) --}}
+            {{-- ===== FORM PRINCIPAL (UPDATE) ===== --}}
             <form id="vehiculo-form" method="POST" action="{{ route('vehiculos.update', $vehiculo) }}" novalidate enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
 
-                {{-- Alerta de errores globales (resumen) --}}
+                {{-- Alertas --}}
                 @if ($errors->any())
-                    <div class="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/30 dark:text-rose-100">
+                    <div class="alert alert-danger" role="alert">
+                        <i class="ti ti-alert-triangle me-2"></i>
                         Revisa los campos marcados y vuelve a intentar.
                     </div>
                 @endif
 
-                {{-- Tarjeta principal --}}
-                <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                    <div class="border-b border-slate-200 px-6 py-5 dark:border-slate-700">
-                        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Datos del vehículo</h3>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Actualiza la información general. Los campos marcados con <span class="text-rose-600">*</span> son obligatorios.
-                        </p>
+                <div class="card">
+                    <div class="card-header justify-content-between">
+                        <h3 class="card-title d-flex align-items-center gap-2 mb-0">
+                            <i class="ti ti-car"></i>
+                            Datos del vehículo
+                        </h3>
+                        <span class="badge bg-azure-lt">
+                            <i class="ti ti-pencil me-1"></i> Edición
+                        </span>
                     </div>
 
-                    <div class="px-6 py-6">
-                        {{-- Grid 2 columnas (1 en móvil) --}}
-                        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div class="card-body">
+                        <div class="row g-3">
                             {{-- Ubicación --}}
-                            <div>
-                                <label for="ubicacion" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Ubicación <span class="text-rose-600">*</span>
-                                </label>
-                                <select id="ubicacion" name="ubicacion" required
-                                        class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                    <option value="">-- Selecciona ubicación --</option>
-                                    <option value="CVC" {{ old('ubicacion', $vehiculo->ubicacion ?? '') == 'CVC' ? 'selected' : '' }}>Cuernavaca</option>
-                                    <option value="IXT" {{ old('ubicacion', $vehiculo->ubicacion ?? '') == 'IXT' ? 'selected' : '' }}>Ixtapaluca</option>
-                                    <option value="QRO" {{ old('ubicacion', $vehiculo->ubicacion ?? '') == 'QRO' ? 'selected' : '' }}>Querétaro</option>
-                                    <option value="VALL" {{ old('ubicacion', $vehiculo->ubicacion ?? '') == 'VALL' ? 'selected' : '' }}>Vallejo</option>
-                                    <option value="GDL" {{ old('ubicacion', $vehiculo->ubicacion ?? '') == 'GDL' ? 'selected' : '' }}>Guadalajara</option>
-                                </select>
-                                @error('ubicacion')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
+                            <div class="col-12 col-md-6">
+                                <label for="ubicacion" class="form-label">Ubicación <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-map-pin"></i></span>
+                                    <select id="ubicacion" name="ubicacion" class="form-select @error('ubicacion') is-invalid @enderror" required>
+                                        <option value="">-- Selecciona ubicación --</option>
+                                        <option value="CVC" @selected(old('ubicacion', $vehiculo->ubicacion ?? '')=='CVC')>Cuernavaca</option>
+                                        <option value="IXT" @selected(old('ubicacion', $vehiculo->ubicacion ?? '')=='IXT')>Ixtapaluca</option>
+                                        <option value="QRO" @selected(old('ubicacion', $vehiculo->ubicacion ?? '')=='QRO')>Querétaro</option>
+                                        <option value="VALL" @selected(old('ubicacion', $vehiculo->ubicacion ?? '')=='VALL')>Vallejo</option>
+                                        <option value="GDL" @selected(old('ubicacion', $vehiculo->ubicacion ?? '')=='GDL')>Guadalajara</option>
+                                    </select>
+                                </div>
+                                @error('ubicacion') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
                             {{-- Propietario --}}
-                            <div>
-                                <label for="propietario" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Propietario <span class="text-rose-600">*</span>
-                                </label>
-                                <input id="propietario" type="text" name="propietario" required
-                                       value="{{ old('propietario', $vehiculo->propietario ?? '') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('propietario')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
+                            <div class="col-12 col-md-6">
+                                <label for="propietario" class="form-label">Propietario <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-user"></i></span>
+                                    <input id="propietario" type="text" name="propietario" value="{{ old('propietario', $vehiculo->propietario ?? '') }}" class="form-control @error('propietario') is-invalid @enderror" required placeholder="Nombre del propietario">
+                                </div>
+                                @error('propietario') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
                             {{-- Unidad --}}
-                            <div>
-                                <label for="unidad" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Unidad <span class="text-rose-600">*</span>
-                                </label>
-                                <input id="unidad" type="text" name="unidad" required
-                                       value="{{ old('unidad', $vehiculo->unidad ?? '') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('unidad')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
+                            <div class="col-12 col-md-6">
+                                <label for="unidad" class="form-label">Unidad <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-truck"></i></span>
+                                    <input id="unidad" type="text" name="unidad" value="{{ old('unidad', $vehiculo->unidad ?? '') }}" class="form-control @error('unidad') is-invalid @enderror" required placeholder="Ej. U-012">
+                                </div>
+                                @error('unidad') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
-                            {{-- Serie --}}
-                            <div>
-                                <label for="serie" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Serie (VIN) <span class="text-rose-600">*</span>
-                                </label>
-                                <input id="serie" type="text" name="serie" required
-                                       value="{{ old('serie', $vehiculo->serie ?? '') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('serie')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
-                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Usa el número de serie completo registrado en la tarjeta.</p>
+                            {{-- Serie (VIN) --}}
+                            <div class="col-12 col-md-6">
+                                <label for="serie" class="form-label">Serie (VIN) <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-barcode"></i></span>
+                                    <input id="serie" type="text" name="serie" value="{{ old('serie', $vehiculo->serie ?? '') }}" class="form-control @error('serie') is-invalid @enderror" required aria-describedby="serie_help" placeholder="Número de serie completo">
+                                </div>
+                                <div id="serie_help" class="form-hint">Usa el número de serie completo registrado en la tarjeta.</div>
+                                @error('serie') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
                             {{-- Marca --}}
-                            <div>
-                                <label for="marca" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Marca
-                                </label>
-                                <input id="marca" type="text" name="marca"
-                                       value="{{ old('marca', $vehiculo->marca ?? '') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('marca')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
+                            <div class="col-12 col-md-6">
+                                <label for="marca" class="form-label">Marca</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-badge"></i></span>
+                                    <input id="marca" type="text" name="marca" value="{{ old('marca', $vehiculo->marca ?? '') }}" class="form-control @error('marca') is-invalid @enderror" placeholder="Ej. Nissan, Toyota…">
+                                </div>
+                                @error('marca') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
                             {{-- Año --}}
-                            <div>
-                                <label for="anio" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Año
-                                </label>
-                                <input id="anio" type="number" name="anio" min="1900" max="{{ date('Y') + 1 }}"
-                                       value="{{ old('anio', $vehiculo->anio ?? '') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('anio')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
+                            <div class="col-12 col-md-6">
+                                <label for="anio" class="form-label">Año</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-calendar-stats"></i></span>
+                                    <input id="anio" type="number" name="anio" min="1900" max="{{ date('Y') + 1 }}" value="{{ old('anio', $vehiculo->anio ?? '') }}" class="form-control @error('anio') is-invalid @enderror" placeholder="{{ date('Y') }}">
+                                </div>
+                                @error('anio') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
                             {{-- Motor --}}
-                            <div>
-                                <label for="motor" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Motor
-                                </label>
-                                <input id="motor" type="text" name="motor"
-                                       value="{{ old('motor', $vehiculo->motor ?? '') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('motor')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
+                            <div class="col-12 col-md-6">
+                                <label for="motor" class="form-label">Motor</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-engine"></i></span>
+                                    <input id="motor" type="text" name="motor" value="{{ old('motor', $vehiculo->motor ?? '') }}" class="form-control @error('motor') is-invalid @enderror" placeholder="Ej. 2.5 L / Diesel">
+                                </div>
+                                @error('motor') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
                             {{-- Placa --}}
-                            <div>
-                                <label for="placa" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Placa
-                                </label>
-                                <input id="placa" type="text" name="placa"
-                                       value="{{ old('placa', $vehiculo->placa ?? '') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('placa')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
+                            <div class="col-12 col-md-6">
+                                <label for="placa" class="form-label">Placa</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-license"></i></span>
+                                    <input id="placa" type="text" name="placa" value="{{ old('placa', $vehiculo->placa ?? '') }}" class="form-control @error('placa') is-invalid @enderror" placeholder="ABC-123-4">
+                                </div>
+                                @error('placa') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
                             {{-- Estado --}}
-                            <div>
-                                <label for="estado" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Estado
-                                </label>
-                                <input id="estado" type="text" name="estado"
-                                       value="{{ old('estado', $vehiculo->estado ?? '') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('estado')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
+                            <div class="col-12 col-md-6">
+                                <label for="estado" class="form-label">Estado</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-map"></i></span>
+                                    <input id="estado" type="text" name="estado" value="{{ old('estado', $vehiculo->estado ?? '') }}" class="form-control @error('estado') is-invalid @enderror" placeholder="Entidad federativa">
+                                </div>
+                                @error('estado') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
                             {{-- Tarjeta SiVale --}}
-                            <div class="md:col-span-2">
-                                <label for="tarjeta_si_vale_id" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Tarjeta SiVale
-                                </label>
-                                <select id="tarjeta_si_vale_id" name="tarjeta_si_vale_id"
-                                        class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                    <option value="">-- Sin tarjeta asignada --</option>
-                                    @foreach($tarjetas as $tarjeta)
-                                        <option value="{{ $tarjeta->id }}"
-                                            {{ old('tarjeta_si_vale_id', $vehiculo->tarjeta_si_vale_id ?? '') == $tarjeta->id ? 'selected' : '' }}>
-                                            {{ $tarjeta->numero_tarjeta }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('tarjeta_si_vale_id')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
-                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Selecciona una tarjeta vigente, si aplica.</p>
+                            <div class="col-12">
+                                <label for="tarjeta_si_vale_id" class="form-label">Tarjeta SiVale</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-credit-card"></i></span>
+                                    <select id="tarjeta_si_vale_id" name="tarjeta_si_vale_id" class="form-select @error('tarjeta_si_vale_id') is-invalid @enderror" aria-describedby="sivale_help">
+                                        <option value="">-- Sin tarjeta asignada --</option>
+                                        @foreach($tarjetas as $tarjeta)
+                                            <option value="{{ $tarjeta->id }}" @selected(old('tarjeta_si_vale_id', $vehiculo->tarjeta_si_vale_id ?? '')==$tarjeta->id)>
+                                                {{ $tarjeta->numero_tarjeta }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div id="sivale_help" class="form-hint">Selecciona una tarjeta vigente, si aplica.</div>
+                                @error('tarjeta_si_vale_id') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
                             {{-- Vencimiento tarjeta de circulación --}}
-                            <div>
-                                <label for="vencimiento_t_circulacion" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Vencimiento tarjeta de circulación
-                                </label>
-                                <input id="vencimiento_t_circulacion" type="date" name="vencimiento_t_circulacion"
-                                       value="{{ old('vencimiento_t_circulacion', $vehiculo->vencimiento_t_circulacion ?? '') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('vencimiento_t_circulacion')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
+                            <div class="col-12 col-md-6">
+                                <label for="vencimiento_t_circulacion" class="form-label">Vencimiento tarjeta de circulación</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-calendar-event"></i></span>
+                                    <input id="vencimiento_t_circulacion" type="date" name="vencimiento_t_circulacion" value="{{ old('vencimiento_t_circulacion', $vehiculo->vencimiento_t_circulacion ?? '') }}" class="form-control @error('vencimiento_t_circulacion') is-invalid @enderror">
+                                </div>
+                                @error('vencimiento_t_circulacion') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
                             {{-- Cambio de placas --}}
-                            <div>
-                                <label for="cambio_placas" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Cambio de placas
-                                </label>
-                                <input id="cambio_placas" type="date" name="cambio_placas"
-                                       value="{{ old('cambio_placas', $vehiculo->cambio_placas ?? '') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('cambio_placas')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
+                            <div class="col-12 col-md-6">
+                                <label for="cambio_placas" class="form-label">Cambio de placas</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-calendar-event"></i></span>
+                                    <input id="cambio_placas" type="date" name="cambio_placas" value="{{ old('cambio_placas', $vehiculo->cambio_placas ?? '') }}" class="form-control @error('cambio_placas') is-invalid @enderror">
+                                </div>
+                                @error('cambio_placas') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
                             {{-- Póliza HDI --}}
-                            <div>
-                                <label for="poliza_hdi" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    Póliza HDI
-                                </label>
-                                <input id="poliza_hdi" type="text" name="poliza_hdi"
-                                       value="{{ old('poliza_hdi', $vehiculo->poliza_hdi ?? '') }}"
-                                       class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none ring-indigo-300 focus:border-indigo-500 focus:ring dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                                @error('poliza_hdi')
-                                    <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
-                                @enderror
+                            <div class="col-12 col-md-6">
+                                <label for="poliza_hdi" class="form-label">Póliza HDI</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-shield-check"></i></span>
+                                    <input id="poliza_hdi" type="text" name="poliza_hdi" value="{{ old('poliza_hdi', $vehiculo->poliza_hdi ?? '') }}" class="form-control @error('poliza_hdi') is-invalid @enderror" placeholder="Número de póliza">
+                                </div>
+                                @error('poliza_hdi') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
                         </div>
                     </div>
 
-                    {{-- Subir nuevas fotos (dentro del form principal) --}}
-                    <div class="border-t border-slate-200 px-6 py-6 dark:border-slate-700">
-                        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Agregar nuevas fotos</h3>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">JPG, JPEG, PNG o WEBP. Máx 8MB c/u.</p>
-                        <div class="mt-3">
-                            <input type="file" name="fotos[]" accept="image/*" multiple
-                                   class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                            @error('fotos')   <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
-                            @error('fotos.*') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                    {{-- Subir nuevas fotos --}}
+                    <div class="card-body border-top">
+                        <h3 class="card-title d-flex align-items-center gap-2">
+                            <i class="ti ti-photo-plus"></i>
+                            Agregar nuevas fotos
+                        </h3>
+                        <div class="form-hint mb-2">JPG, JPEG, PNG o WEBP. Máx 8MB c/u.</div>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="ti ti-upload"></i></span>
+                            <input type="file" name="fotos[]" accept="image/*" multiple class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror">
                         </div>
+                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                     </div>
-                </div> {{-- /tarjeta principal --}}
+
+                    {{-- Footer acciones --}}
+                    <div class="card-footer d-flex justify-content-end gap-2">
+                        <a href="{{ url()->previous() ?: route('vehiculos.index') }}" class="btn btn-outline-secondary">
+                            <i class="ti ti-x me-1"></i> Cancelar
+                        </a>
+                        <button type="submit" form="vehiculo-form" class="btn btn-primary">
+                            <i class="ti ti-device-floppy me-1"></i> Guardar cambios
+                        </button>
+                    </div>
+                </div>
             </form>
 
-            {{-- Galería actual (fuera del form principal) --}}
-            <div class="border-t border-slate-200 px-6 py-6 dark:border-slate-700"
-                 x-data='{
-                    open:false,
-                    index:0,
-                    items:@json(
-                        $vehiculo->fotos->values()->map(function($f){
-                            return [
-                                "src" => route("vehiculos.fotos.show", $f),
-                                "alt" => "Foto del vehículo #".$f->id
-                            ];
-                        })
-                    )
-                 }'
-                 x-on:keydown.window.prevent.stop="
-                    if(!open) return;
-                    if($event.key === 'Escape') open=false;
-                    if($event.key === 'ArrowRight') index = (index+1) % items.length;
-                    if($event.key === 'ArrowLeft')  index = (index-1+items.length) % items.length;
-                 "
-            >
-                <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
-                    Fotos actuales ({{ $vehiculo->fotos->count() }})
-                </h3>
+            {{-- ===== FOTOS ACTUALES ===== --}}
+            @php
+                // PRECOMPUTAR datos de fotos para evitar problemas de parseo dentro del atributo HTML
+                $photosData = $vehiculo->fotos->values()->map(function($f){
+                    return [
+                        'id'  => $f->id,
+                        'src' => route('vehiculos.fotos.show', $f),
+                    ];
+                })->all();
+            @endphp
 
-                @if($vehiculo->fotos->isEmpty())
-                    <p class="mt-3 text-sm text-slate-500">Este vehículo aún no tiene fotos.</p>
-                @else
-                    <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                        @foreach($vehiculo->fotos as $foto)
-                            <div class="group relative rounded-xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                                {{-- BOTÓN que abre el lightbox (ya no abre nueva pestaña) --}}
-                                <button type="button"
-                                        class="block w-full"
-                                        @click="open=true; index={{ $loop->index }}"
-                                        title="Ver grande">
-                                    <img
-                                        src="{{ route('vehiculos.fotos.show', $foto) }}"
-                                        alt="Foto del vehículo"
-                                        loading="lazy"
-                                        draggable="false"
-                                        class="h-40 w-full rounded-lg object-cover transition-all group-hover:opacity-90 cursor-zoom-in"
-                                    >
-                                </button>
-
-                                {{-- Form independiente para eliminar la foto --}}
-                                <form method="POST" action="{{ route('vehiculos.fotos.destroy', [$vehiculo, $foto]) }}"
-                                      onsubmit="return confirm('¿Eliminar esta foto?')"
-                                      class="absolute right-2 top-2">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit"
-                                            class="rounded-full bg-rose-600/90 px-2 py-1 text-xs font-medium text-white shadow hover:bg-rose-700">
-                                        Eliminar
-                                    </button>
-                                </form>
-                            </div>
-                        @endforeach
-                    </div>
-
-                    {{-- Lightbox / Modal --}}
-                    <div
-                        x-cloak
-                        x-show="open"
-                        x-transition.opacity
-                        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-                        role="dialog" aria-modal="true"
-                        @click.self="open=false"
-                    >
-                        <div class="relative max-h-[90vh] w-full max-w-5xl">
-                            {{-- Cerrar --}}
-                            <button
-                                @click="open=false"
-                                class="absolute -top-10 right-0 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-sm font-medium text-slate-700 shadow hover:bg-white"
-                                aria-label="Cerrar"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/>
-                                </svg>
-                                Cerrar
-                            </button>
-
-                            {{-- Anterior --}}
-                            <button
-                                @click.stop="index = (index-1+items.length) % items.length"
-                                class="absolute left-0 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow hover:bg-white"
-                                aria-label="Anterior"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"/>
-                                </svg>
-                            </button>
-
-                            {{-- Siguiente --}}
-                            <button
-                                @click.stop="index = (index+1) % items.length"
-                                class="absolute right-0 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow hover:bg-white"
-                                aria-label="Siguiente"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7"/>
-                                </svg>
-                            </button>
-
-                            {{-- Imagen grande --}}
-                            <div class="flex justify-center">
-                                <img
-                                    :src="items[index]?.src"
-                                    :alt="items[index]?.alt || 'Foto del vehículo'"
-                                    class="max-h-[85vh] w-auto rounded-lg object-contain select-none"
-                                    draggable="false"
-                                >
-                            </div>
-
-                            {{-- Pie / contador --}}
-                            <div class="mt-3 text-center text-sm text-white/80">
-                                <span x-text="(index+1) + ' / ' + items.length"></span>
-                            </div>
+            <div class="card mt-3">
+                <div class="card-header justify-content-between">
+                    <h3 class="card-title d-flex align-items-center gap-2 mb-0">
+                        <i class="ti ti-photo"></i>
+                        Fotos actuales
+                    </h3>
+                    <span class="badge bg-secondary-lt">
+                        {{ $vehiculo->fotos->count() }} foto(s)
+                    </span>
+                </div>
+                <div class="card-body">
+                    @if($vehiculo->fotos->isEmpty())
+                        <div class="empty">
+                            <div class="empty-icon"><i class="ti ti-photo-off"></i></div>
+                            <p class="empty-title">Este vehículo aún no tiene fotos</p>
+                            <p class="empty-subtitle text-secondary">Puedes subirlas desde la sección “Agregar nuevas fotos”.</p>
                         </div>
-                    </div>
-                @endif
+                    @else
+                        <div class="row g-2" id="photosGrid" data-photos='@json($photosData)'>
+                            @foreach($vehiculo->fotos as $foto)
+                                <div class="col-6 col-sm-4 col-md-3">
+                                    <div class="card card-link position-relative">
+                                        <div class="img-responsive img-responsive-4x3 card-img-top" style="background-image: url('{{ route('vehiculos.fotos.show', $foto) }}')"></div>
+
+                                        {{-- Eliminar foto --}}
+                                        <form method="POST"
+                                            action="{{ route('vehiculos.fotos.destroy', [$vehiculo, $foto]) }}"
+                                            onsubmit="return confirm('¿Eliminar esta foto?')"
+                                            class="position-absolute top-0 end-0 m-1 z-3">   <!-- 👈 z-3 -->
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-danger btn-icon btn-sm position-relative">
+                                                <i class="ti ti-trash"></i>
+                                            </button>
+                                        </form>
+
+
+                                        {{-- Abrir galería --}}
+                                        <a href="javascript:void(0)" class="stretched-link veh-photo" data-index="{{ $loop->index }}" title="Ver grande"></a>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-dark btn-sm" id="openGalleryAll">
+                                <i class="ti ti-slideshow me-1"></i> Ver galería
+                            </button>
+                        </div>
+                    @endif
+                </div>
             </div>
 
-            {{-- Footer de acciones (fuera del form principal; el botón usa form="vehiculo-form") --}}
-            <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
-                <a href="{{ url()->previous() ?: route('vehiculos.index') }}"
-                   class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
-                    Cancelar
-                </a>
-                <button type="submit"
-                        form="vehiculo-form"
-                        class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                    Guardar cambios
-                </button>
+            <div class="text-secondary small mt-3">
+                <i class="ti ti-info-circle me-1"></i>
+                Nota: si los campos de fecha están almacenados como texto, el selector enviará el valor en formato <code>YYYY-MM-DD</code>.
+                Considera migrarlos a tipo <code>DATE</code> para validaciones y reportes más consistentes.
             </div>
 
-            {{-- Nota para campos de fecha si en BD son VARCHAR --}}
-            <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">
-                Nota: si los campos de fecha están almacenados como texto, el selector de fecha enviará el valor en formato <code>YYYY-MM-DD</code>.
-                Asegúrate de formatearlo según tu base de datos o considera migrarlos a tipo <code>DATE</code>.
-            </p>
+            {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
         </div>
     </div>
+
+    {{-- ===== MODAL GALERÍA ===== --}}
+    <div class="modal fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title h4" id="galleryModalLabel">
+                        <i class="ti ti-photo me-2"></i>Galería de fotos
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="galleryCarousel" class="carousel slide" data-bs-ride="false">
+                        <div class="carousel-inner" id="galleryInner"></div>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Anterior</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Siguiente</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ===== SCRIPTS =====
+         Asegúrate en resources/js/app.js:
+         import * as bootstrap from 'bootstrap/dist/js/bootstrap.bundle.min.js'; window.bootstrap = bootstrap;
+    --}}
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const photosGrid = document.getElementById('photosGrid');
+        if (!photosGrid) return;
+
+        let photos = [];
+        try { photos = JSON.parse(photosGrid.getAttribute('data-photos') || '[]'); }
+        catch { photos = []; }
+
+        const galleryInner   = document.getElementById('galleryInner');
+        const galleryEl      = document.getElementById('galleryCarousel');
+        const galleryModalEl = document.getElementById('galleryModal');
+
+        function openGallery(startIndex = 0){
+            if (!photos.length) return;
+            galleryInner.innerHTML = '';
+            photos.forEach((p, i) => {
+                const div = document.createElement('div');
+                div.className = 'carousel-item' + (i === startIndex ? ' active' : '');
+                div.innerHTML = `<img src="${p.src}" class="d-block w-100 rounded" alt="Foto ${i+1}">`;
+                galleryInner.appendChild(div);
+            });
+            const Carousel = window.bootstrap?.Carousel;
+            if (Carousel) {
+                const instance = Carousel.getInstance(galleryEl) || new Carousel(galleryEl, { interval: false });
+                instance.to(startIndex);
+            }
+            const modal = window.bootstrap ? new window.bootstrap.Modal(galleryModalEl) : null;
+            modal?.show();
+        }
+
+        // Abrir por tarjeta
+        photosGrid.addEventListener('click', (e) => {
+            const a = e.target.closest('.veh-photo');
+            if (!a) return;
+            const idx = parseInt(a.getAttribute('data-index') || '0', 10) || 0;
+            openGallery(idx);
+        });
+
+        // Abrir todo
+        const openAllBtn = document.getElementById('openGalleryAll');
+        if (openAllBtn) openAllBtn.addEventListener('click', () => openGallery(0));
+    });
+    </script>
 </x-app-layout>

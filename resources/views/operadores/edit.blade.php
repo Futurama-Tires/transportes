@@ -1,120 +1,198 @@
+{{-- resources/views/operadores/edit.blade.php — versión Tabler (formulario con grid y tarjeta lateral) --}}
 <x-app-layout>
+    {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
+    @vite(['resources/js/app.js'])
+
+    {{-- HEADER --}}
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Operadores</p>
-                <h2 class="mt-1 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                    Editar Operador
-                </h2>
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <p class="text-secondary text-uppercase small mb-1">Operadores</p>
+                        <h2 class="page-title mb-0">Editar Operador</h2>
+                        <div class="text-secondary small mt-1">Actualiza la información básica del operador.</div>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
+                            <i class="ti ti-arrow-left me-1"></i>
+                            Volver al listado
+                        </a>
+                    </div>
+                </div>
             </div>
-            <a href="{{ route('operadores.index') }}"
-               class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
-                Volver al listado
-            </a>
         </div>
     </x-slot>
 
-    <div class="py-8">
-        <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+    <div class="page-body">
+        <div class="container-xl">
+            {{-- FLASHES --}}
             @if (session('success'))
-                <div class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900/40 dark:bg-green-900/30 dark:text-green-100">
-                    {{ session('success') }}
+                <div class="alert alert-success" role="alert">
+                    <i class="ti ti-check me-2"></i>{{ session('success') }}
                 </div>
             @endif
 
             @if ($errors->any())
-                <div class="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/30 dark:text-rose-100">
-                    Revisa los campos marcados y vuelve a intentar.
+                <div class="alert alert-danger" role="alert">
+                    <i class="ti ti-alert-triangle me-2"></i>Revisa los campos marcados y vuelve a intentar.
                 </div>
             @endif
 
-            <div class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                <div class="border-b border-slate-200 px-6 py-4 dark:border-slate-700">
-                    <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Datos del operador</h3>
-                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Actualiza la información básica del operador.</p>
+            <div class="row row-deck row-cards">
+                {{-- FORM PRINCIPAL --}}
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h3 class="card-title">Datos del operador</h3>
+                                <div class="card-subtitle">Completa o corrige la información requerida.</div>
+                            </div>
+                        </div>
+
+                        <form method="POST" action="{{ route('operadores.update', $operador->id) }}" novalidate>
+                            @csrf
+                            @method('PUT')
+
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    {{-- Nombre --}}
+                                    <div class="col-md-6">
+                                        <label for="nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="ti ti-signature"></i></span>
+                                            <input
+                                                id="nombre"
+                                                name="nombre"
+                                                type="text"
+                                                autocomplete="given-name"
+                                                class="form-control @error('nombre') is-invalid @enderror"
+                                                value="{{ old('nombre', $operador->nombre) }}"
+                                                required
+                                                placeholder="Ej. Juan"
+                                            >
+                                            @error('nombre')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Apellido paterno --}}
+                                    <div class="col-md-6">
+                                        <label for="apellido_paterno" class="form-label">Apellido paterno <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="ti ti-user"></i></span>
+                                            <input
+                                                id="apellido_paterno"
+                                                name="apellido_paterno"
+                                                type="text"
+                                                autocomplete="family-name"
+                                                class="form-control @error('apellido_paterno') is-invalid @enderror"
+                                                value="{{ old('apellido_paterno', $operador->apellido_paterno) }}"
+                                                required
+                                                placeholder="Ej. Pérez"
+                                            >
+                                            @error('apellido_paterno')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Apellido materno --}}
+                                    <div class="col-md-6">
+                                        <label for="apellido_materno" class="form-label">Apellido materno</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="ti ti-user-circle"></i></span>
+                                            <input
+                                                id="apellido_materno"
+                                                name="apellido_materno"
+                                                type="text"
+                                                autocomplete="additional-name"
+                                                class="form-control @error('apellido_materno') is-invalid @enderror"
+                                                value="{{ old('apellido_materno', $operador->apellido_materno) }}"
+                                                placeholder="(opcional)"
+                                            >
+                                            @error('apellido_materno')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Correo --}}
+                                    <div class="col-md-6">
+                                        <label for="email" class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="ti ti-mail"></i></span>
+                                            <input
+                                                id="email"
+                                                name="email"
+                                                type="email"
+                                                autocomplete="email"
+                                                class="form-control @error('email') is-invalid @enderror"
+                                                value="{{ old('email', optional($operador->user)->email) }}"
+                                                required
+                                                placeholder="usuario@dominio.com"
+                                                aria-describedby="email_help"
+                                            >
+                                            @error('email')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                        <div id="email_help" class="form-hint">Usa un correo válido y único.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card-footer d-flex justify-content-between">
+                                <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
+                                    Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="ti ti-device-floppy me-1"></i>Guardar cambios
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
 
-                <form method="POST" action="{{ route('operadores.update', $operador->id) }}" novalidate>
-                    @csrf
-                    @method('PUT')
+                {{-- TARJETA LATERAL (resumen) --}}
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <span class="avatar avatar-xl avatar-rounded bg-blue-lt mb-3">
+                                <i class="ti ti-user"></i>
+                            </span>
+                            @php
+                                $nombreCompleto = trim(($operador->nombre ?? '').' '.($operador->apellido_paterno ?? '').' '.($operador->apellido_materno ?? ''));
+                                $correo = optional($operador->user)->email ?? '—';
+                            @endphp
+                            <div class="h3">{{ $nombreCompleto ?: 'Operador #'.$operador->id }}</div>
+                            <div class="text-secondary">{{ $correo }}</div>
 
-                    <div class="grid gap-6 px-6 py-6 md:grid-cols-2">
-                        {{-- Nombre --}}
-                        <div>
-                            <x-input-label for="nombre" value="Nombre *" />
-                            <x-text-input id="nombre"
-                                          name="nombre"
-                                          type="text"
-                                          class="mt-1 block w-full"
-                                          :value="old('nombre', $operador->nombre)"
-                                          required
-                                          autocomplete="given-name" />
-                            <x-input-error class="mt-2" :messages="$errors->get('nombre')" />
-                        </div>
+                            <div class="mt-3 text-start small text-secondary">
+                                @if(optional($operador->created_at)->isValid())
+                                    <div><i class="ti ti-calendar-stats me-1"></i> Registrado: <span class="fw-semibold">{{ optional($operador->created_at)->format('Y-m-d') }}</span></div>
+                                @endif
+                                @if(optional($operador->updated_at)->isValid())
+                                    <div><i class="ti ti-history me-1"></i> Actualizado: <span class="fw-semibold">{{ optional($operador->updated_at)->diffForHumans() }}</span></div>
+                                @endif
+                            </div>
 
-                        {{-- Apellido paterno --}}
-                        <div>
-                            <x-input-label for="apellido_paterno" value="Apellido paterno *" />
-                            <x-text-input id="apellido_paterno"
-                                          name="apellido_paterno"
-                                          type="text"
-                                          class="mt-1 block w-full"
-                                          :value="old('apellido_paterno', $operador->apellido_paterno)"
-                                          required
-                                          autocomplete="family-name" />
-                            <x-input-error class="mt-2" :messages="$errors->get('apellido_paterno')" />
-                        </div>
-
-                        {{-- Apellido materno --}}
-                        <div>
-                            <x-input-label for="apellido_materno" value="Apellido materno" />
-                            <x-text-input id="apellido_materno"
-                                          name="apellido_materno"
-                                          type="text"
-                                          class="mt-1 block w-full"
-                                          :value="old('apellido_materno', $operador->apellido_materno)"
-                                          autocomplete="additional-name" />
-                            <x-input-error class="mt-2" :messages="$errors->get('apellido_materno')" />
-                        </div>
-
-                        {{-- Correo --}}
-                        <div>
-                            <x-input-label for="email" value="Correo electrónico *" />
-                            <x-text-input id="email"
-                                          name="email"
-                                          type="email"
-                                          class="mt-1 block w-full"
-                                          :value="old('email', $operador->user->email)"
-                                          required
-                                          autocomplete="email"
-                                          aria-describedby="email_help" />
-                            <p id="email_help" class="mt-1 text-xs text-slate-500 dark:text-slate-400">Usa un correo válido y único.</p>
-                            <x-input-error class="mt-2" :messages="$errors->get('email')" />
+                            {{-- Acciones rápidas opcionales (deshabilitadas si no existen rutas) --}}
+                            <div class="d-grid gap-2 mt-4">
+                                <a href="{{ route('operadores.index') }}" class="btn btn-light">
+                                    <i class="ti ti-list-details me-1"></i> Ir al listado
+                                </a>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
-                        @if (class_exists(\Laravel\Jetstream\Jetstream::class))
-                            {{-- Botones Jetstream/Breeze (si existen) --}}
-                            <x-secondary-button onclick="window.location='{{ url()->previous() ?: route('operadores.index') }}'">
-                                Cancelar
-                            </x-secondary-button>
-                            <x-primary-button>
-                                Guardar cambios
-                            </x-primary-button>
-                        @else
-                            {{-- Fallback simple si no tienes esos componentes --}}
-                            <a href="{{ url()->previous() ?: route('operadores.index') }}"
-                               class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                Cancelar
-                            </a>
-                            <button type="submit"
-                                    class="inline-flex items-center px-5 py-2 text-sm font-semibold rounded-md bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                Guardar cambios
-                            </button>
-                        @endif
-                    </div>
-                </form>
+                </div>{{-- /col-md-4 --}}
+            </div>{{-- /row --}}
+            
+            {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
             </div>
         </div>
     </div>
