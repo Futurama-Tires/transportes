@@ -21,12 +21,12 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <h2 class="page-title mb-0">Cargas de Combustible</h2>
-                        <div class="text-secondary small mt-1">Consulta, filtra y exporta tus registros de carga.</div>
+                        <div class="text-secondary small mt-1">Consulta y analiza rendimientos.</div>
                     </div>
                     <div class="col-auto ms-auto">
                         <a href="{{ route('cargas.create') }}" class="btn btn-primary">
                             <i class="ti ti-plus me-1"></i>
-                            Nueva Carga
+                            Agregar Nueva Carga
                         </a>
                     </div>
                 </div>
@@ -59,7 +59,7 @@
                                            name="search"
                                            value="{{ request('search') }}"
                                            class="form-control"
-                                           placeholder="Buscar por ID, vehículo, operador, ubicación, tipo, destino, observaciones, fecha…"
+                                           placeholder="Buscar…"
                                            aria-label="Búsqueda global">
                                     <button class="btn btn-primary" type="submit">
                                         <i class="ti ti-search me-1"></i>Buscar
@@ -279,10 +279,10 @@
                                     <th class="text-end">Litros</th>
                                     <th class="text-end">Precio</th>
                                     <th class="text-end">Total</th>
-                                    <th class="text-end">Rend.</th>
-                                    <th class="text-end">KM Ini</th>
-                                    <th class="text-end">KM Fin</th>
-                                    <th class="text-end">KM Rec.</th>
+                                    <th class="text-end">Rendimiento</th>
+                                    <th class="text-end">KM Inicial</th>
+                                    <th class="text-end">KM Final</th>
+                                    <th class="text-end">KM Recorridos</th>
                                     <th>Ubicación</th>
                                     <th style="min-width: 12rem;">Destino</th>
                                     <th style="min-width: 10rem;">Custodio</th>
@@ -372,7 +372,7 @@
                                                         </a>
                                                     @endif
                                                     <a href="{{ route('cargas.create') }}" class="btn btn-primary">
-                                                        <i class="ti ti-plus me-2"></i>Nueva Carga
+                                                        <i class="ti ti-plus me-2"></i>Agregar Nueva Carga
                                                     </a>
                                                 </div>
                                             </div>

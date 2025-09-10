@@ -56,13 +56,13 @@
 
                 @hasanyrole('administrador|capturista')
                 <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="{{ route('cargas.index') }}" class="card card-link" aria-label="Gestión de cargas">
+                    <a href="{{ route('cargas.index') }}" class="card card-link bg-azure-lt" aria-label="Gestión de cargas">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-primary text-white me-3">
+                            <span class="avatar bg-azure text-white me-3">
                                 <i class="ti ti-gas-station"></i>
                             </span>
                             <div class="flex-fill">
-                                <div class="card-title mb-1">Gestión de cargas</div>
+                                <div class="card-title mb-1">Cargas de combustible</div>
                                 <div class="text-secondary small">Registrar y consultar reportes de carga.</div>
                             </div>
                             <i class="ti ti-chevron-right text-secondary"></i>
@@ -73,9 +73,9 @@
 
                 @hasanyrole('administrador|capturista')
                 <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="{{ route('operadores.index') }}" class="card card-link" aria-label="Operadores">
+                    <a href="{{ route('operadores.index') }}" class="card card-link bg-green-lt" aria-label="Operadores">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-secondary text-white me-3">
+                            <span class="avatar bg-green text-white me-3">
                                 <i class="ti ti-users"></i>
                             </span>
                             <div class="flex-fill">
@@ -90,9 +90,9 @@
 
                 @role('administrador')
                 <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="{{ route('capturistas.index') }}" class="card card-link" aria-label="Capturistas">
+                    <a href="{{ route('capturistas.index') }}" class="card card-link bg-purple-lt" aria-label="Capturistas">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-success text-white me-3">
+                            <span class="avatar bg-purple text-white me-3">
                                 <i class="ti ti-id-badge-2"></i>
                             </span>
                             <div class="flex-fill">
@@ -107,13 +107,14 @@
 
                 @hasanyrole('administrador|capturista')
                 <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="{{ route('vehiculos.index') }}" class="card card-link" aria-label="Gestión de Vehículos">
+                    <a href="{{ route('vehiculos.index') }}" class="card card-link bg-yellow-lt" aria-label="Gestión de Vehículos">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-warning text-white me-3">
+                            {{-- En amarillo es mejor icono oscuro para contraste --}}
+                            <span class="avatar bg-yellow text-dark me-3">
                                 <i class="ti ti-truck"></i>
                             </span>
                             <div class="flex-fill">
-                                <div class="card-title mb-1">Gestión de Vehículos</div>
+                                <div class="card-title mb-1">Vehículos</div>
                                 <div class="text-secondary small">Control de flota, registros y actualizaciones.</div>
                             </div>
                             <i class="ti ti-chevron-right text-secondary"></i>
@@ -124,9 +125,9 @@
 
                 @hasanyrole('administrador|capturista')
                 <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="{{ route('verificaciones.index') }}" class="card card-link" aria-label="Verificaciones">
+                    <a href="{{ route('verificaciones.index') }}" class="card card-link bg-red-lt" aria-label="Verificaciones">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-danger text-white me-3">
+                            <span class="avatar bg-red text-white me-3">
                                 <i class="ti ti-clipboard-check"></i>
                             </span>
                             <div class="flex-fill">
@@ -141,9 +142,9 @@
 
                 @hasanyrole('administrador|capturista')
                 <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="{{ route('tarjetas.index') }}" class="card card-link" aria-label="Tarjetas SiVale">
+                    <a href="{{ route('tarjetas.index') }}" class="card card-link bg-cyan-lt" aria-label="Tarjetas SiVale">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-primary text-white me-3">
+                            <span class="avatar bg-cyan text-white me-3">
                                 <i class="ti ti-credit-card"></i>
                             </span>
                             <div class="flex-fill">
@@ -158,9 +159,9 @@
 
                 @role('administrador')
                 <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="https://www.google.com" class="card card-link" aria-label="Bases de datos" target="_blank" rel="noopener">
+                    <a href="https://www.google.com" class="card card-link bg-indigo-lt" aria-label="Bases de datos" target="_blank" rel="noopener">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-info text-white me-3">
+                            <span class="avatar bg-indigo text-white me-3">
                                 <i class="ti ti-database"></i>
                             </span>
                             <div class="flex-fill">
@@ -175,14 +176,14 @@
 
                 @hasanyrole('administrador|capturista')
                 <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="https://www.google.com" class="card card-link" aria-label="Reportes y estadísticas" target="_blank" rel="noopener">
+                    <a href="https://www.google.com" class="card card-link bg-orange-lt" aria-label="Reportes y estadísticas" target="_blank" rel="noopener">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-secondary text-white me-3">
+                            <span class="avatar bg-orange text-white me-3">
                                 <i class="ti ti-chart-bar"></i>
                             </span>
                             <div class="flex-fill">
-                                <div class="card-title mb-1">Reportes y estadísticas</div>
-                                <div class="text-secondary small">Reportes y estadísticas del sistema.</div>
+                                <div class="card-title mb-1">Estadísticas</div>
+                                <div class="text-secondary small">Consulta estadísticas del sistema.</div>
                             </div>
                             <i class="ti ti-chevron-right text-secondary"></i>
                         </div>
@@ -191,6 +192,7 @@
                 @endhasanyrole
 
             </div>
+                
 
             {{-- (Opcional) Zona de KPIs resumidos - deja comentado si aún no tienes datos
             <div class="row row-cards mt-3">
