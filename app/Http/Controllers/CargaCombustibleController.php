@@ -161,4 +161,20 @@ class CargaCombustibleController extends Controller
             $data['diferencia'] = null;
         }
     }
+
+    public function storeApi(Request $request)
+    {
+    $data = $this->validateData($request);   // reutilizamos tus validaciones
+    $this->hydrateDerivedFields($data);      // y tus campos derivados
+
+    $carga = new \App\Models\CargaCombustible();
+    $carga->forceFill($data)->save();
+
+    // devolvemos JSON con relaciones útiles
+    return response()->json(
+        $carga->load(['vehiculo:id,unidad,placa', 'operador:id,nombre,apellido_paterno,apellido_materno']),
+        201
+    );
+}
+
 }
