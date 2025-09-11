@@ -10,7 +10,7 @@ use Carbon\Carbon;
 
 class CargaCombustibleController extends Controller
 {
-    public function index(\Illuminate\Http\Request $request)
+    public function index(Request $request)
     {
         $filters = $request->only([
             'search',
@@ -27,21 +27,18 @@ class CargaCombustibleController extends Controller
             'sort_by','sort_dir',
         ]);
 
-        // Catálogos para selects
-        $vehiculos = \App\Models\Vehiculo::orderBy('unidad')
-            ->get(['id','unidad','placa']);
-        $operadores = \App\Models\Operador::query()
-            ->select('id','nombre','apellido_paterno','apellido_materno')
+        $vehiculos = Vehiculo::orderBy('unidad')->get(['id','unidad','placa']);
+        $operadores = Operador::select('id','nombre','apellido_paterno','apellido_materno')
             ->orderBy('nombre')->orderBy('apellido_paterno')->get();
 
-        $ubicaciones = \App\Models\CargaCombustible::UBICACIONES;
-        $tipos       = \App\Models\CargaCombustible::TIPOS_COMBUSTIBLE;
+        $ubicaciones = CargaCombustible::UBICACIONES;
+        $tipos       = CargaCombustible::TIPOS_COMBUSTIBLE;
 
-        $cargas = \App\Models\CargaCombustible::query()
+        $cargas = CargaCombustible::query()
             ->with(['vehiculo','operador'])
             ->filter($filters)
-            ->paginate(25)      // paginación solicitada
-            ->withQueryString();// conserva filtros al paginar
+            ->paginate(25)
+            ->withQueryString();
 
         return view('cargas.index', compact('cargas','vehiculos','operadores','ubicaciones','tipos'));
     }
@@ -59,24 +56,21 @@ class CargaCombustibleController extends Controller
 
     public function store(Request $request)
     {
+        // === Flujo WEB: operador_id llega desde el formulario ===
         $data = $this->validateData($request);
-
-        // Calcular derivados (incluye 'mes')
         $this->hydrateDerivedFields($data);
 
-        // Guardar incluso si 'mes' no está en $fillable del modelo
         $carga = new CargaCombustible();
         $carga->forceFill($data)->save();
 
-        return redirect()
-            ->route('cargas.index')
+        return redirect()->route('cargas.index')
             ->with('success', 'Carga registrada correctamente.');
     }
 
     public function edit(CargaCombustible $carga)
     {
         return view('cargas.edit', [
-            'carga'       => $carga, // <-- ¡IMPORTANTE!
+            'carga'       => $carga,
             'operadores'  => Operador::orderBy('nombre')->get(),
             'vehiculos'   => Vehiculo::orderBy('unidad')->get(),
             'ubicaciones' => CargaCombustible::UBICACIONES,
@@ -86,38 +80,32 @@ class CargaCombustibleController extends Controller
 
     public function update(Request $request, CargaCombustible $carga)
     {
+        // === Flujo WEB: operador_id llega desde el formulario ===
         $data = $this->validateData($request);
-
-        // Recalcular derivados por si cambió fecha, litros, km, etc.
         $this->hydrateDerivedFields($data);
 
-        // Guardar incluso si algunos campos derivados no están en $fillable
         $carga->forceFill($data)->save();
 
         return redirect()->route('cargas.index')
             ->with('success', 'Carga actualizada correctamente.');
     }
 
-    public function destroy(\App\Models\CargaCombustible $carga)
+    public function destroy(CargaCombustible $carga)
     {
-        // Si usas SoftDeletes y quieres eliminar de verdad, usa forceDelete()
-        // $carga->forceDelete();
-
         $deleted = $carga->delete();
 
-        return redirect()
-            ->route('cargas.index')
+        return redirect()->route('cargas.index')
             ->with('success', $deleted ? 'Carga eliminada correctamente.' : 'No se pudo eliminar la carga.');
     }
 
-    // ===================== Helpers =====================
+    // ===================== Helpers (WEB) =====================
 
+    /** Validación para formularios WEB (exige operador_id) */
     protected function validateData(Request $request): array
     {
         return $request->validate([
             'ubicacion'        => ['nullable', 'in:' . implode(',', CargaCombustible::UBICACIONES)],
             'fecha'            => ['required', 'date'],
-            // 'mes' se llena automáticamente desde 'fecha'
             'precio'           => ['required', 'numeric', 'min:0'],
             'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
             'litros'           => ['required', 'numeric', 'min:0.001'],
@@ -126,35 +114,29 @@ class CargaCombustibleController extends Controller
             'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
             'km_inicial'       => ['nullable', 'integer', 'min:0'],
             'km_final'         => ['nullable', 'integer', 'gte:km_inicial'],
-            // 'recorrido', 'rendimiento', 'diferencia', 'total' se calculan
             'destino'          => ['nullable', 'string', 'max:255'],
             'observaciones'    => ['nullable', 'string', 'max:2000'],
         ]);
     }
 
+    /** Calcula mes, total, recorrido, rendimiento y diferencia */
     protected function hydrateDerivedFields(array &$data): void
     {
-        // Mes en español (Enero, Febrero, ...)
         $mes = Carbon::parse($data['fecha'])->locale('es')->translatedFormat('F');
         $data['mes'] = ucfirst($mes);
 
-        // Total = Precio * Litros
-        $data['total'] = round($data['precio'] * $data['litros'], 2);
+        $data['total'] = round(((float)$data['precio']) * ((float)$data['litros']), 2);
 
-        // Recorrido = km_final - km_inicial (si ambos están)
         $recorrido = (isset($data['km_inicial'], $data['km_final']))
-            ? ($data['km_final'] - $data['km_inicial'])
+            ? ((int)$data['km_final'] - (int)$data['km_inicial'])
             : null;
 
         $data['recorrido'] = is_null($recorrido) ? null : (int)$recorrido;
 
-        // Rendimiento = Recorrido / Litros
         $data['rendimiento'] = (!is_null($recorrido) && (float)$data['litros'] > 0)
             ? round($recorrido / (float)$data['litros'], 2)
             : null;
 
-        // Diferencia (Dif $S) = -((E - (M/14)) * C)
-        // E = litros, M = recorrido, C = precio
         if (!is_null($recorrido) && isset($data['litros'], $data['precio'])) {
             $data['diferencia'] = round(-(((float)$data['litros'] - ($recorrido / 14)) * (float)$data['precio']), 2);
         } else {
@@ -162,19 +144,56 @@ class CargaCombustibleController extends Controller
         }
     }
 
+    // ===================== API MÓVIL =====================
+
+    /**
+     * API: crea una carga asociando el operador mediante el usuario autenticado.
+     * La app NO debe enviar operador_id.
+     */
     public function storeApi(Request $request)
     {
-    $data = $this->validateData($request);   // reutilizamos tus validaciones
-    $this->hydrateDerivedFields($data);      // y tus campos derivados
+        // Validamos igual que en web pero SIN operador_id
+        $data = $request->validate([
+            'ubicacion'        => ['nullable', 'in:' . implode(',', CargaCombustible::UBICACIONES)],
+            'fecha'            => ['required', 'date'],
+            'precio'           => ['required', 'numeric', 'min:0'],
+            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
+            'litros'           => ['required', 'numeric', 'min:0.001'],
+            'custodio'         => ['nullable', 'string', 'max:255'],
+            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
+            'km_inicial'       => ['nullable', 'integer', 'min:0'],
+            'km_final'         => ['nullable', 'integer', 'gte:km_inicial'],
+            'destino'          => ['nullable', 'string', 'max:255'],
+            'observaciones'    => ['nullable', 'string', 'max:2000'],
+        ]);
 
-    $carga = new \App\Models\CargaCombustible();
-    $carga->forceFill($data)->save();
+        // Buscamos el operador ligado al usuario autenticado
+        $user = $request->user();
+        $operador = Operador::where('user_id', $user->id)->first();
 
-    // devolvemos JSON con relaciones útiles
-    return response()->json(
-        $carga->load(['vehiculo:id,unidad,placa', 'operador:id,nombre,apellido_paterno,apellido_materno']),
-        201
-    );
-}
+        if (!$operador) {
+            return response()->json([
+                'message' => 'El usuario autenticado no tiene un operador asociado.'
+            ], 422);
+        }
 
+        // Asignamos operador_id desde el token
+        $data['operador_id'] = $operador->id;
+
+        // Calculamos derivados
+        $this->hydrateDerivedFields($data);
+
+        // Guardamos
+        $carga = new CargaCombustible();
+        $carga->forceFill($data)->save();
+
+        // Respondemos con relaciones útiles
+        return response()->json(
+            $carga->load([
+                'vehiculo:id,unidad,placa',
+                'operador:id,nombre,apellido_paterno,apellido_materno'
+            ]),
+            201
+        );
+    }
 }

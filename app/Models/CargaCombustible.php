@@ -11,7 +11,6 @@ class CargaCombustible extends Model
 
     protected $table = 'cargas_combustible';
 
-    // Si ya tienes $fillable definido, puedes conservarlo y quitar este bloque.
     protected $fillable = [
         'ubicacion',
         'fecha',
@@ -29,6 +28,17 @@ class CargaCombustible extends Model
         'total',
         'destino',
         'observaciones',
+        // 'mes' lo calculamos; se guarda con forceFill() desde el controlador
+    ];
+
+    protected $casts = [
+        'fecha'       => 'date:Y-m-d',
+        'litros'      => 'decimal:3',
+        'precio'      => 'decimal:2',
+        'total'       => 'decimal:2',
+        'rendimiento' => 'decimal:2',
+        'km_inicial'  => 'integer',
+        'km_final'    => 'integer',
     ];
 
     // Opciones fijas conocidas
@@ -45,31 +55,9 @@ class CargaCombustible extends Model
         return $this->belongsTo(Vehiculo::class);
     }
 
-    /**
-     * Scope principal: búsqueda global + filtros + ordenamiento.
-     *
-     * Acepta en $filters:
-     * - search (string)
-     * - vehiculo_id (int)
-     * - operador_id (int)
-     * - ubicacion (string)
-     * - tipo_combustible (string)
-     * - from (YYYY-MM-DD)
-     * - to   (YYYY-MM-DD)
-     * - litros_min, litros_max (numeric)
-     * - precio_min, precio_max (numeric)
-     * - total_min,  total_max  (numeric)
-     * - rend_min,   rend_max   (numeric)
-     * - km_ini_min, km_ini_max (int)
-     * - km_fin_min, km_fin_max (int)
-     * - destino (string, like)
-     * - custodio (string, like)
-     * - sort_by  (string)
-     * - sort_dir ('asc'|'desc')
-     */
+    /** Scope de filtros y ordenamiento (para la vista web) */
     public function scopeFilter($query, array $filters)
     {
-        // Joins para poder buscar/ordenar por campos relacionados
         $query->leftJoin('vehiculos', 'vehiculos.id', '=', 'cargas_combustible.vehiculo_id')
               ->leftJoin('operadores', 'operadores.id', '=', 'cargas_combustible.operador_id')
               ->select('cargas_combustible.*');
@@ -87,12 +75,10 @@ class CargaCombustible extends Model
                    ->orWhere('cargas_combustible.tipo_combustible', 'like', $like)
                    ->orWhereRaw("CAST(cargas_combustible.id AS CHAR) LIKE ?", [$like])
                    ->orWhereRaw("DATE_FORMAT(cargas_combustible.fecha, '%Y-%m-%d') LIKE ?", [$like])
-                   // numéricos como texto (útil cuando se pega un número en la búsqueda)
                    ->orWhereRaw("CAST(cargas_combustible.litros AS CHAR) LIKE ?", [$like])
                    ->orWhereRaw("CAST(cargas_combustible.precio AS CHAR) LIKE ?", [$like])
                    ->orWhereRaw("CAST(cargas_combustible.total  AS CHAR) LIKE ?", [$like])
                    ->orWhereRaw("CAST(cargas_combustible.rendimiento AS CHAR) LIKE ?", [$like])
-                   // Relacionados
                    ->orWhere('vehiculos.unidad', 'like', $like)
                    ->orWhere('vehiculos.placa',  'like', $like)
                    ->orWhereRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) LIKE ?", [$like]);
@@ -111,15 +97,9 @@ class CargaCombustible extends Model
             if ($t !== '') $q->where('cargas_combustible.tipo_combustible', $t);
         });
 
-        // Rango de fechas (inclusive)
-        if (!empty($filters['from'])) {
-            $query->whereDate('cargas_combustible.fecha', '>=', $filters['from']);
-        }
-        if (!empty($filters['to'])) {
-            $query->whereDate('cargas_combustible.fecha', '<=', $filters['to']);
-        }
+        if (!empty($filters['from'])) $query->whereDate('cargas_combustible.fecha', '>=', $filters['from']);
+        if (!empty($filters['to']))   $query->whereDate('cargas_combustible.fecha', '<=', $filters['to']);
 
-        // Rangos numéricos
         $ranges = [
             ['litros', 'litros_min', '>='], ['litros', 'litros_max', '<='],
             ['precio', 'precio_min', '>='], ['precio', 'precio_max', '<='],
@@ -134,11 +114,9 @@ class CargaCombustible extends Model
             }
         }
 
-        // Campos de texto adicionales
-        $query->when($filters['destino']   ?? null, fn($q, $v) => $q->where('cargas_combustible.destino', 'like', '%'.$v.'%'));
-        $query->when($filters['custodio']  ?? null, fn($q, $v) => $q->where('cargas_combustible.custodio','like', '%'.$v.'%'));
+        $query->when($filters['destino']  ?? null, fn($q, $v) => $q->where('cargas_combustible.destino', 'like', '%'.$v.'%'));
+        $query->when($filters['custodio'] ?? null, fn($q, $v) => $q->where('cargas_combustible.custodio','like', '%'.$v.'%'));
 
-        // --- ORDENAMIENTO ---
         $map = [
             'id'               => 'cargas_combustible.id',
             'fecha'            => 'cargas_combustible.fecha',
@@ -152,7 +130,7 @@ class CargaCombustible extends Model
             'km_final'         => 'cargas_combustible.km_final',
             'vehiculo'         => 'vehiculos.unidad',
             'placa'            => 'vehiculos.placa',
-            'operador'         => null, // se ordena por nombre completo con raw
+            'operador'         => null,
         ];
 
         $by  = $filters['sort_by'] ?? 'fecha';
