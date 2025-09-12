@@ -1,327 +1,326 @@
 {{-- resources/views/verificaciones/index.blade.php --}}
 <x-app-layout>
-    <style>[x-cloak]{display:none!important}</style>
-
-    {{-- Header --}}
-    <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                Gestión de Verificaciones
-            </h2>
-            <a href="{{ route('verificaciones.create') }}"
-               class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
-                {{-- plus icon --}}
-                <span class="material-symbols-outlined"> add_box </span>
-                Nueva Verificación
-            </a>
+    {{-- Encabezado de página (Tabler) --}}
+    <div class="page-header d-print-none mb-3">
+        <div class="container-xl">
+            <div class="row g-2 align-items-center">
+                <div class="col">
+                    <h2 class="page-title">
+                        <i class="ti ti-clipboard-check me-2"></i>
+                        Gestión de Verificaciones
+                    </h2>
+                    <div class="text-secondary small">
+                        Administra búsquedas, filtros, exportaciones y acciones rápidas.
+                    </div>
+                </div>
+                <div class="col-auto ms-auto d-print-none">
+                    <div class="btn-list">
+                        <a href="{{ route('verificaciones.create') }}" class="btn btn-primary">
+                            <i class="ti ti-square-plus me-1"></i>
+                            Nueva Verificación
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
-    </x-slot>
+    </div>
 
-    <div class="py-8">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    {{-- Contenido --}}
+    <div class="page-body">
+        <div class="container-xl">
 
-            {{-- Flash éxito --}}
+            {{-- Flash éxito (Tabler alert) --}}
             @if(session('success'))
-                <div class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900/40 dark:bg-green-900/30 dark:text-green-100">
+                <div class="alert alert-success alert-dismissible" role="alert">
+                    <i class="ti ti-checks me-2"></i>
                     {{ session('success') }}
+                    <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
                 </div>
             @endif
 
             {{-- Barra superior: búsqueda + filtros + exportaciones --}}
-            <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="row g-3 align-items-end mb-3">
                 {{-- Formulario de búsqueda y filtros --}}
-                <form method="GET" action="{{ route('verificaciones.index') }}" class="w-full lg:w-3/4 xl:w-4/5">
-                    {{-- Fila 1: Buscador --}}
-                    <div class="flex">
-                        <div class="flex w-full items-center rounded-full bg-white px-4 py-2 shadow-md ring-1 ring-gray-200 focus-within:ring dark:bg-slate-800 dark:ring-slate-700">
-                            <span class="material-symbols-outlined text-gray-400">search</span>
-                            <input
-                                type="text"
-                                name="search"
-                                value="{{ request('search') }}"
-                                placeholder="Buscar por estado, placa, propietario, comentarios, ID…"
-                                class="ml-3 w-full flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-slate-400"
-                                aria-label="Buscar verificaciones"
-                            />
+                <div class="col-12 col-lg">
+                    <form method="GET" action="{{ route('verificaciones.index') }}">
+                        <div class="row g-2">
+                            {{-- Buscador --}}
+                            <div class="col-12 col-md-6">
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-search"></i>
+                                    </span>
+                                    <input
+                                        type="text"
+                                        name="search"
+                                        value="{{ request('search') }}"
+                                        class="form-control"
+                                        placeholder="Buscar por estado, placa, propietario, comentarios, ID…"
+                                        aria-label="Buscar verificaciones"
+                                    >
+                                </div>
+                            </div>
+
+                            {{-- Vehículo --}}
+                            <div class="col-12 col-sm-6 col-md-3">
+                                <label class="form-label">Vehículo</label>
+                                <select name="vehiculo_id" class="form-select" onchange="this.form.submit()">
+                                    <option value="">Todos los vehículos</option>
+                                    @foreach($vehiculos as $v)
+                                        <option value="{{ $v->id }}" @selected((string)$v->id === request('vehiculo_id'))>
+                                            {{ $v->unidad }} @if($v->placa) — {{ $v->placa }} @endif
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            {{-- Estado --}}
+                            <div class="col-12 col-sm-6 col-md-3">
+                                <label class="form-label">Estado</label>
+                                <select name="estado" class="form-select" onchange="this.form.submit()">
+                                    <option value="">Todos los estados</option>
+                                    @foreach($estados as $e)
+                                        <option value="{{ $e }}" @selected($e === request('estado'))>{{ $e }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            {{-- Desde --}}
+                            <div class="col-6 col-md-3 col-lg-2">
+                                <label class="form-label">Desde</label>
+                                <input type="date" name="from" value="{{ request('from') }}" class="form-control">
+                            </div>
+
+                            {{-- Hasta --}}
+                            <div class="col-6 col-md-3 col-lg-2">
+                                <label class="form-label">Hasta</label>
+                                <input type="date" name="to" value="{{ request('to') }}" class="form-control">
+                            </div>
+
+                            {{-- Ordenar por --}}
+                            <div class="col-12 col-md-4 col-lg-3">
+                                <label class="form-label">Ordenar por</label>
+                                <select name="sort_by" class="form-select">
+                                    <option value="fecha_verificacion" @selected(request('sort_by','fecha_verificacion')==='fecha_verificacion')>Fecha</option>
+                                    <option value="vehiculo" @selected(request('sort_by')==='vehiculo')>Vehículo</option>
+                                    <option value="estado" @selected(request('sort_by')==='estado')>Estado</option>
+                                    <option value="placa" @selected(request('sort_by')==='placa')>Placa</option>
+                                    <option value="propietario" @selected(request('sort_by')==='propietario')>Propietario</option>
+                                    <option value="id" @selected(request('sort_by')==='id')>ID</option>
+                                </select>
+                            </div>
+
+                            {{-- Dirección --}}
+                            <div class="col-6 col-md-4 col-lg-2">
+                                <label class="form-label">Dirección</label>
+                                <select name="sort_dir" class="form-select">
+                                    <option value="asc"  @selected(request('sort_dir','desc')==='asc')>Asc</option>
+                                    <option value="desc" @selected(request('sort_dir','desc')==='desc')>Desc</option>
+                                </select>
+                            </div>
+
+                            {{-- Botón Buscar --}}
+                            <div class="col-6 col-md-4 col-lg-2 d-grid">
+                                <label class="form-label opacity-0">.</label>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="ti ti-search me-1"></i>
+                                    Buscar
+                                </button>
+                            </div>
                         </div>
+                    </form>
+                </div>
+
+                {{-- Exportaciones --}}
+                <div class="col-12 col-lg-auto">
+                    <div class="btn-list">
+                        <a href="#"
+                           class="btn btn-success">
+                            <i class="ti ti-file-spreadsheet me-1"></i>
+                            Excel
+                        </a>
+                        <a href="#"
+                           class="btn btn-danger">
+                            <i class="ti ti-file-type-pdf me-1"></i>
+                            PDF
+                        </a>
                     </div>
-
-                    {{-- Fila 2: Filtros + Orden + Botón --}}
-                    <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                        {{-- Vehículo --}}
-                        <div class="relative w-full sm:w-56">
-                            <select
-                                name="vehiculo_id"
-                                class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                                onchange="this.form.submit()"
-                                title="Filtrar por vehículo"
-                            >
-                                <option value="">Todos los vehículos</option>
-                                @foreach($vehiculos as $v)
-                                    <option value="{{ $v->id }}" @selected((string)$v->id === request('vehiculo_id'))>
-                                        {{ $v->unidad }} @if($v->placa) — {{ $v->placa }} @endif
-                                    </option>
-                                @endforeach
-                            </select>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-
-                        {{-- Estado --}}
-                        <div class="relative w-full sm:w-44">
-                            <select
-                                name="estado"
-                                class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                                onchange="this.form.submit()"
-                                title="Filtrar por estado"
-                            >
-                                <option value="">Todos los estados</option>
-                                @foreach($estados as $e)
-                                    <option value="{{ $e }}" @selected($e === request('estado'))>{{ $e }}</option>
-                                @endforeach
-                            </select>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-
-                        {{-- Desde --}}
-                        <input
-                            type="date"
-                            name="from"
-                            value="{{ request('from') }}"
-                            class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900 sm:w-40"
-                            title="Desde"
-                        />
-
-                        {{-- Hasta --}}
-                        <input
-                            type="date"
-                            name="to"
-                            value="{{ request('to') }}"
-                            class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900 sm:w-40"
-                            title="Hasta"
-                        />
-
-                        {{-- Ordenar por --}}
-                        <div class="relative w-full sm:w-56">
-                            <select
-                                name="sort_by"
-                                class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                                title="Ordenar por"
-                            >
-                                <option value="fecha_verificacion" @selected(request('sort_by','fecha_verificacion')==='fecha_verificacion')>Fecha</option>
-                                <option value="vehiculo" @selected(request('sort_by')==='vehiculo')>Vehículo</option>
-                                <option value="estado" @selected(request('sort_by')==='estado')>Estado</option>
-                                <option value="placa" @selected(request('sort_by')==='placa')>Placa</option>
-                                <option value="propietario" @selected(request('sort_by')==='propietario')>Propietario</option>
-                                <option value="id" @selected(request('sort_by')==='id')>ID</option>
-                            </select>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-
-                        {{-- Dirección --}}
-                        <div class="relative w-full sm:w-40">
-                            <select
-                                name="sort_dir"
-                                class="block h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-8 text-sm dark:border-slate-700 dark:bg-slate-900"
-                                title="Dirección"
-                            >
-                                <option value="asc"  @selected(request('sort_dir','desc')==='asc')>Asc</option>
-                                <option value="desc" @selected(request('sort_dir','desc')==='desc')>Desc</option>
-                            </select>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-
-                        {{-- Botón Buscar --}}
-                        <button type="submit"
-                                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                            <span class="material-symbols-outlined">search</span>
-                            Buscar
-                        </button>
-                    </div>
-                </form>
-
-                {{-- Botones de exportación --}}
-                <div class="flex flex-wrap items-center gap-2">
-                    {{-- Excel --}}
-                    <a href="#"
-                       class="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                       title="Exportar a Excel">
-                        <span class="material-symbols-outlined"> border_all </span>
-                        Excel
-                    </a>
-
-                    {{-- PDF --}}
-                    <a href="#"
-                       class="inline-flex items-center gap-2 rounded-lg border border-rose-300 bg-rose-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                       title="Exportar a PDF">
-                        <span class="material-symbols-outlined"> article </span>
-                        PDF
-                    </a>
                 </div>
             </div>
 
-            {{-- Resumen (cuando hay búsqueda) --}}
+            {{-- Resumen cuando hay búsqueda --}}
             @if(request('search'))
-                <div class="mb-4 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-                    <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                        <span class="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700 dark:bg-slate-700 dark:text-slate-100">Filtro</span>
-                        <span class="font-medium">“{{ request('search') }}”</span>
-                    </div>
-
-                    @php
-                        $total = $verificaciones->total();
-                        $first = $verificaciones->firstItem();
-                        $last  = $verificaciones->lastItem();
-                        $current = $verificaciones->currentPage();
-                        $lastPage = $verificaciones->lastPage();
-                    @endphp
-
-                    <div class="text-sm text-slate-600 dark:text-slate-300">
-                        @if($total === 1)
-                            Resultado <span class="font-semibold">(1 de 1)</span>
-                        @elseif($total > 1)
-                            Página <span class="font-semibold">{{ $current }}</span> de <span class="font-semibold">{{ $lastPage }}</span> —
-                            Mostrando <span class="font-semibold">{{ $first }}–{{ $last }}</span> de <span class="font-semibold">{{ $total }}</span> resultados
-                        @else
-                            Sin resultados para la búsqueda.
-                        @endif
+                @php
+                    $total = $verificaciones->total();
+                    $first = $verificaciones->firstItem();
+                    $last  = $verificaciones->lastItem();
+                    $current = $verificaciones->currentPage();
+                    $lastPage = $verificaciones->lastPage();
+                @endphp
+                <div class="card mb-3">
+                    <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <div class="d-inline-flex align-items-center">
+                            <span class="badge bg-azure-lt me-2">
+                                <i class="ti ti-filter me-1"></i> Filtro
+                            </span>
+                            <span class="fw-medium">“{{ request('search') }}”</span>
+                        </div>
+                        <div class="text-secondary">
+                            @if($total === 1)
+                                Resultado <span class="fw-semibold">(1 de 1)</span>
+                            @elseif($total > 1)
+                                Página <span class="fw-semibold">{{ $current }}</span> de <span class="fw-semibold">{{ $lastPage }}</span> —
+                                Mostrando <span class="fw-semibold">{{ $first }}–{{ $last }}</span> de <span class="fw-semibold">{{ $total }}</span> resultados
+                            @else
+                                Sin resultados para la búsqueda.
+                            @endif
+                        </div>
                     </div>
                 </div>
             @endif
 
-            {{-- Tabla --}}
-            <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full text-left text-sm">
-                        <thead class="bg-slate-50 text-slate-600 dark:bg-slate-900/40 dark:text-slate-300">
-                            <tr class="text-xs uppercase tracking-wide">
-                                <th scope="col" class="sticky left-0 z-10 border-b border-slate-200 bg-slate-50 px-4 py-3 font-semibold dark:border-slate-700 dark:bg-slate-900/40">
-                                    Vehículo
-                                </th>
-                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
-                                    Estado
-                                </th>
-                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
-                                    Fecha
-                                </th>
-                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-700">
-                                    Comentarios
-                                </th>
-                                <th scope="col" class="border-b border-slate-200 px-4 py-3 font-semibold text-right dark:border-slate-700">
-                                    <span class="sr-only">Acciones</span>Acciones
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-                            @forelse($verificaciones as $verificacion)
-                                <tr class="hover:bg-slate-50/70 dark:hover:bg-slate-700/40">
-                                    <td class="sticky left-0 z-[1] whitespace-nowrap bg-white px-4 py-3 text-slate-800 dark:bg-slate-800 dark:text-slate-100">
-                                        @php
-                                            $unidad = $verificacion->vehiculo->unidad ?? '—';
-                                            $placa  = $verificacion->vehiculo->placa ?? null;
-                                        @endphp
-                                        {{ $unidad }} @if($placa) <span class="text-slate-500">({{ $placa }})</span> @endif
-                                    </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
-                                        {{ $verificacion->estado }}
-                                    </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
-                                        {{ \Illuminate\Support\Carbon::parse($verificacion->fecha_verificacion)->format('Y-m-d') }}
-                                    </td>
-                                    <td class="px-4 py-3 text-slate-700 dark:text-slate-200">
-                                        {{ $verificacion->comentarios }}
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center justify-end gap-2">
-                                            {{-- Editar --}}
-                                            <a href="{{ route('verificaciones.edit', $verificacion->id) }}"
-                                               class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                                               aria-label="Editar verificación #{{ $verificacion->id }}">
-                                                <span class="material-symbols-outlined"> edit </span>
-                                                Editar
-                                            </a>
-
-                                            {{-- Eliminar --}}
-                                            <form action="{{ route('verificaciones.destroy', $verificacion->id) }}" method="POST" class="inline"
-                                                  onsubmit="return confirm('¿Seguro que quieres eliminar la verificación #{{ $verificacion->id }}?');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit"
-                                                        class="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white shadow hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                                                        aria-label="Eliminar verificación #{{ $verificacion->id }}">
-                                                    <span class="material-symbols-outlined"> delete </span>
-                                                    Eliminar
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
+            {{-- Tabla principal --}}
+            <div class="card">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-vcenter card-table">
+                            <thead>
                                 <tr>
-                                    <td colspan="5" class="px-4 py-8 text-center text-slate-500 dark:text-slate-300">
-                                        @if(request()->hasAny(['search','vehiculo_id','estado','from','to']))
-                                            No se encontraron resultados con los filtros aplicados.
-                                            <a href="{{ route('verificaciones.index') }}" class="text-indigo-600 hover:text-indigo-800">Limpiar filtros</a>
-                                        @else
-                                            No hay verificaciones registradas.
-                                        @endif
-                                    </td>
+                                    <th>Vehículo</th>
+                                    <th>Estado</th>
+                                    <th>Fecha</th>
+                                    <th>Comentarios</th>
+                                    <th class="w-1 text-end">Acciones</th>
                                 </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @forelse($verificaciones as $verificacion)
+                                    @php
+                                        $unidad = $verificacion->vehiculo->unidad ?? '—';
+                                        $placa  = $verificacion->vehiculo->placa ?? null;
+                                        $estado = (string)$verificacion->estado;
+                                        // Color de badge por estado (ajusta a tus propios valores)
+                                        $estadoColor = 'bg-secondary-lt';
+                                        if (str_contains(strtolower($estado), 'vigente')) $estadoColor = 'bg-green-lt';
+                                        elseif (str_contains(strtolower($estado), 'vencid')) $estadoColor = 'bg-red-lt';
+                                        elseif (str_contains(strtolower($estado), 'próxim') || str_contains(strtolower($estado), 'proxim')) $estadoColor = 'bg-yellow-lt';
+                                    @endphp
+                                    <tr>
+                                        <td class="text-reset">
+                                            <div class="fw-medium">{{ $unidad }} @if($placa) <span class="text-secondary">({{ $placa }})</span> @endif</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ $estadoColor }}">
+                                                <i class="ti ti-shield-check me-1"></i> {{ $estado }}
+                                            </span>
+                                        </td>
+                                        <td>{{ \Illuminate\Support\Carbon::parse($verificacion->fecha_verificacion)->format('Y-m-d') }}</td>
+                                        <td class="text-wrap">{{ $verificacion->comentarios }}</td>
+                                        <td class="text-end">
+                                            <div class="btn-list justify-content-end">
+                                                <a href="{{ route('verificaciones.edit', $verificacion->id) }}"
+                                                   class="btn btn-outline-secondary btn-sm"
+                                                   aria-label="Editar verificación #{{ $verificacion->id }}">
+                                                    <i class="ti ti-edit me-1"></i>
+                                                    Editar
+                                                </a>
+
+                                                <form action="{{ route('verificaciones.destroy', $verificacion->id) }}"
+                                                      method="POST" class="d-inline"
+                                                      onsubmit="return confirm('¿Seguro que quieres eliminar la verificación #{{ $verificacion->id }}?');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-danger btn-sm">
+                                                        <i class="ti ti-trash me-1"></i>
+                                                        Eliminar
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="p-5">
+                                            <div class="empty">
+                                                <div class="empty-img"><i class="ti ti-folder-off" style="font-size:42px;"></i></div>
+                                                <p class="empty-title">No hay verificaciones</p>
+                                                <p class="empty-subtitle text-secondary">
+                                                    @if(request()->hasAny(['search','vehiculo_id','estado','from','to']))
+                                                        No se encontraron resultados con los filtros aplicados.
+                                                    @else
+                                                        Aún no has registrado verificaciones.
+                                                    @endif
+                                                </p>
+                                                <div class="empty-action">
+                                                    @if(request()->hasAny(['search','vehiculo_id','estado','from','to']))
+                                                        <a href="{{ route('verificaciones.index') }}" class="btn btn-outline-primary">
+                                                            <i class="ti ti-filter-off me-1"></i>
+                                                            Limpiar filtros
+                                                        </a>
+                                                    @else
+                                                        <a href="{{ route('verificaciones.create') }}" class="btn btn-primary">
+                                                            <i class="ti ti-square-plus me-1"></i>
+                                                            Nueva Verificación
+                                                        </a>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+
+                {{-- Paginación + contador --}}
+                @if(method_exists($verificaciones, 'links'))
+                    @php
+                        $totalAll   = $verificaciones->total();
+                        $firstAll   = $verificaciones->firstItem();
+                        $lastAll    = $verificaciones->lastItem();
+                        $currentAll = $verificaciones->currentPage();
+                        $lastPageAll= $verificaciones->lastPage();
+                    @endphp
+                    <div class="card-footer d-flex flex-column flex-sm-row align-items-center justify-content-between gap-2">
+                        <div class="text-secondary">
+                            @if($totalAll === 0)
+                                Mostrando 0 resultados
+                            @elseif($totalAll === 1)
+                                Resultado <span class="fw-semibold">(1 de 1)</span>
+                            @else
+                                Página <span class="fw-semibold">{{ $currentAll }}</span> de <span class="fw-semibold">{{ $lastPageAll }}</span> —
+                                Mostrando <span class="fw-semibold">{{ $firstAll }}–{{ $lastAll }}</span> de <span class="fw-semibold">{{ $totalAll }}</span> resultados
+                            @endif
+                        </div>
+                        <div>
+                            {{ $verificaciones->appends([
+                                'search'     => request('search'),
+                                'vehiculo_id'=> request('vehiculo_id'),
+                                'estado'     => request('estado'),
+                                'from'       => request('from'),
+                                'to'         => request('to'),
+                                'sort_by'    => request('sort_by'),
+                                'sort_dir'   => request('sort_dir'),
+                            ])->links() }}
+                        </div>
+                    </div>
+                @endif
             </div>
 
-            {{-- Paginación + contador --}}
-            @if(method_exists($verificaciones, 'links'))
-                <div class="mt-6 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-                    @php
-                        $totalAll = $verificaciones->total();
-                        $firstAll = $verificaciones->firstItem();
-                        $lastAll  = $verificaciones->lastItem();
-                        $currentAll = $verificaciones->currentPage();
-                        $lastPageAll = $verificaciones->lastPage();
-                    @endphp
-
-                    <p class="text-sm text-slate-600 dark:text-slate-300">
-                        @if($totalAll === 0)
-                            Mostrando 0 resultados
-                        @elseif($totalAll === 1)
-                            Resultado <span class="font-semibold">(1 de 1)</span>
-                        @else
-                            Página <span class="font-semibold">{{ $currentAll }}</span> de <span class="font-semibold">{{ $lastPageAll }}</span> —
-                            Mostrando <span class="font-semibold">{{ $firstAll }}–{{ $lastAll }}</span> de <span class="font-semibold">{{ $totalAll }}</span> resultados
-                        @endif
-                    </p>
-
-                    <div class="w-full sm:w-auto">
-                        {{ $verificaciones->appends([
-                            'search'     => request('search'),
-                            'vehiculo_id'=> request('vehiculo_id'),
-                            'estado'     => request('estado'),
-                            'from'       => request('from'),
-                            'to'         => request('to'),
-                            'sort_by'    => request('sort_by'),
-                            'sort_dir'   => request('sort_dir'),
-                        ])->links() }}
-                    </div>
-                </div>
-            @endif
         </div>
     </div>
 
-    {{-- Footer --}}
-    <footer class="py-8">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500">
-            © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+    {{-- Footer estilo Tabler --}}
+    <footer class="footer footer-transparent d-print-none">
+        <div class="container-xl">
+            <div class="row text-center align-items-center flex-row-reverse">
+                <div class="col-12">
+                    <p class="mb-0 text-secondary small">
+                        © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+                    </p>
+                </div>
+            </div>
         </div>
     </footer>
 </x-app-layout>

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str; // <— AÑADIDO
 use App\Models\VehiculoFoto;
 
 class Vehiculo extends Model
@@ -11,6 +12,19 @@ class Vehiculo extends Model
     use HasFactory;
 
     protected $table = 'vehiculos';
+
+    // Atributos que deseas siempre en MAYÚSCULAS
+    public const UPPERCASE = [
+        'ubicacion',
+        'propietario',
+        'unidad',
+        'marca',
+        'serie',
+        'motor',
+        'placa',
+        'estado',
+        'poliza_hdi',
+    ];
 
     protected $fillable = [
         'ubicacion',
@@ -33,9 +47,29 @@ class Vehiculo extends Model
 
     protected $casts = [
         'rend' => 'float',
+        // Si quieres, puedes castear fechas:
+        // 'fec_vencimiento' => 'date',
+        // 'vencimiento_t_circulacion' => 'date',
+        // 'cambio_placas' => 'date',
     ];
 
-    // Relaciones
+    // ====== Normalización a MAYÚSCULAS ======
+    protected static function booted()
+    {
+        static::saving(function (self $vehiculo) {
+            foreach (self::UPPERCASE as $attr) {
+                $value = $vehiculo->{$attr};
+                if (is_string($value)) {
+                    // recorta y normaliza espacios
+                    $value = preg_replace('/\s+/u', ' ', trim($value));
+                    // convierte respetando acentos/ñ
+                    $vehiculo->{$attr} = Str::upper($value);
+                }
+            }
+        });
+    }
+
+    // ====== RELACIONES ======
     public function tanques()
     {
         return $this->hasMany('App\Models\Tanque');
@@ -58,26 +92,18 @@ class Vehiculo extends Model
 
     public function fotos()
     {
-        // Orden por 'orden' y luego por fecha (útil para galerías)
         return $this->hasMany(VehiculoFoto::class)
                     ->orderBy('orden')
                     ->orderByDesc('created_at');
     }
 
-    // ========== SCOPES ==========
-    /**
-     * Filtro "todo en uno".
-     * Acepta llaves: search, id, unidad, placa, serie, propietario,
-     * anio | anio_min | anio_max, marca
-     */
+    // ====== SCOPES ======
     public function scopeFilter($query, array $filters = [])
     {
-        // Búsqueda global (sólo los campos solicitados)
         if (!empty($filters['search'])) {
             $term = trim($filters['search']);
             $query->where(function ($q) use ($term) {
                 $like = '%' . str_replace('%', '\\%', $term) . '%';
-                // id: además de like, intentamos match exacto si es numérico
                 if (is_numeric($term)) {
                     $q->orWhere('id', (int)$term);
                 }
@@ -89,56 +115,33 @@ class Vehiculo extends Model
             });
         }
 
-        // Filtros simples (sólo los solicitados)
-        if (!empty($filters['id'])) {
-            $query->where('id', (int)$filters['id']);
-        }
-        if (!empty($filters['unidad'])) {
-            $query->where('unidad', 'like', '%' . $filters['unidad'] . '%');
-        }
-        if (!empty($filters['placa'])) {
-            $query->where('placa', 'like', '%' . $filters['placa'] . '%');
-        }
-        if (!empty($filters['serie'])) {
-            $query->where('serie', 'like', '%' . $filters['serie'] . '%');
-        }
-        if (!empty($filters['propietario'])) {
-            $query->where('propietario', 'like', '%' . $filters['propietario'] . '%');
-        }
-        if (!empty($filters['marca'])) {
-            $query->where('marca', $filters['marca']);
-        }
+        if (!empty($filters['id']))        $query->where('id', (int)$filters['id']);
+        if (!empty($filters['unidad']))    $query->where('unidad', 'like', '%' . $filters['unidad'] . '%');
+        if (!empty($filters['placa']))     $query->where('placa', 'like', '%' . $filters['placa'] . '%');
+        if (!empty($filters['serie']))     $query->where('serie', 'like', '%' . $filters['serie'] . '%');
+        if (!empty($filters['propietario'])) $query->where('propietario', 'like', '%' . $filters['propietario'] . '%');
+        if (!empty($filters['marca']))     $query->where('marca', $filters['marca']);
 
-        // Año (exacto o rango)
         if (!empty($filters['anio'])) {
             $query->where('anio', $filters['anio']);
         } else {
-            if (!empty($filters['anio_min'])) {
-                $query->where('anio', '>=', (int) $filters['anio_min']);
-            }
-            if (!empty($filters['anio_max'])) {
-                $query->where('anio', '<=', (int) $filters['anio_max']);
-            }
+            if (!empty($filters['anio_min'])) $query->where('anio', '>=', (int) $filters['anio_min']);
+            if (!empty($filters['anio_max'])) $query->where('anio', '<=', (int) $filters['anio_max']);
         }
 
         return $query;
     }
 
-    /**
-     * Ordenamiento con whitelist de columnas.
-     */
     public function scopeSort($query, ?string $by, ?string $dir = 'asc')
     {
         $dir = strtolower($dir) === 'desc' ? 'desc' : 'asc';
 
-        $whitelist = [
-            'id', 'unidad', 'placa', 'serie', 'anio', 'propietario', 'marca', 'created_at',
-        ];
+        $whitelist = ['id','unidad','placa','serie','anio','propietario','marca','created_at'];
 
         if ($by && in_array($by, $whitelist, true)) {
             return $query->orderBy($by, $dir);
         }
 
-        return $query->orderBy('created_at', 'desc'); // por defecto, recientes primero
+        return $query->orderBy('created_at', 'desc');
     }
 }
