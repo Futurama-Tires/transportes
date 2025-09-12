@@ -230,7 +230,7 @@
                     <table class="table table-vcenter table-striped table-hover">
                         <thead>
                             <tr class="text-uppercase text-secondary small">
-                                <th class="text-nowrap">ID</th>
+                                <th class="text-nowrap text-center">#</th>
                                 <th>Unidad</th>
                                 <th>Placa</th>
                                 <th>Serie</th>
@@ -273,7 +273,7 @@
                                     ];
                                 @endphp
                                 <tr>
-                                    <td class="text-nowrap">#{{ $v->id }}</td>
+                                    <td class="text-nowrap text-center">{{ $loop->iteration }}</td>
                                     <td class="text-nowrap">{{ $v->unidad ?? '—' }}</td>
                                     <td class="text-nowrap">{{ $v->placa ?? '—' }}</td>
                                     <td class="text-nowrap">{{ $v->serie ?? '—' }}</td>

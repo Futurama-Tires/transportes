@@ -1,4 +1,4 @@
-{{-- resources/views/operadores/index.blade.php — versión Tabler (acciones separadas y filtros en offcanvas) --}}
+{{-- resources/views/operadores/index.blade.php — versión Tabler (acciones separadas, filtros en offcanvas y numeración sin mostrar ID) --}}
 <x-app-layout>
     {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
     @vite(['resources/js/app.js'])
@@ -184,9 +184,9 @@
                         <table class="table table-vcenter table-striped table-hover">
                             <thead>
                                 <tr class="text-uppercase text-secondary small">
+                                    <th class="text-center text-nowrap">#</th>
                                     <th>Nombre completo</th>
                                     <th>Correo electrónico</th>
-                                    <th class="text-nowrap">ID</th>
                                     <th class="text-end">Acciones</th>
                                 </tr>
                             </thead>
@@ -197,21 +197,24 @@
                                         $correo = optional($op->user)->email ?? '—';
                                     @endphp
                                     <tr>
+                                        {{-- Numeración independiente del filtro/orden (reinicia por página) --}}
+                                        <td class="text-center text-nowrap">{{ $loop->iteration }}</td>
+
                                         <td class="text-nowrap">
                                             <div class="d-flex align-items-center gap-2">
                                                 <span class="avatar avatar-sm avatar-rounded bg-blue-lt">
                                                     <i class="ti ti-user"></i>
                                                 </span>
                                                 <div class="lh-1">
-                                                    <div class="fw-semibold">{{ $nombreCompleto ?: 'Operador #'.$op->id }}</div>
-                                                    <div class="text-secondary small">#{{ $op->id }}</div>
+                                                    <div class="fw-semibold">{{ $nombreCompleto ?: 'Operador' }}</div>
                                                 </div>
                                             </div>
                                         </td>
+
                                         <td class="text-nowrap">
                                             <div class="text-truncate" style="max-width: 280px" title="{{ $correo }}">{{ $correo }}</div>
                                         </td>
-                                        <td class="text-nowrap">#{{ $op->id }}</td>
+
                                         <td class="text-end">
                                             <div class="d-inline-flex gap-1">
                                                 {{-- Ver (placeholder hacia edit si no hay show) --}}
@@ -232,7 +235,7 @@
                                                 <form action="{{ route('operadores.destroy', $op->id) }}"
                                                       method="POST"
                                                       class="d-inline"
-                                                      onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $nombreCompleto ?: 'Operador #'.$op->id }}?');">
+                                                      onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $nombreCompleto ?: 'este operador' }}?');">
                                                     @csrf @method('DELETE')
                                                     <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
                                                         <i class="ti ti-trash me-1"></i>Eliminar
