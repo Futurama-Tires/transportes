@@ -157,6 +157,23 @@
                 </div>
                 @endhasanyrole
 
+                @hasanyrole('administrador|capturista')
+                <div class="col-12 col-sm-6 col-lg-4">
+                    <a href="{{ route('tarjetas.index') }}" class="card card-link bg-cyan-lt" aria-label="Tarjetas SiVale">
+                        <div class="card-body d-flex align-items-center">
+                            <span class="avatar bg-cyan text-white me-3">
+                                <i class="ti ti-credit-card"></i>
+                            </span>
+                            <div class="flex-fill">
+                                <div class="card-title mb-1">Tarjeta comodín</div>
+                                <div class="text-secondary small">Consultar la tarjeta comodín.</div>
+                            </div>
+                            <i class="ti ti-chevron-right text-secondary"></i>
+                        </div>
+                    </a>
+                </div>
+                @endhasanyrole
+
                 @role('administrador')
                 <div class="col-12 col-sm-6 col-lg-4">
                     <a href="https://www.google.com" class="card card-link bg-indigo-lt" aria-label="Bases de datos" target="_blank" rel="noopener">

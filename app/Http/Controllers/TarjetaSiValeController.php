@@ -34,9 +34,32 @@ class TarjetaSiValeController extends Controller
             ->with('success', 'Tarjeta SiVale creada correctamente.');
     }
 
-    public function show(TarjetaSiVale $tarjeta)
+    /**
+     * Muestra la tarjeta + sus vehículos y sus cargas (paginadas) con totales.
+     */
+    public function show(TarjetaSiVale $tarjeta, Request $request)
     {
-        return view('tarjetas.show', compact('tarjeta'));
+        // Cargamos vehículos asociados (por si quieres mostrarlos)
+        $tarjeta->load('vehiculos');
+
+        // Query base de cargas (relación hasManyThrough definida en el modelo TarjetaSiVale)
+        $cargasQuery = $tarjeta->cargas()
+            ->with(['vehiculo:id,unidad,placa,serie'])
+            // ajusta el orden según tus columnas (fecha o created_at)
+            ->orderByDesc('fecha');
+
+        // Totales (se hacen sobre la misma query)
+        $stats = [
+            'total_cargas'  => (clone $cargasQuery)->count(),
+            'total_litros'  => (clone $cargasQuery)->sum('litros'),
+            'total_gastado' => (clone $cargasQuery)->sum('total'),
+        ];
+
+        // Paginación
+        $perPage = (int) $request->get('per_page', 15);
+        $cargas  = $cargasQuery->paginate($perPage)->withQueryString();
+
+        return view('tarjetas.show', compact('tarjeta', 'cargas', 'stats'));
     }
 
     public function edit(TarjetaSiVale $tarjeta)
@@ -63,24 +86,29 @@ class TarjetaSiValeController extends Controller
             ->with('success', 'Tarjeta SiVale eliminada correctamente.');
     }
 
+    /**
+     * Valida y normaliza datos. Usa dinámicamente el nombre real de la tabla del modelo
+     * para evitar desajustes si cambias $table en el modelo.
+     */
     private function validateData(Request $request, $id = null)
-{
-    $data = $request->validate([
-        'numero_tarjeta'    => ['required', 'digits:16', Rule::unique('tarjetasSiVale')->ignore($id)],
-        'nip'               => ['nullable', 'digits:4'],
-        'fecha_vencimiento' => ['required', 'date_format:Y-m'],
-    ], [
-        'numero_tarjeta.digits' => 'El número de tarjeta debe tener exactamente 16 dígitos.',
-        'nip.digits'            => 'El NIP debe tener exactamente 4 dígitos.',
-        'fecha_vencimiento.date_format' => 'El formato de fecha debe ser Mes/Año.',
-    ]);
+    {
+        $table = (new TarjetaSiVale())->getTable();
 
-    // Si existe la fecha, convertir a YYYY-MM-01 para MySQL DATE
-    if (!empty($data['fecha_vencimiento'])) {
-        $data['fecha_vencimiento'] = $data['fecha_vencimiento'] . '-01';
+        $data = $request->validate([
+            'numero_tarjeta'    => ['required', 'digits:16', Rule::unique($table)->ignore($id)],
+            'nip'               => ['nullable', 'digits:4'],
+            'fecha_vencimiento' => ['required', 'date_format:Y-m'],
+        ], [
+            'numero_tarjeta.digits'         => 'El número de tarjeta debe tener exactamente 16 dígitos.',
+            'nip.digits'                    => 'El NIP debe tener exactamente 4 dígitos.',
+            'fecha_vencimiento.date_format' => 'El formato de fecha debe ser Mes/Año (YYYY-MM).',
+        ]);
+
+        // Convertimos YYYY-MM → YYYY-MM-01 para guardarlo en DATE
+        if (!empty($data['fecha_vencimiento'])) {
+            $data['fecha_vencimiento'] = $data['fecha_vencimiento'] . '-01';
+        }
+
+        return $data;
     }
-
-    return $data;
-}
-
 }

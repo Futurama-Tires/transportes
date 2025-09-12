@@ -242,6 +242,10 @@
                         <tbody>
                             @forelse($vehiculos as $v)
                                 @php
+                                    // Resolvemos número de tarjeta de forma segura (forzando carga si hace falta)
+                                    $tarjetaNumero = optional($v->tarjetaSiVale)->numero_tarjeta; // trigger lazy load
+                                    $tarjetaLabel  = $tarjetaNumero ?: ($v->tarjeta_si_vale_id ? ('ID '.$v->tarjeta_si_vale_id) : null);
+
                                     $vehData = [
                                         'id'          => $v->id,
                                         'unidad'      => $v->unidad,
@@ -253,13 +257,21 @@
                                         'ubicacion'   => $v->ubicacion ?? null,
                                         'estado'      => $v->estado ?? null,
                                         'motor'       => $v->motor ?? null,
-                                        'tarjeta_si_vale_id' => $v->tarjeta_si_vale_id ?? null,
-                                        'tarjeta_si_vale'    => isset($v->tarjetaSiVale) ? ['numero_tarjeta' => $v->tarjetaSiVale->numero_tarjeta] : null,
+
+                                        // Tarjeta SiVale (ambas variantes por compatibilidad)
+                                        'tarjeta'              => $tarjetaLabel, // <— lista en modal
+                                        'tarjeta_si_vale_id'   => $v->tarjeta_si_vale_id ?? null,
+                                        'tarjeta_si_vale'      => [
+                                            'numero_tarjeta'      => $tarjetaNumero,
+                                            'fecha_vencimiento'   => optional($v->tarjetaSiVale)->fecha_vencimiento,
+                                        ],
+
                                         'nip'         => $v->nip ?? null,
                                         'fec_vencimiento'              => $v->fec_vencimiento ?? null,
                                         'vencimiento_t_circulacion'    => $v->vencimiento_t_circulacion ?? null,
                                         'cambio_placas'                => $v->cambio_placas ?? null,
                                         'poliza_hdi'                   => $v->poliza_hdi ?? null,
+
                                         'fotos'   => isset($v->fotos)   ? $v->fotos->map(fn($f)=>['id'=>$f->id])->values() : [],
                                         'tanques' => isset($v->tanques) ? $v->tanques->map(fn($t)=>[
                                                             'id' => $t->id,
@@ -479,7 +491,6 @@
 
     {{-- ===== MODAL GALERÍA (Tabler look & feel) ===== --}}
     <style>
-        /* Lightbox estilo Tabler: contenido contenido, sin desbordes, con miniaturas */
         #galleryModal .modal-dialog { max-width: min(96vw, 1200px); }
         #galleryModal .modal-content { background: #0b0b0b; color: #fff; border: 0; }
         #galleryModal .modal-header { border: 0; background: transparent; }
@@ -491,44 +502,29 @@
             #galleryModal .carousel,
             #galleryModal .carousel-inner { height: 75vh; }
         }
-        #galleryModal .carousel-item { 
-  height: 100%;              /* mantenemos la altura, sin display */
-}
-
-/* Solo las slides visibles durante/tras la animación usan flex para centrar */
-#galleryModal .carousel-item.active,
-#galleryModal .carousel-item-next,
-#galleryModal .carousel-item-prev,
-#galleryModal .carousel-item-start,
-#galleryModal .carousel-item-end {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* El resto de tu CSS puede quedarse igual */
-#galleryModal .carousel,
-#galleryModal .carousel-inner { height: 82vh; }
-@media (max-width: 768px){
-  #galleryModal .carousel,
-  #galleryModal .carousel-inner { height: 75vh; }
-}
-#galleryModal .lightbox-img {
-  max-height: 80vh; width: auto; max-width: 100%;
-  object-fit: contain; user-select: none;
-}
-#galleryModal .carousel-control-prev,
-#galleryModal .carousel-control-next { filter: drop-shadow(0 0 6px rgba(0,0,0,.6)); }
-#galleryModal .carousel-control-prev-icon,
-#galleryModal .carousel-control-next-icon { width: 3rem; height: 3rem; }
-#galleryModal .thumbs { display:flex; gap:.5rem; overflow-x:auto; scrollbar-width:thin; padding:.75rem 1rem 1rem; background:#0b0b0b; }
-#galleryModal .thumb { flex:0 0 auto; width:76px; height:56px; border-radius:.5rem; overflow:hidden; border:2px solid transparent; cursor:pointer; opacity:.9; }
-#galleryModal .thumb:hover { opacity:1; }
-#galleryModal .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-#galleryModal .thumb.active { border-color:#5b9cff; }
-
-
-        
+        #galleryModal .carousel-item { height: 100%; }
+        #galleryModal .carousel-item.active,
+        #galleryModal .carousel-item-next,
+        #galleryModal .carousel-item-prev,
+        #galleryModal .carousel-item-start,
+        #galleryModal .carousel-item-end {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        #galleryModal .lightbox-img {
+          max-height: 80vh; width: auto; max-width: 100%;
+          object-fit: contain; user-select: none;
+        }
+        #galleryModal .carousel-control-prev,
+        #galleryModal .carousel-control-next { filter: drop-shadow(0 0 6px rgba(0,0,0,.6)); }
+        #galleryModal .carousel-control-prev-icon,
+        #galleryModal .carousel-control-next-icon { width: 3rem; height: 3rem; }
+        #galleryModal .thumbs { display:flex; gap:.5rem; overflow-x:auto; scrollbar-width:thin; padding:.75rem 1rem 1rem; background:#0b0b0b; }
+        #galleryModal .thumb { flex:0 0 auto; width:76px; height:56px; border-radius:.5rem; overflow:hidden; border:2px solid transparent; cursor:pointer; opacity:.9; }
+        #galleryModal .thumb:hover { opacity:1; }
+        #galleryModal .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+        #galleryModal .thumb.active { border-color:#5b9cff; }
     </style>
 
     <div class="modal modal-blur fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
@@ -562,8 +558,6 @@
 
     {{-- ===== SCRIPTS (Bootstrap via Tabler) ===== --}}
     <script>
-    // Tabler ya incluye Bootstrap 5; si además cargas bootstrap.bundle por Vite,
-    // asegúrate de no duplicar (preferimos la instancia global existente).
     document.addEventListener('DOMContentLoaded', () => {
         const basePhotoUrl = "{{ url('/vehiculos/fotos') }}";
         const baseVehUrl   = "{{ url('/vehiculos') }}";
@@ -592,7 +586,6 @@
         const fmtNum = n => (n===''||n==null) ? '—' : (isNaN(+n)?'—':(+n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}));
         const fmtMoney = n => (n===''||n==null) ? '—' : (isNaN(+n)?'—':(+n).toLocaleString('es-MX',{style:'currency',currency:'MXN'}));
 
-        // Toma la clase Carousel desde el entorno (Tabler/Bootstrap)
         const getCarouselCtor = () => (window.bootstrap?.Carousel) || (window.Carousel) || null;
         const getModalCtor    = () => (window.bootstrap?.Modal) || (window.Modal) || null;
 
@@ -605,11 +598,20 @@
             subtitleEl.textContent = veh.placa ? `Placa: ${veh.placa}` : '';
 
             const fields = {
-                id: fmt(veh.id), unidad: fmt(veh.unidad), placa: fmt(veh.placa),
-                serie: fmt(veh.serie), marca: fmt(veh.marca), anio: fmt(veh.anio),
-                propietario: fmt(veh.propietario), ubicacion: fmt(veh.ubicacion),
-                estado: fmt(veh.estado), motor: fmt(veh.motor),
-                tarjeta: fmt(veh?.tarjeta_si_vale?.numero_tarjeta ?? veh?.tarjeta_si_vale_id),
+                id: fmt(veh.id),
+                unidad: fmt(veh.unidad),
+                placa: fmt(veh.placa),
+                serie: fmt(veh.serie),
+                marca: fmt(veh.marca),
+                anio: fmt(veh.anio),
+                propietario: fmt(veh.propietario),
+                ubicacion: fmt(veh.ubicacion),
+                estado: fmt(veh.estado),
+                motor: fmt(veh.motor),
+
+                // AHORA simple: viene ya resuelto desde PHP (número o "ID N")
+                tarjeta: fmt(veh.tarjeta),
+
                 nip: fmt(veh.nip),
                 fec_vencimiento: fmtDate(veh.fec_vencimiento),
                 vencimiento_t_circulacion: fmtDate(veh.vencimiento_t_circulacion),
@@ -669,7 +671,7 @@
             }
         }
 
-        // ====== LIGHTBOX Tabler-like ======
+        // ====== LIGHTBOX ======
         function updateThumbsActive(i){
             [...galleryThumbs.querySelectorAll('.thumb')].forEach((el,idx)=>{
                 el.classList.toggle('active', idx === i);
@@ -741,7 +743,7 @@
         // Botón "Ver galería"
         openGalleryBtn.addEventListener('click', () => openGallery(0));
 
-        // Delegación: botón "Ver" en la tabla => inyecta data en el modal antes de abrirlo
+        // Delegación: botón "Ver" => inyecta data en el modal
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('.btn-view-veh');
             if (!btn) return;

@@ -220,161 +220,163 @@
                 </div>
                 {{-- /OFFCANVAS --}}
 
-                {{-- ===== TABLA ===== (sin columnas fijas) --}}
-                <div class="card">
-                    <div class="table-responsive">
-                        <table class="table table-vcenter table-striped table-hover">
-                            <thead>
-                                <tr class="text-uppercase text-secondary small">
-                                    <th>Número de tarjeta</th>
-                                    <th>NIP</th>
-                                    <th>Fecha de vencimiento</th>
-                                    <th>Estado</th>
-                                    <th class="text-end">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse ($tarjetas as $tarjeta)
-                                    @php
-                                        $fv = $tarjeta->fecha_vencimiento ? \Carbon\Carbon::parse($tarjeta->fecha_vencimiento) : null;
-                                        $hoy = \Carbon\Carbon::today();
-                                        $estado = '—';
-                                        $badge  = 'bg-secondary-lt';
-                                        if ($fv) {
-                                            $daysTo = $hoy->diffInDays($fv, false); // <0 vencida, 0..30 por vencer, >30 vigente
-                                            if ($daysTo < 0) {
-                                                $estado = 'Vencida';       $badge = 'bg-rose-lt';
-                                            } elseif ($daysTo <= 30) {
-                                                $estado = 'Por vencer';    $badge = 'bg-amber-lt';
-                                            } else {
-                                                $estado = 'Vigente';       $badge = 'bg-emerald-lt';
-                                            }
+            </form> {{-- ←← CERRAMOS EL FORM GET ANTES DE LA TABLA para evitar "nested forms" --}}
+
+            {{-- ===== TABLA ===== (ya FUERA del form GET) --}}
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-vcenter table-striped table-hover">
+                        <thead>
+                            <tr class="text-uppercase text-secondary small">
+                                <th>Número de tarjeta</th>
+                                <th>NIP</th>
+                                <th>Fecha de vencimiento</th>
+                                <th>Estado</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($tarjetas as $tarjeta)
+                                @php
+                                    $fv = $tarjeta->fecha_vencimiento ? \Carbon\Carbon::parse($tarjeta->fecha_vencimiento) : null;
+                                    $hoy = \Carbon\Carbon::today();
+                                    $estado = '—';
+                                    $badge  = 'bg-secondary-lt';
+                                    if ($fv) {
+                                        $daysTo = $hoy->diffInDays($fv, false); // <0 vencida, 0..30 por vencer, >30 vigente
+                                        if ($daysTo < 0) {
+                                            $estado = 'Vencida';       $badge = 'bg-rose-lt';
+                                        } elseif ($daysTo <= 30) {
+                                            $estado = 'Por vencer';    $badge = 'bg-amber-lt';
+                                        } else {
+                                            $estado = 'Vigente';       $badge = 'bg-emerald-lt';
                                         }
-                                        $nip = $tarjeta->nip ?? '—';
-                                        $hasNip = $nip !== '—' && $nip !== '';
-                                    @endphp
-                                    <tr>
-                                        {{-- Número --}}
-                                        <td class="font-monospace">{{ $tarjeta->numero_tarjeta }}</td>
+                                    }
+                                    $nip = $tarjeta->nip ?? '—';
+                                    $hasNip = $nip !== '—' && $nip !== '';
+                                @endphp
+                                <tr>
+                                    {{-- Número --}}
+                                    <td class="font-monospace">{{ $tarjeta->numero_tarjeta }}</td>
 
-                                        {{-- NIP con toggle por fila --}}
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="nip-field font-monospace" data-real="{{ $hasNip ? e($nip) : '' }}">
-                                                    {{ $hasNip ? '••••' : '—' }}
-                                                </span>
-                                                @if($hasNip)
-                                                    <button type="button"
-                                                            class="btn btn-outline-secondary btn-sm toggle-nip"
-                                                            aria-label="Mostrar NIP" title="Mostrar NIP">
-                                                        <i class="ti ti-eye"></i>
-                                                        <span class="ms-1 d-none d-sm-inline">Mostrar</span>
-                                                    </button>
-                                                @endif
-                                            </div>
-                                        </td>
-
-                                        {{-- Vencimiento --}}
-                                        <td class="text-nowrap">{{ $fv ? $fv->format('Y-m-d') : '—' }}</td>
-
-                                        {{-- Estado --}}
-                                        <td>
-                                            <span class="badge {{ $badge }}">
-                                                <i class="ti ti-circle-dot me-1"></i>{{ $estado }}
+                                    {{-- NIP con toggle por fila --}}
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="nip-field font-monospace" data-real="{{ $hasNip ? e($nip) : '' }}">
+                                                {{ $hasNip ? '••••' : '—' }}
                                             </span>
-                                        </td>
+                                            @if($hasNip)
+                                                <button type="button"
+                                                        class="btn btn-outline-secondary btn-sm toggle-nip"
+                                                        aria-label="Mostrar NIP" title="Mostrar NIP">
+                                                    <i class="ti ti-eye"></i>
+                                                    <span class="ms-1 d-none d-sm-inline">Mostrar</span>
+                                                </button>
+                                            @endif
+                                        </div>
+                                    </td>
 
-                                        {{-- Acciones: Ver, Editar, Eliminar (separadas) --}}
-                                        <td class="text-end">
-                                            <div class="d-inline-flex gap-1">
-                                                <a href="{{ route('tarjetas.edit', $tarjeta) }}"
-                                                   class="btn btn-outline-secondary btn-sm"
-                                                   title="Ver">
-                                                    <i class="ti ti-eye me-1"></i>Ver
-                                                </a>
+                                    {{-- Vencimiento --}}
+                                    <td class="text-nowrap">{{ $fv ? $fv->format('Y-m-d') : '—' }}</td>
 
-                                                <a href="{{ route('tarjetas.edit', $tarjeta) }}"
-                                                   class="btn btn-outline-secondary btn-sm"
-                                                   title="Editar">
-                                                    <i class="ti ti-edit me-1"></i>Editar
-                                                </a>
+                                    {{-- Estado --}}
+                                    <td>
+                                        <span class="badge {{ $badge }}">
+                                            <i class="ti ti-circle-dot me-1"></i>{{ $estado }}
+                                        </span>
+                                    </td>
 
-                                                <form action="{{ route('tarjetas.destroy', $tarjeta) }}"
-                                                      method="POST"
-                                                      class="d-inline"
-                                                      onsubmit="return confirm('¿Seguro que quieres eliminar la tarjeta {{ $tarjeta->numero_tarjeta }}?');">
-                                                    @csrf @method('DELETE')
-                                                    <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
-                                                        <i class="ti ti-trash me-1"></i>Eliminar
-                                                    </button>
-                                                </form>
+                                    {{-- Acciones: Ver, Editar, Eliminar (separadas) --}}
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1">
+                                            <a href="{{ route('tarjetas.show', $tarjeta) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Ver">
+                                                <i class="ti ti-eye me-1"></i>Ver
+                                            </a>
+
+                                            <a href="{{ route('tarjetas.edit', $tarjeta) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Editar">
+                                                <i class="ti ti-edit me-1"></i>Editar
+                                            </a>
+
+                                            {{-- Este formulario YA no está anidado: funcionará el DELETE correctamente --}}
+                                            <form action="{{ route('tarjetas.destroy', $tarjeta) }}"
+                                                  method="POST"
+                                                  class="d-inline"
+                                                  onsubmit="return confirm('¿Seguro que quieres eliminar la tarjeta {{ $tarjeta->numero_tarjeta }}?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
+                                                    <i class="ti ti-trash me-1"></i>Eliminar
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="py-6">
+                                        <div class="empty">
+                                            <div class="empty-icon">
+                                                <i class="ti ti-credit-card-off"></i>
                                             </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5" class="py-6">
-                                            <div class="empty">
-                                                <div class="empty-icon">
-                                                    <i class="ti ti-credit-card-off"></i>
-                                                </div>
-                                                <p class="empty-title">No hay tarjetas</p>
-                                                <p class="empty-subtitle text-secondary">
-                                                    @if(request()->hasAny(['search','estado','tiene_nip','from','to','ultimos4']))
-                                                        No se encontraron resultados con los filtros aplicados.
-                                                    @else
-                                                        Aún no has registrado tarjetas.
-                                                    @endif
-                                                </p>
-                                                <div class="empty-action">
-                                                    @if(request()->hasAny(['search','estado','tiene_nip','from','to','ultimos4']))
-                                                        <a href="{{ route('tarjetas.index') }}" class="btn btn-outline-secondary">
-                                                            Limpiar filtros
-                                                        </a>
-                                                    @endif
-                                                    <a href="{{ route('tarjetas.create') }}" class="btn btn-primary">
-                                                        <i class="ti ti-plus me-2"></i>Nueva tarjeta
+                                            <p class="empty-title">No hay tarjetas</p>
+                                            <p class="empty-subtitle text-secondary">
+                                                @if(request()->hasAny(['search','estado','tiene_nip','from','to','ultimos4']))
+                                                    No se encontraron resultados con los filtros aplicados.
+                                                @else
+                                                    Aún no has registrado tarjetas.
+                                                @endif
+                                            </p>
+                                            <div class="empty-action">
+                                                @if(request()->hasAny(['search','estado','tiene_nip','from','to','ultimos4']))
+                                                    <a href="{{ route('tarjetas.index') }}" class="btn btn-outline-secondary">
+                                                        Limpiar filtros
                                                     </a>
-                                                </div>
+                                                @endif
+                                                <a href="{{ route('tarjetas.create') }}" class="btn btn-primary">
+                                                    <i class="ti ti-plus me-2"></i>Nueva tarjeta
+                                                </a>
                                             </div>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {{-- PAGINACIÓN + CONTADOR --}}
+            @if(method_exists($tarjetas, 'links'))
+                @php
+                    $totalAll   = $tarjetas->total();
+                    $firstAll   = $tarjetas->firstItem();
+                    $lastAll    = $tarjetas->lastItem();
+                    $currentAll = $tarjetas->currentPage();
+                    $lastPageAll= $tarjetas->lastPage();
+                @endphp
+                <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
+                    <p class="text-secondary small mb-2 mb-sm-0">
+                        @if($totalAll === 0)
+                            Mostrando 0 resultados
+                        @elseif($totalAll === 1)
+                            Resultado <strong>(1 de 1)</strong>
+                        @else
+                            Página <strong>{{ $currentAll }}</strong> de <strong>{{ $lastPageAll }}</strong> —
+                            Mostrando <strong>{{ $firstAll }}–{{ $lastAll }}</strong> de <strong>{{ $totalAll }}</strong> resultados
+                        @endif
+                    </p>
+                    <div>
+                        {{-- Para Bootstrap/Tabler: en AppServiceProvider -> Paginator::useBootstrapFive(); --}}
+                        {{ $tarjetas->appends(request()->only([
+                            'search','estado','tiene_nip','from','to','ultimos4','sort_by','sort_dir',
+                        ]))->links() }}
                     </div>
                 </div>
-
-                {{-- PAGINACIÓN + CONTADOR --}}
-                @if(method_exists($tarjetas, 'links'))
-                    @php
-                        $totalAll   = $tarjetas->total();
-                        $firstAll   = $tarjetas->firstItem();
-                        $lastAll    = $tarjetas->lastItem();
-                        $currentAll = $tarjetas->currentPage();
-                        $lastPageAll= $tarjetas->lastPage();
-                    @endphp
-                    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
-                        <p class="text-secondary small mb-2 mb-sm-0">
-                            @if($totalAll === 0)
-                                Mostrando 0 resultados
-                            @elseif($totalAll === 1)
-                                Resultado <strong>(1 de 1)</strong>
-                            @else
-                                Página <strong>{{ $currentAll }}</strong> de <strong>{{ $lastPageAll }}</strong> —
-                                Mostrando <strong>{{ $firstAll }}–{{ $lastAll }}</strong> de <strong>{{ $totalAll }}</strong> resultados
-                            @endif
-                        </p>
-                        <div>
-                            {{-- Para Bootstrap/Tabler: en AppServiceProvider -> Paginator::useBootstrapFive(); --}}
-                            {{ $tarjetas->appends(request()->only([
-                                'search','estado','tiene_nip','from','to','ultimos4','sort_by','sort_dir',
-                            ]))->links() }}
-                        </div>
-                    </div>
-                @endif
-
-            </form>
+            @endif
 
             {{-- FOOTER --}}
             <div class="text-center text-secondary small py-4">
