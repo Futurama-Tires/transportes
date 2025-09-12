@@ -302,7 +302,7 @@
                     </div>
                 </div>
 
-                {{-- PAGINACIÓN + CONTADOR --}}
+            {{-- PAGINACIÓN + CONTADOR --}}
                 @if(method_exists($p, 'links'))
                     <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
                         <p class="text-secondary small mb-2 mb-sm-0">
