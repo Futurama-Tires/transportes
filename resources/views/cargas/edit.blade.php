@@ -1,7 +1,7 @@
 {{-- resources/views/cargas_combustible/edit.blade.php — versión Tabler ejecutiva --}}
 <x-app-layout>
     @php
-        /** @var \App\Models\Carga $carga */
+        /** @var \App\Models\CargaCombustible $carga */
         $isEdit = isset($carga) && $carga->exists;
         $fechaValue = old('fecha', isset($carga->fecha) ? \Illuminate\Support\Carbon::parse($carga->fecha)->format('Y-m-d') : '');
     @endphp
@@ -45,6 +45,7 @@
                 </div>
             @endif
 
+            {{-- === FORM PRINCIPAL: UPDATE === --}}
             <form method="POST" action="{{ route('cargas.update', $carga) }}" autocomplete="off">
                 @csrf
                 @method('PUT')
@@ -209,16 +210,16 @@
                                     </div>
                                 </div>
                             </div>
+
+                            {{-- FOOTER de la card principal --}}
                             <div class="card-footer d-flex justify-content-between">
-                                {{-- Eliminar (opcional) --}}
-                                <form action="{{ route('cargas.destroy', $carga) }}" method="POST"
-                                      onsubmit="return confirm('¿Seguro que quieres eliminar la carga #{{ $carga->id }}?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-outline-danger">
-                                        <i class="ti ti-trash me-1"></i> Eliminar
-                                    </button>
-                                </form>
+                                {{-- Botón que dispara el form de DELETE (separado) --}}
+                                <button type="submit"
+                                        class="btn btn-outline-danger"
+                                        form="delete-carga-{{ $carga->id }}"
+                                        onclick="return confirm('¿Seguro que quieres eliminar la carga #{{ $carga->id }}?');">
+                                    <i class="ti ti-trash me-1"></i> Eliminar
+                                </button>
 
                                 <div class="d-flex gap-2">
                                     <a href="{{ route('cargas.index') }}" class="btn btn-link">
@@ -267,6 +268,14 @@
                     </div>
 
                 </div>
+            </form>
+
+            {{-- === FORM SEPARADO: DELETE (OCULTO) === --}}
+            <form id="delete-carga-{{ $carga->id }}"
+                  action="{{ route('cargas.destroy', $carga) }}"
+                  method="POST" class="d-none">
+                @csrf
+                @method('DELETE')
             </form>
 
             {{-- FOOTER --}}

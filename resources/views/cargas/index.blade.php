@@ -1,4 +1,4 @@
-{{-- resources/views/cargas_combustible/index.blade.php — versión Tabler (acciones separadas y sin columna Fecha fija) --}}
+{{-- resources/views/cargas_combustible/index.blade.php — versión Tabler (acciones separadas, numeración y DELETE robusto sin formularios anidados) --}}
 <x-app-layout>
     {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
     @vite(['resources/js/app.js'])
@@ -44,9 +44,11 @@
                 </div>
             @endif
 
-            {{-- FORM GLOBAL (GET) --}}
+            {{-- =========================
+                 FORM GLOBAL (GET) SOLO PARA BÚSQUEDA/FILTROS
+                 IMPORTANTE: se cierra ANTES de la tabla para NO anidar formularios
+               ========================= --}}
             <form method="GET" action="{{ route('cargas.index') }}">
-
                 {{-- TOOLBAR: búsqueda + acciones rápidas --}}
                 <div class="card mb-3">
                     <div class="card-body">
@@ -155,7 +157,7 @@
                                                 $nombreCompleto = trim(($o->nombre ?? '').' '.($o->apellido_paterno ?? '').' '.($o->apellido_materno ?? ''));
                                             @endphp
                                             <option value="{{ $o->id }}" @selected((string)$o->id === request('operador_id'))>
-                                                {{ $nombreCompleto ?: 'Operador #'.$o->id }}
+                                                {{ $nombreCompleto ?: 'Operador' }}
                                             </option>
                                         @endforeach
                                     </select>
@@ -208,7 +210,7 @@
                                             'rendimiento' => 'Rendimiento',
                                             'km_inicial' => 'KM Inicial',
                                             'km_final' => 'KM Final',
-                                            'id' => 'ID',
+                                            'id' => 'ID', // ordenar por ID aunque no se muestre
                                         ];
                                     @endphp
                                     <label class="form-label">Ordenar por</label>
@@ -264,159 +266,197 @@
                     </div>
                 </div>
                 {{-- /OFFCANVAS --}}
+            </form> {{-- 👈 CERRAMOS AQUÍ EL GET PARA NO ANIDAR FORMULARIOS --}}
 
-                {{-- TABLA (sin columnas fijas) --}}
-                <div class="card">
-                    <div class="table-responsive">
-                        <table class="table table-vcenter table-striped table-hover">
-                            <thead>
-                                <tr class="text-uppercase text-secondary small">
-                                    <th>Fecha</th>
-                                    <th>ID</th>
-                                    <th>Vehículo</th>
-                                    <th>Operador</th>
-                                    <th>Tipo</th>
-                                    <th class="text-end">Litros</th>
-                                    <th class="text-end">Precio</th>
-                                    <th class="text-end">Total</th>
-                                    <th class="text-end">Rendimiento</th>
-                                    <th class="text-end">KM Inicial</th>
-                                    <th class="text-end">KM Final</th>
-                                    <th class="text-end">KM Recorridos</th>
-                                    <th>Ubicación</th>
-                                    <th style="min-width: 12rem;">Destino</th>
-                                    <th style="min-width: 10rem;">Custodio</th>
-                                    <th style="min-width: 16rem;">Observaciones</th>
-                                    <th class="text-end">Acciones</th>
+            {{-- TABLA (numeración y sin columna ID) --}}
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-vcenter table-striped table-hover">
+                        <thead>
+                            <tr class="text-uppercase text-secondary small">
+                                <th class="text-center text-nowrap">#</th>
+                                <th>Fecha</th>
+                                <th>Vehículo</th>
+                                <th>Operador</th>
+                                <th>Tipo</th>
+                                <th class="text-end">Litros</th>
+                                <th class="text-end">Precio</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-end">Rendimiento</th>
+                                <th class="text-end">KM Inicial</th>
+                                <th class="text-end">KM Final</th>
+                                <th class="text-end">KM Recorridos</th>
+                                <th>Ubicación</th>
+                                <th style="min-width: 12rem;">Destino</th>
+                                <th style="min-width: 10rem;">Custodio</th>
+                                <th style="min-width: 16rem;">Observaciones</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($cargas as $c)
+                                @php
+                                    $veh = $c->vehiculo;
+                                    $ope = $c->operador;
+                                    $nombreOperador = $ope ? trim(($ope->nombre ?? '').' '.($ope->apellido_paterno ?? '').' '.($ope->apellido_materno ?? '')) : '—';
+                                    $kmRec = (is_numeric($c->km_final ?? null) && is_numeric($c->km_inicial ?? null)) ? ((int)$c->km_final - (int)$c->km_inicial) : null;
+                                    $obs = $c->observaciones ?? $c->comentarios ?? null;
+                                    $fechaStr = \Illuminate\Support\Carbon::parse($c->fecha)->format('Y-m-d');
+                                    $vehLabel = trim(($veh->unidad ?? '—').(($veh->placa ?? null) ? ' ('.$veh->placa.')' : ''));
+                                    $rowId = is_numeric($c->id ?? null) ? (int)$c->id : 0;
+                                @endphp
+                                <tr>
+                                    {{-- Numeración independiente (reinicia por página) --}}
+                                    <td class="text-center text-nowrap">{{ $loop->iteration }}</td>
+
+                                    <td class="text-nowrap">{{ $fechaStr }}</td>
+
+                                    <td class="text-nowrap">
+                                        {{ $veh->unidad ?? '—' }}
+                                        @if(($veh->placa ?? null))
+                                            <span class="text-secondary">({{ $veh->placa }})</span>
+                                        @endif
+                                    </td>
+
+                                    <td class="text-nowrap">{{ $nombreOperador }}</td>
+                                    <td class="text-nowrap">{{ $c->tipo_combustible }}</td>
+
+                                    <td class="text-end text-nowrap">{{ number_format((float)($c->litros ?? 0), 3) }}</td>
+                                    <td class="text-end text-nowrap">${{ number_format((float)($c->precio ?? 0), 2) }}</td>
+                                    <td class="text-end text-nowrap">${{ number_format((float)($c->total ?? 0), 2) }}</td>
+                                    <td class="text-end text-nowrap">
+                                        @if(!is_null($c->rendimiento)) {{ number_format((float)$c->rendimiento, 2) }} @else — @endif
+                                    </td>
+
+                                    <td class="text-end text-nowrap">{{ $c->km_inicial ?? '—' }}</td>
+                                    <td class="text-end text-nowrap">{{ $c->km_final ?? '—' }}</td>
+                                    <td class="text-end text-nowrap">@if(!is_null($kmRec)) {{ $kmRec }} @else — @endif</td>
+
+                                    <td class="text-nowrap">{{ $c->ubicacion ?? '—' }}</td>
+
+                                    <td>
+                                        <div class="text-truncate" title="{{ $c->destino }}">{{ $c->destino ?? '—' }}</div>
+                                    </td>
+
+                                    <td>
+                                        <div class="text-truncate" title="{{ $c->custodio }}">{{ $c->custodio ?? '—' }}</div>
+                                    </td>
+
+                                    <td>
+                                        <div class="text-truncate" title="{{ $obs }}">{{ $obs ?? '—' }}</div>
+                                    </td>
+
+                                    <td class="text-end">
+                                        {{-- Tres botones separados: Ver, Editar, Eliminar --}}
+                                        <div class="d-inline-flex gap-1">
+                                            <a href="{{ route('cargas.edit', $c->id) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Ver">
+                                                <i class="ti ti-eye me-1"></i>Ver
+                                            </a>
+
+                                            <a href="{{ route('cargas.edit', $c->id) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Editar">
+                                                <i class="ti ti-edit me-1"></i>Editar
+                                            </a>
+
+                                            @if($rowId > 0)
+                                                {{-- Botón suelto que dispara un formulario oculto fuera de la tabla (evita anidación) --}}
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-danger btn-sm"
+                                                    form="del-{{ $rowId }}"
+                                                    onclick="event.stopPropagation(); return confirm('¿Seguro que quieres eliminar?');"
+                                                    title="Eliminar">
+                                                    <i class="ti ti-trash me-1"></i>Eliminar
+                                                </button>
+                                            @endif
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($cargas as $c)
-                                    @php
-                                        $veh = $c->vehiculo;
-                                        $ope = $c->operador;
-                                        $nombreOperador = $ope ? trim(($ope->nombre ?? '').' '.($ope->apellido_paterno ?? '').' '.($ope->apellido_materno ?? '')) : '—';
-                                        $kmRec = (is_numeric($c->km_final ?? null) && is_numeric($c->km_inicial ?? null)) ? ((int)$c->km_final - (int)$c->km_inicial) : null;
-                                        $obs = $c->observaciones ?? $c->comentarios ?? null;
-                                    @endphp
-                                    <tr>
-                                        <td class="text-nowrap">{{ \Illuminate\Support\Carbon::parse($c->fecha)->format('Y-m-d') }}</td>
-                                        <td class="text-nowrap">#{{ $c->id }}</td>
-                                        <td class="text-nowrap">
-                                            {{ $veh->unidad ?? '—' }}
-                                            @if(($veh->placa ?? null)) <span class="text-secondary">({{ $veh->placa }})</span> @endif
-                                        </td>
-                                        <td class="text-nowrap">{{ $nombreOperador }}</td>
-                                        <td class="text-nowrap">{{ $c->tipo_combustible }}</td>
-                                        <td class="text-end text-nowrap">{{ number_format((float)($c->litros ?? 0), 3) }}</td>
-                                        <td class="text-end text-nowrap">${{ number_format((float)($c->precio ?? 0), 2) }}</td>
-                                        <td class="text-end text-nowrap">${{ number_format((float)($c->total ?? 0), 2) }}</td>
-                                        <td class="text-end text-nowrap">@if(!is_null($c->rendimiento)) {{ number_format((float)$c->rendimiento, 2) }} @else — @endif</td>
-                                        <td class="text-end text-nowrap">{{ $c->km_inicial ?? '—' }}</td>
-                                        <td class="text-end text-nowrap">{{ $c->km_final ?? '—' }}</td>
-                                        <td class="text-end text-nowrap">@if(!is_null($kmRec)) {{ $kmRec }} @else — @endif</td>
-                                        <td class="text-nowrap">{{ $c->ubicacion ?? '—' }}</td>
-                                        <td>
-                                            <div class="text-truncate" title="{{ $c->destino }}">{{ $c->destino ?? '—' }}</div>
-                                        </td>
-                                        <td>
-                                            <div class="text-truncate" title="{{ $c->custodio }}">{{ $c->custodio ?? '—' }}</div>
-                                        </td>
-                                        <td>
-                                            <div class="text-truncate" title="{{ $obs }}">{{ $obs ?? '—' }}</div>
-                                        </td>
-                                        <td class="text-end">
-                                            {{-- Tres botones separados: Ver, Editar, Eliminar --}}
-                                            <div class="d-inline-flex gap-1">
-                                                <a href="{{ route('cargas.edit', $c->id) }}"
-                                                   class="btn btn-outline-secondary btn-sm"
-                                                   title="Ver">
-                                                    <i class="ti ti-eye me-1"></i>Ver
-                                                </a>
-
-                                                <a href="{{ route('cargas.edit', $c->id) }}"
-                                                   class="btn btn-outline-secondary btn-sm"
-                                                   title="Editar">
-                                                    <i class="ti ti-edit me-1"></i>Editar
-                                                </a>
-
-                                                <form action="{{ route('cargas.destroy', $c->id) }}" method="POST" class="d-inline"
-                                                      onsubmit="return confirm('¿Seguro que quieres eliminar la carga #{{ $c->id }}?');">
-                                                    @csrf @method('DELETE')
-                                                    <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
-                                                        <i class="ti ti-trash me-1"></i>Eliminar
-                                                    </button>
-                                                </form>
+                            @empty
+                                <tr>
+                                    <td colspan="17" class="py-6">
+                                        <div class="empty">
+                                            <div class="empty-icon">
+                                                <i class="ti ti-database-off"></i>
                                             </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="17" class="py-6">
-                                            <div class="empty">
-                                                <div class="empty-icon">
-                                                    <i class="ti ti-database-off"></i>
-                                                </div>
-                                                <p class="empty-title">No hay datos</p>
-                                                <p class="empty-subtitle text-secondary">
-                                                    @if(request()->hasAny(['search','vehiculo_id','operador_id','ubicacion','tipo_combustible','from','to','litros_min','litros_max','precio_min','precio_max','total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max','destino','custodio']))
-                                                        No se encontraron resultados con los filtros aplicados.
-                                                    @else
-                                                        Aún no has registrado cargas de combustible.
-                                                    @endif
-                                                </p>
-                                                <div class="empty-action">
-                                                    @if(request()->hasAny(['search','vehiculo_id','operador_id','ubicacion','tipo_combustible','from','to','litros_min','litros_max','precio_min','precio_max','total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max','destino','custodio']))
-                                                        <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">
-                                                            Limpiar filtros
-                                                        </a>
-                                                    @endif
-                                                    <a href="{{ route('cargas.create') }}" class="btn btn-primary">
-                                                        <i class="ti ti-plus me-2"></i>Agregar Nueva Carga
+                                            <p class="empty-title">No hay datos</p>
+                                            <p class="empty-subtitle text-secondary">
+                                                @if(request()->hasAny(['search','vehiculo_id','operador_id','ubicacion','tipo_combustible','from','to','litros_min','litros_max','precio_min','precio_max','total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max','destino','custodio']))
+                                                    No se encontraron resultados con los filtros aplicados.
+                                                @else
+                                                    Aún no has registrado cargas de combustible.
+                                                @endif
+                                            </p>
+                                            <div class="empty-action">
+                                                @if(request()->hasAny(['search','vehiculo_id','operador_id','ubicacion','tipo_combustible','from','to','litros_min','litros_max','precio_min','precio_max','total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max','destino','custodio']))
+                                                    <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">
+                                                        Limpiar filtros
                                                     </a>
-                                                </div>
+                                                @endif
+                                                <a href="{{ route('cargas.create') }}" class="btn btn-primary">
+                                                    <i class="ti ti-plus me-2"></i>Agregar Nueva Carga
+                                                </a>
                                             </div>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {{-- PAGINACIÓN + CONTADOR --}}
+            @if(method_exists($cargas, 'links'))
+                @php
+                    $totalAll   = $cargas->total();
+                    $firstAll   = $cargas->firstItem();
+                    $lastAll    = $cargas->lastItem();
+                    $currentAll = $cargas->currentPage();
+                    $lastPageAll= $cargas->lastPage();
+                @endphp
+                <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
+                    <p class="text-secondary small mb-2 mb-sm-0">
+                        @if($totalAll === 0)
+                            Mostrando 0 resultados
+                        @elseif($totalAll === 1)
+                            Resultado <strong>(1 de 1)</strong>
+                        @else
+                            Página <strong>{{ $currentAll }}</strong> de <strong>{{ $lastPageAll }}</strong> —
+                            Mostrando <strong>{{ $firstAll }}–{{ $lastAll }}</strong> de <strong>{{ $totalAll }}</strong> resultados
+                        @endif
+                    </p>
+                    <div>
+                        {{-- Para que se vea como Bootstrap/Tabler: AppServiceProvider -> Paginator::useBootstrapFive(); --}}
+                        {{ $cargas->appends(request()->only([
+                            'search','vehiculo_id','operador_id','ubicacion','tipo_combustible',
+                            'from','to','litros_min','litros_max','precio_min','precio_max',
+                            'total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max',
+                            'km_fin_min','km_fin_max','destino','custodio','sort_by','sort_dir',
+                        ]))->links() }}
                     </div>
                 </div>
+            @endif
 
-                {{-- PAGINACIÓN + CONTADOR --}}
-                @if(method_exists($cargas, 'links'))
-                    @php
-                        $totalAll   = $cargas->total();
-                        $firstAll   = $cargas->firstItem();
-                        $lastAll    = $cargas->lastItem();
-                        $currentAll = $cargas->currentPage();
-                        $lastPageAll= $cargas->lastPage();
-                    @endphp
-                    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
-                        <p class="text-secondary small mb-2 mb-sm-0">
-                            @if($totalAll === 0)
-                                Mostrando 0 resultados
-                            @elseif($totalAll === 1)
-                                Resultado <strong>(1 de 1)</strong>
-                            @else
-                                Página <strong>{{ $currentAll }}</strong> de <strong>{{ $lastPageAll }}</strong> —
-                                Mostrando <strong>{{ $firstAll }}–{{ $lastAll }}</strong> de <strong>{{ $totalAll }}</strong> resultados
-                            @endif
-                        </p>
-                        <div>
-                            {{-- Para que se vea como Bootstrap/Tabler: AppServiceProvider -> Paginator::useBootstrapFive(); --}}
-                            {{ $cargas->appends(request()->only([
-                                'search','vehiculo_id','operador_id','ubicacion','tipo_combustible',
-                                'from','to','litros_min','litros_max','precio_min','precio_max',
-                                'total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max',
-                                'km_fin_min','km_fin_max','destino','custodio','sort_by','sort_dir',
-                            ]))->links() }}
-                        </div>
-                    </div>
+            {{-- =========================
+                 FORMULARIOS OCULTOS DELETE (fuera de la tabla y de cualquier <form GET>)
+                 Cada botón "Eliminar" usa form="del-{id}" para enviar aquí
+               ========================= --}}
+            @foreach($cargas as $cc)
+                @php $rid = is_numeric($cc->id ?? null) ? (int)$cc->id : 0; @endphp
+                @if($rid > 0)
+                    <form id="del-{{ $rid }}"
+                          action="{{ url('/cargas/'.$rid) }}"  {{-- fuerza ruta WEB (evita /api) --}}
+                          method="POST"
+                          class="d-none">
+                        @csrf
+                        @method('DELETE')
+                    </form>
                 @endif
-
-            </form>
+            @endforeach
 
             {{-- FOOTER --}}
             <div class="text-center text-secondary small py-4">
@@ -425,3 +465,4 @@
         </div>
     </div>
 </x-app-layout>
+```

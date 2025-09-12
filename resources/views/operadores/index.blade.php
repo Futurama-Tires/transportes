@@ -4,14 +4,38 @@
     @vite(['resources/js/app.js'])
 
     @php
-        // Cuenta de filtros activos (excluye búsqueda, orden y paginación)
-        $ignored = ['search','page','sort_by','sort_dir'];
-        $activeFilters = collect(request()->query())->filter(function($v,$k) use ($ignored){
-            if (in_array($k,$ignored)) return false;
-            if (is_array($v)) return collect($v)->filter(fn($x)=>$x!==null && $x!=='')->isNotEmpty();
-            return $v !== null && $v !== '';
-        });
-        $activeCount = $activeFilters->count();
+        // Parámetros y utilidades reutilizables en toda la vista
+        $q        = request();
+        $ignored  = ['search','page','sort_by','sort_dir'];
+        $activeCount = collect($q->except($ignored))->filter(
+            fn($v) => is_array($v)
+                ? collect($v)->filter(fn($x)=>$x!==null && $x!=='')->isNotEmpty()
+                : $v !== null && $v !== ''
+        )->count();
+
+        $search  = $q->input('search', '');
+        $sortBy  = $q->input('sort_by', 'nombre_completo');
+        $sortDir = $q->input('sort_dir', 'asc');
+
+        /** @var \Illuminate\Pagination\LengthAwarePaginator|\Illuminate\Contracts\Pagination\Paginator $p */
+        $p = $operadores;
+
+        // Opciones de ordenamiento (único lugar)
+        $sortOptions = [
+            'nombre_completo' => 'Nombre completo',
+            'email'           => 'Correo electrónico',
+            'id'              => 'ID',
+        ];
+
+        // Datos de paginación (seguros cuando hay resultados)
+        $total     = method_exists($p, 'total') ? $p->total() : ($p->count() ?? 0);
+        $firstItem = method_exists($p, 'firstItem') ? $p->firstItem() : null;
+        $lastItem  = method_exists($p, 'lastItem')  ? $p->lastItem()  : null;
+        $current   = method_exists($p, 'currentPage') ? $p->currentPage() : 1;
+        $lastPage  = method_exists($p, 'lastPage')    ? $p->lastPage()    : 1;
+
+        // Parámetros a mantener en los links de paginación/acciones
+        $keepParams = ['search','sort_by','sort_dir'];
     @endphp
 
     {{-- HEADER --}}
@@ -39,13 +63,14 @@
 
             {{-- FLASH ÉXITO --}}
             @if(session('success'))
-                <div class="alert alert-success" role="alert">
+                <div class="alert alert-success alert-dismissible" role="alert">
                     <i class="ti ti-check me-2"></i>{{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
                 </div>
             @endif
 
             {{-- FORM GLOBAL (GET) --}}
-            <form method="GET" action="{{ route('operadores.index') }}">
+            <form method="GET" action="{{ route('operadores.index') }}" autocomplete="off" novalidate>
 
                 {{-- TOOLBAR: búsqueda + acciones rápidas --}}
                 <div class="card mb-3">
@@ -54,15 +79,17 @@
                             {{-- Búsqueda global --}}
                             <div class="col-12 col-xl">
                                 <div class="input-group">
-                                    <span class="input-group-text"><i class="ti ti-search"></i></span>
-                                    <input type="text"
-                                           name="search"
-                                           value="{{ request('search') }}"
-                                           class="form-control"
-                                           placeholder="Buscar por nombre, apellidos, correo…"
-                                           aria-label="Búsqueda global">
+                                    <span class="input-group-text"><i class="ti ti-search" aria-hidden="true"></i></span>
+                                    <input
+                                        type="text"
+                                        name="search"
+                                        value="{{ $search }}"
+                                        class="form-control"
+                                        placeholder="Buscar por nombre, apellidos, correo…"
+                                        aria-label="Búsqueda global"
+                                    >
                                     <button class="btn btn-primary" type="submit">
-                                        <i class="ti ti-search me-1"></i>Buscar
+                                        <i class="ti ti-search me-1" aria-hidden="true"></i>Buscar
                                     </button>
                                 </div>
                             </div>
@@ -71,50 +98,49 @@
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
                                 <div class="btn-group">
                                     <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="ti ti-download me-1"></i>Exportar
+                                        <i class="ti ti-download me-1" aria-hidden="true"></i>Exportar
                                     </button>
                                     <div class="dropdown-menu dropdown-menu-end">
-                                        <a class="dropdown-item" href="#"><i class="ti ti-file-spreadsheet me-2"></i>Excel</a>
-                                        <a class="dropdown-item" href="#"><i class="ti ti-file-description me-2"></i>PDF</a>
+                                        <a class="dropdown-item" href="#">
+                                            <i class="ti ti-file-spreadsheet me-2" aria-hidden="true"></i>Excel
+                                        </a>
+                                        <a class="dropdown-item" href="#">
+                                            <i class="ti ti-file-description me-2" aria-hidden="true"></i>PDF
+                                        </a>
                                     </div>
                                 </div>
 
                                 {{-- Botón Filtros (abre Offcanvas) --}}
-                                <button type="button"
-                                        class="btn btn-outline-secondary position-relative"
-                                        data-bs-toggle="offcanvas"
-                                        data-bs-target="#filtersOffcanvas"
-                                        aria-controls="filtersOffcanvas">
-                                    <i class="ti ti-adjustments"></i>
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary position-relative"
+                                    data-bs-toggle="offcanvas"
+                                    data-bs-target="#filtersOffcanvas"
+                                    aria-controls="filtersOffcanvas"
+                                >
+                                    <i class="ti ti-adjustments" aria-hidden="true"></i>
                                     <span class="ms-2">Filtros</span>
                                     @if($activeCount>0)
-                                        <span class="badge bg-primary ms-2">{{ $activeCount }}</span>
+                                        <span class="badge bg-primary ms-2" aria-label="{{ $activeCount }} filtros activos">{{ $activeCount }}</span>
                                     @endif
                                 </button>
                             </div>
                         </div>
 
-                        {{-- Resumen de resultados cuando hay búsqueda --}}
-                        @if(request('search'))
-                            @php
-                                $total   = $operadores->total();
-                                $first   = $operadores->firstItem();
-                                $last    = $operadores->lastItem();
-                                $current = $operadores->currentPage();
-                                $lastPage= $operadores->lastPage();
-                            @endphp
+                        {{-- Resumen cuando hay búsqueda --}}
+                        @if($search !== '')
                             <div class="mt-3 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between">
                                 <div class="small">
                                     <span class="badge bg-secondary text-uppercase">Filtro</span>
-                                    <span class="ms-2">“{{ request('search') }}”</span>
+                                    <span class="ms-2">“{{ $search }}”</span>
                                 </div>
                                 <div class="text-secondary small mt-2 mt-sm-0">
-                                    @if($total === 1)
-                                        Resultado <strong>(1 de 1)</strong>
-                                    @elseif($total > 1)
-                                        Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> — Mostrando <strong>{{ $first }}–{{ $last }}</strong> de <strong>{{ $total }}</strong>
-                                    @else
+                                    @if($total === 0)
                                         Sin resultados para la búsqueda.
+                                    @elseif($total === 1)
+                                        Resultado <strong>(1 de 1)</strong>
+                                    @else
+                                        Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> — Mostrando <strong>{{ $firstItem }}–{{ $lastItem }}</strong> de <strong>{{ $total }}</strong>
                                     @endif
                                 </div>
                             </div>
@@ -126,41 +152,35 @@
                 <div class="offcanvas offcanvas-end" tabindex="-1" id="filtersOffcanvas" aria-labelledby="filtersOffcanvasLabel">
                     <div class="offcanvas-header">
                         <h2 class="offcanvas-title h4" id="filtersOffcanvasLabel">
-                            <i class="ti ti-adjustments me-2"></i>Filtros
+                            <i class="ti ti-adjustments me-2" aria-hidden="true"></i>Filtros
                         </h2>
                         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
                     </div>
+
                     <div class="offcanvas-body">
                         {{-- Orden y dirección --}}
                         <div class="mb-4">
                             <div class="text-secondary text-uppercase fw-semibold small mb-2">Orden y vista</div>
                             <div class="row g-2">
                                 <div class="col-12 col-sm-6">
-                                    @php
-                                        $opts = [
-                                            'nombre_completo' => 'Nombre completo',
-                                            'email'           => 'Correo electrónico',
-                                            'id'              => 'ID',
-                                        ];
-                                    @endphp
-                                    <label class="form-label">Ordenar por</label>
-                                    <select name="sort_by" class="form-select">
-                                        @foreach($opts as $val => $label)
-                                            <option value="{{ $val }}" @selected(request('sort_by','nombre_completo')===$val)>{{ $label }}</option>
+                                    <label class="form-label" for="sort_by">Ordenar por</label>
+                                    <select id="sort_by" name="sort_by" class="form-select">
+                                        @foreach($sortOptions as $value => $label)
+                                            <option value="{{ $value }}" @selected($sortBy === $value)>{{ $label }}</option>
                                         @endforeach
                                     </select>
                                 </div>
                                 <div class="col-12 col-sm-6">
-                                    <label class="form-label">Dirección</label>
-                                    <select name="sort_dir" class="form-select">
-                                        <option value="asc"  @selected(request('sort_dir','asc')==='asc')>Ascendente</option>
-                                        <option value="desc" @selected(request('sort_dir','asc')==='desc')>Descendente</option>
+                                    <label class="form-label" for="sort_dir">Dirección</label>
+                                    <select id="sort_dir" name="sort_dir" class="form-select">
+                                        <option value="asc"  @selected($sortDir === 'asc')>Ascendente</option>
+                                        <option value="desc" @selected($sortDir === 'desc')>Descendente</option>
                                     </select>
                                 </div>
                             </div>
                         </div>
 
-                        {{-- Espacio para futuros filtros (estatus, etc.) --}}
+                        {{-- Espacio para futuros filtros --}}
                         <div class="mb-2">
                             <div class="text-secondary small">Puedes añadir más filtros aquí cuando existan en el modelo.</div>
                         </div>
@@ -171,7 +191,7 @@
                         <div>
                             <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="offcanvas">Cerrar</button>
                             <button type="submit" class="btn btn-primary">
-                                <i class="ti ti-filter me-1"></i>Aplicar filtros
+                                <i class="ti ti-filter me-1" aria-hidden="true"></i>Aplicar filtros
                             </button>
                         </div>
                     </div>
@@ -191,10 +211,11 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($operadores as $op)
+                                @forelse($p as $op)
                                     @php
-                                        $nombreCompleto = trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
-                                        $correo = optional($op->user)->email ?? '—';
+                                        // Usar accessor "nombre_completo" si existe en el modelo
+                                        $nombre = $op->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
+                                        $correo = data_get($op, 'user.email', '—');
                                     @endphp
                                     <tr>
                                         {{-- Numeración independiente del filtro/orden (reinicia por página) --}}
@@ -202,11 +223,11 @@
 
                                         <td class="text-nowrap">
                                             <div class="d-flex align-items-center gap-2">
-                                                <span class="avatar avatar-sm avatar-rounded bg-blue-lt">
+                                                <span class="avatar avatar-sm avatar-rounded bg-blue-lt" aria-hidden="true">
                                                     <i class="ti ti-user"></i>
                                                 </span>
                                                 <div class="lh-1">
-                                                    <div class="fw-semibold">{{ $nombreCompleto ?: 'Operador' }}</div>
+                                                    <div class="fw-semibold">{{ $nombre ?: 'Operador' }}</div>
                                                 </div>
                                             </div>
                                         </td>
@@ -218,27 +239,30 @@
                                         <td class="text-end">
                                             <div class="d-inline-flex gap-1">
                                                 {{-- Ver (placeholder hacia edit si no hay show) --}}
-                                                <a href="{{ route('operadores.edit', $op->id) }}"
+                                                <a href="{{ route('operadores.edit', $op) }}"
                                                    class="btn btn-outline-secondary btn-sm"
                                                    title="Ver">
-                                                    <i class="ti ti-eye me-1"></i>Ver
+                                                    <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
                                                 </a>
 
                                                 {{-- Editar --}}
-                                                <a href="{{ route('operadores.edit', $op->id) }}"
+                                                <a href="{{ route('operadores.edit', $op) }}"
                                                    class="btn btn-outline-secondary btn-sm"
                                                    title="Editar">
-                                                    <i class="ti ti-edit me-1"></i>Editar
+                                                    <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
                                                 </a>
 
                                                 {{-- Eliminar --}}
-                                                <form action="{{ route('operadores.destroy', $op->id) }}"
-                                                      method="POST"
-                                                      class="d-inline"
-                                                      onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $nombreCompleto ?: 'este operador' }}?');">
-                                                    @csrf @method('DELETE')
+                                                <form
+                                                    action="{{ route('operadores.destroy', $op) }}"
+                                                    method="POST"
+                                                    class="d-inline"
+                                                    onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $nombre ?: 'este operador' }}?');"
+                                                >
+                                                    @csrf
+                                                    @method('DELETE')
                                                     <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
-                                                        <i class="ti ti-trash me-1"></i>Eliminar
+                                                        <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
                                                     </button>
                                                 </form>
                                             </div>
@@ -249,24 +273,24 @@
                                         <td colspan="4" class="py-6">
                                             <div class="empty">
                                                 <div class="empty-icon">
-                                                    <i class="ti ti-database-off"></i>
+                                                    <i class="ti ti-database-off" aria-hidden="true"></i>
                                                 </div>
                                                 <p class="empty-title">No hay datos</p>
                                                 <p class="empty-subtitle text-secondary">
-                                                    @if(request()->hasAny(['search']))
+                                                    @if($search !== '')
                                                         No se encontraron resultados con los filtros aplicados.
                                                     @else
                                                         Aún no has registrado operadores.
                                                     @endif
                                                 </p>
                                                 <div class="empty-action">
-                                                    @if(request()->hasAny(['search']))
+                                                    @if($search !== '')
                                                         <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
                                                             Limpiar filtros
                                                         </a>
                                                     @endif
                                                     <a href="{{ route('operadores.create') }}" class="btn btn-primary">
-                                                        <i class="ti ti-plus me-2"></i>Agregar Nuevo Operador
+                                                        <i class="ti ti-plus me-2" aria-hidden="true"></i>Agregar Nuevo Operador
                                                     </a>
                                                 </div>
                                             </div>
@@ -279,29 +303,20 @@
                 </div>
 
                 {{-- PAGINACIÓN + CONTADOR --}}
-                @if(method_exists($operadores, 'links'))
-                    @php
-                        $totalAll   = $operadores->total();
-                        $firstAll   = $operadores->firstItem();
-                        $lastAll    = $operadores->lastItem();
-                        $currentAll = $operadores->currentPage();
-                        $lastPageAll= $operadores->lastPage();
-                    @endphp
+                @if(method_exists($p, 'links'))
                     <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
                         <p class="text-secondary small mb-2 mb-sm-0">
-                            @if($totalAll === 0)
+                            @if($total === 0)
                                 Mostrando 0 resultados
-                            @elseif($totalAll === 1)
+                            @elseif($total === 1)
                                 Resultado <strong>(1 de 1)</strong>
                             @else
-                                Página <strong>{{ $currentAll }}</strong> de <strong>{{ $lastPageAll }}</strong> —
-                                Mostrando <strong>{{ $firstAll }}–{{ $lastAll }}</strong> de <strong>{{ $totalAll }}</strong> resultados
+                                Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> —
+                                Mostrando <strong>{{ $firstItem }}–{{ $lastItem }}</strong> de <strong>{{ $total }}</strong> resultados
                             @endif
                         </p>
                         <div>
-                            {{ $operadores->appends(request()->only([
-                                'search','sort_by','sort_dir',
-                            ]))->links() }}
+                            {{ $p->appends($q->only($keepParams))->links() }}
                         </div>
                     </div>
                 @endif
