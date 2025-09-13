@@ -46,7 +46,7 @@ class VehiculoController extends Controller
 
     public function store(Request $request)
     {
-        // Validación de campos del vehículo
+        // Validación de campos del vehículo (incluye poliza_latino/qualitas)
         $data = $this->validateVehiculo($request);
 
         // Crear vehículo
@@ -96,7 +96,7 @@ class VehiculoController extends Controller
 
     public function update(Request $request, Vehiculo $vehiculo)
     {
-        // Validación de campos del vehículo
+        // Validación de campos del vehículo (incluye poliza_latino/qualitas)
         $data = $this->validateVehiculo($request, $vehiculo->id);
 
         // Actualizar vehículo
@@ -158,14 +158,18 @@ class VehiculoController extends Controller
                 Rule::unique('vehiculos', 'placa')->ignore($vehiculoId),
             ],
             'estado'                    => ['nullable', 'string', 'max:255'],
-            // Usa el nombre de tabla real en tu BD:
+            // Tabla real en tu BD (según dump): tarjetassivale
             'tarjeta_si_vale_id'        => ['nullable', 'exists:tarjetassivale,id'],
             'nip'                       => ['nullable', 'string', 'max:255'],
             'fec_vencimiento'           => ['nullable', 'string', 'max:255'],
             'vencimiento_t_circulacion' => ['nullable', 'string', 'max:255'],
             'cambio_placas'             => ['nullable', 'string', 'max:255'],
             'poliza_hdi'                => ['nullable', 'string', 'max:255'],
+            // 👇 Nuevos campos
+            'poliza_latino'             => ['nullable', 'string', 'max:255'],
+            'poliza_qualitas'           => ['nullable', 'string', 'max:255'],
             // eliminado: 'rend'
+            // (si quieres validar kilometros, podrías añadir: 'kilometros' => ['nullable','integer','min:0'])
         ], [
             'serie.unique' => 'La serie ya está registrada.',
             'placa.unique' => 'La placa ya está registrada.',

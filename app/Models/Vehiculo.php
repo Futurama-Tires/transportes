@@ -27,6 +27,8 @@ use App\Models\TarjetaSiVale; // ← importe explícito para la relación belong
  * @property string|null $vencimiento_t_circulacion
  * @property string|null $cambio_placas
  * @property string|null $poliza_hdi
+ * @property string|null $poliza_latino
+ * @property string|null $poliza_qualitas
  * @property float|null  $rend
  * @property int|null    $kilometros  Odómetro actual del vehículo
  */
@@ -47,6 +49,8 @@ class Vehiculo extends Model
         'placa',
         'estado',
         'poliza_hdi',
+        'poliza_latino',
+        'poliza_qualitas',
     ];
 
     protected $fillable = [
@@ -65,8 +69,10 @@ class Vehiculo extends Model
         'vencimiento_t_circulacion',
         'cambio_placas',
         'poliza_hdi',
+        'poliza_latino',   // 👈 nuevo
+        'poliza_qualitas', // 👈 nuevo
         'rend',
-        'kilometros', // 👈 nuevo campo (odómetro)
+        'kilometros', // 👈 odómetro
     ];
 
     protected $casts = [
@@ -158,7 +164,11 @@ class Vehiculo extends Model
                   ->orWhere('placa', 'like', $like)
                   ->orWhere('serie', 'like', $like)
                   ->orWhere('anio', 'like', $like)
-                  ->orWhere('propietario', 'like', $like);
+                  ->orWhere('propietario', 'like', $like)
+                  // 👇 incluimos las pólizas en la búsqueda global
+                  ->orWhere('poliza_hdi', 'like', $like)
+                  ->orWhere('poliza_latino', 'like', $like)
+                  ->orWhere('poliza_qualitas', 'like', $like);
             });
         }
 

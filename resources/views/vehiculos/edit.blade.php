@@ -204,6 +204,26 @@
                                 </div>
                                 @error('poliza_hdi') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
+
+                            {{-- Póliza Latino --}}
+                            <div class="col-12 col-md-6">
+                                <label for="poliza_latino" class="form-label">Póliza Latino</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-shield-plus"></i></span>
+                                    <input id="poliza_latino" type="text" name="poliza_latino" value="{{ old('poliza_latino', $vehiculo->poliza_latino ?? '') }}" class="form-control @error('poliza_latino') is-invalid @enderror" placeholder="Número de póliza">
+                                </div>
+                                @error('poliza_latino') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Póliza Qualitas --}}
+                            <div class="col-12 col-md-6">
+                                <label for="poliza_qualitas" class="form-label">Póliza Qualitas</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-shield-lock"></i></span>
+                                    <input id="poliza_qualitas" type="text" name="poliza_qualitas" value="{{ old('poliza_qualitas', $vehiculo->poliza_qualitas ?? '') }}" class="form-control @error('poliza_qualitas') is-invalid @enderror" placeholder="Número de póliza">
+                                </div>
+                                @error('poliza_qualitas') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
                         </div>
                     </div>
 
@@ -273,14 +293,13 @@
                                         <form method="POST"
                                             action="{{ route('vehiculos.fotos.destroy', [$vehiculo, $foto]) }}"
                                             onsubmit="return confirm('¿Eliminar esta foto?')"
-                                            class="position-absolute top-0 end-0 m-1 z-3">   <!-- 👈 z-3 -->
+                                            class="position-absolute top-0 end-0 m-1 z-3">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-danger btn-icon btn-sm position-relative">
                                                 <i class="ti ti-trash"></i>
                                             </button>
                                         </form>
-
 
                                         {{-- Abrir galería --}}
                                         <a href="javascript:void(0)" class="stretched-link veh-photo" data-index="{{ $loop->index }}" title="Ver grande"></a>

@@ -68,7 +68,7 @@
                                            name="search"
                                            value="{{ request('search') }}"
                                            class="form-control"
-                                           placeholder="Buscar por: ID, Unidad, Placa, Serie, Año, Propietario…"
+                                           placeholder="Buscar por: ID, Unidad, Placa, Serie, Año, Propietario, Pólizas…"
                                            aria-label="Búsqueda global">
                                     <button class="btn btn-primary" type="submit">
                                         <i class="ti ti-search me-1"></i> Buscar
@@ -273,7 +273,11 @@
                                         'fec_vencimiento'              => $v->fec_vencimiento ?? null,
                                         'vencimiento_t_circulacion'    => $v->vencimiento_t_circulacion ?? null,
                                         'cambio_placas'                => $v->cambio_placas ?? null,
-                                        'poliza_hdi'                   => $v->poliza_hdi ?? null,
+
+                                        // Pólizas
+                                        'poliza_hdi'      => $v->poliza_hdi ?? null,
+                                        'poliza_latino'   => $v->poliza_latino ?? null,
+                                        'poliza_qualitas' => $v->poliza_qualitas ?? null,
 
                                         'fotos'   => isset($v->fotos)   ? $v->fotos->map(fn($f)=>['id'=>$f->id])->values() : [],
                                         'tanques' => isset($v->tanques) ? $v->tanques->map(fn($t)=>[
@@ -431,7 +435,11 @@
                                 <div class="col-6 col-md-4"><div class="text-secondary small">Venc. tarjeta</div><div class="fw-semibold" data-v="fec_vencimiento">—</div></div>
                                 <div class="col-6 col-md-4"><div class="text-secondary small">Venc. circ.</div><div class="fw-semibold" data-v="vencimiento_t_circulacion">—</div></div>
                                 <div class="col-6 col-md-4"><div class="text-secondary small">Cambio de placas</div><div class="fw-semibold" data-v="cambio_placas">—</div></div>
+
+                                {{-- Pólizas --}}
                                 <div class="col-12"><div class="text-secondary small">Póliza HDI</div><div class="fw-semibold" data-v="poliza_hdi">—</div></div>
+                                <div class="col-12"><div class="text-secondary small">Póliza Latino</div><div class="fw-semibold" data-v="poliza_latino">—</div></div>
+                                <div class="col-12"><div class="text-secondary small">Póliza Qualitas</div><div class="fw-semibold" data-v="poliza_qualitas">—</div></div>
                             </div>
                         </div>
                     </div>
@@ -628,7 +636,11 @@
                 fec_vencimiento: fmtDate(veh.fec_vencimiento),
                 vencimiento_t_circulacion: fmtDate(veh.vencimiento_t_circulacion),
                 cambio_placas: fmtDate(veh.cambio_placas),
+
+                // Pólizas
                 poliza_hdi: fmt(veh.poliza_hdi),
+                poliza_latino: fmt(veh.poliza_latino),
+                poliza_qualitas: fmt(veh.poliza_qualitas),
             };
             Object.entries(fields).forEach(([k,v])=>{
                 const el = vehicleModalEl.querySelector(`[data-v="${k}"]`);

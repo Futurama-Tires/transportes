@@ -225,6 +225,30 @@
                                 </div>
                                 @error('poliza_hdi') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
+
+                            {{-- Póliza Latino --}}
+                            <div class="col-12 col-md-6">
+                                <label for="poliza_latino" class="form-label">Póliza Latino</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-shield-plus"></i>
+                                    </span>
+                                    <input id="poliza_latino" type="text" name="poliza_latino" value="{{ old('poliza_latino') }}" class="form-control @error('poliza_latino') is-invalid @enderror" placeholder="Número de póliza">
+                                </div>
+                                @error('poliza_latino') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Póliza Qualitas --}}
+                            <div class="col-12 col-md-6">
+                                <label for="poliza_qualitas" class="form-label">Póliza Qualitas</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-shield-lock"></i>
+                                    </span>
+                                    <input id="poliza_qualitas" type="text" name="poliza_qualitas" value="{{ old('poliza_qualitas') }}" class="form-control @error('poliza_qualitas') is-invalid @enderror" placeholder="Número de póliza">
+                                </div>
+                                @error('poliza_qualitas') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
                         </div>
                     </div>
 
