@@ -1,7 +1,7 @@
-{{-- resources/views/cargas_combustible/form.blade.php — versión Tabler ejecutiva --}}
+{{-- resources/views/cargas_combustible/create.blade.php — versión Tabler ejecutiva --}}
 <x-app-layout>
     @php
-        /** @var \App\Models\Carga|null $carga */
+        /** @var \App\Models\CargaCombustible|null $carga */
         $isEdit = isset($carga) && $carga->exists;
         $fechaValue = old('fecha', isset($carga->fecha) ? \Illuminate\Support\Carbon::parse($carga->fecha)->format('Y-m-d') : '');
         $title = $isEdit ? 'Editar Carga de Combustible' : 'Nueva Carga de Combustible';
@@ -154,40 +154,46 @@
                                     {{-- Vehículo --}}
                                     <div class="col-12 col-lg-8">
                                         <label class="form-label">Vehículo (Unidad / Placa) <span class="text-danger">*</span></label>
-                                        <select name="vehiculo_id" class="form-select @error('vehiculo_id') is-invalid @enderror" required>
+                                        <select id="vehiculoSelect" name="vehiculo_id" class="form-select @error('vehiculo_id') is-invalid @enderror" required {{ $isEdit ? '' : '' }}>
                                             <option value="">Seleccione…</option>
                                             @foreach($vehiculos as $v)
                                                 <option value="{{ $v->id }}"
-                                                    @selected((int)old('vehiculo_id', $carga->vehiculo_id ?? 0) === $v->id)>
+                                                        data-km="{{ (int)($v->kilometros ?? 0) }}"
+                                                        @selected((int)old('vehiculo_id', $carga->vehiculo_id ?? 0) === $v->id)>
                                                     {{ $v->unidad }} — {{ $v->placa ?? $v->placas }}
                                                 </option>
                                             @endforeach
                                         </select>
                                         @error('vehiculo_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        <div class="form-hint">El KM Inicial se tomará del odómetro actual del vehículo seleccionado.</div>
                                     </div>
 
-                                    {{-- KM Inicial --}}
+                                    {{-- KM Inicial (solo lectura) --}}
                                     <div class="col-12 col-md-4">
                                         <label class="form-label">KM Inicial</label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="ti ti-road"></i></span>
-                                            <input type="number" name="km_inicial"
+                                            <input id="kmInicialInput" type="number" name="km_inicial"
                                                    value="{{ old('km_inicial', $carga->km_inicial ?? null) }}"
-                                                   class="form-control @error('km_inicial') is-invalid @enderror">
+                                                   class="form-control @error('km_inicial') is-invalid @enderror"
+                                                   readonly>
                                             @error('km_inicial')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                         </div>
+                                        <div class="form-hint">Se calcula desde el odómetro del vehículo o de la carga previa.</div>
                                     </div>
 
-                                    {{-- KM Final --}}
+                                    {{-- KM Final (requerido en servidor) --}}
                                     <div class="col-12 col-md-4">
                                         <label class="form-label">KM Final</label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="ti ti-road"></i></span>
                                             <input type="number" name="km_final"
                                                    value="{{ old('km_final', $carga->km_final ?? null) }}"
-                                                   class="form-control @error('km_final') is-invalid @enderror">
+                                                   class="form-control @error('km_final') is-invalid @enderror"
+                                                   inputmode="numeric" min="0">
                                             @error('km_final')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                         </div>
+                                        <div class="form-hint">Al guardar, este valor actualizará el odómetro del vehículo si esta carga es la más reciente.</div>
                                     </div>
 
                                     {{-- Destino --}}
@@ -242,19 +248,19 @@
                                     <div class="row g-3">
                                         <div class="col-12 col-sm-6 col-lg-3">
                                             <label class="form-label">Total ($)</label>
-                                            <input type="text" class="form-control" value="{{ number_format($carga->total, 2) }}" disabled>
+                                            <input type="text" class="form-control" value="{{ number_format((float)($carga->total ?? 0), 2) }}" disabled>
                                         </div>
                                         <div class="col-12 col-sm-6 col-lg-3">
                                             <label class="form-label">Recorrido (km)</label>
-                                            <input type="text" class="form-control" value="{{ $carga->recorrido }}" disabled>
+                                            <input type="text" class="form-control" value="{{ $carga->recorrido ?? '' }}" disabled>
                                         </div>
                                         <div class="col-12 col-sm-6 col-lg-3">
                                             <label class="form-label">Rendimiento (km/L)</label>
-                                            <input type="text" class="form-control" value="{{ $carga->rendimiento }}" disabled>
+                                            <input type="text" class="form-control" value="{{ $carga->rendimiento ?? '' }}" disabled>
                                         </div>
                                         <div class="col-12 col-sm-6 col-lg-3">
                                             <label class="form-label">Diferencia ($)</label>
-                                            <input type="text" class="form-control" value="{{ isset($carga->diferencia) ? number_format($carga->diferencia, 2) : '' }}" disabled>
+                                            <input type="text" class="form-control" value="{{ isset($carga->diferencia) ? number_format((float)$carga->diferencia, 2) : '' }}" disabled>
                                         </div>
                                     </div>
                                 </div>
@@ -275,4 +281,26 @@
             </div>
         </div>
     </div>
+
+    {{-- JS: Autorrelleno de KM Inicial con el odómetro del vehículo (solo en creación) --}}
+    @if(!$isEdit)
+    <script>
+      (function () {
+        const sel = document.getElementById('vehiculoSelect');
+        const kmInput = document.getElementById('kmInicialInput');
+        if (!sel || !kmInput) return;
+
+        function setKmInicialFromSelect() {
+          const opt = sel.options[sel.selectedIndex];
+          if (!opt) return;
+          const km = opt.getAttribute('data-km');
+          kmInput.value = (km !== null && km !== '') ? km : '';
+        }
+
+        sel.addEventListener('change', setKmInicialFromSelect);
+        // Inicializa si ya viene un vehículo seleccionado por old(...)
+        setKmInicialFromSelect();
+      })();
+    </script>
+    @endif
 </x-app-layout>

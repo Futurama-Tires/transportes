@@ -28,6 +28,7 @@ use App\Models\TarjetaSiVale; // ← importe explícito para la relación belong
  * @property string|null $cambio_placas
  * @property string|null $poliza_hdi
  * @property float|null  $rend
+ * @property int|null    $kilometros  Odómetro actual del vehículo
  */
 class Vehiculo extends Model
 {
@@ -65,10 +66,12 @@ class Vehiculo extends Model
         'cambio_placas',
         'poliza_hdi',
         'rend',
+        'kilometros', // 👈 nuevo campo (odómetro)
     ];
 
     protected $casts = [
-        'rend' => 'float',
+        'rend'       => 'float',
+        'kilometros' => 'integer', // 👈 cast del odómetro
         // Descomenta si esas columnas son DATE/DATETIME en BD:
         // 'fec_vencimiento' => 'date',
         // 'vencimiento_t_circulacion' => 'date',
@@ -173,6 +176,17 @@ class Vehiculo extends Model
             if (!empty($filters['anio_max'])) $query->where('anio', '<=', (int) $filters['anio_max']);
         }
 
+        // 👇 Filtros por odómetro
+        if (isset($filters['kilometros']) && $filters['kilometros'] !== '') {
+            $query->where('kilometros', (int)$filters['kilometros']);
+        }
+        if (isset($filters['km_min']) && $filters['km_min'] !== '') {
+            $query->where('kilometros', '>=', (int)$filters['km_min']);
+        }
+        if (isset($filters['km_max']) && $filters['km_max'] !== '') {
+            $query->where('kilometros', '<=', (int)$filters['km_max']);
+        }
+
         return $query;
     }
 
@@ -183,7 +197,7 @@ class Vehiculo extends Model
     {
         $dir = strtolower($dir) === 'desc' ? 'desc' : 'asc';
 
-        $whitelist = ['id','unidad','placa','serie','anio','propietario','marca','created_at'];
+        $whitelist = ['id','unidad','placa','serie','anio','propietario','marca','kilometros','created_at'];
 
         if ($by && in_array($by, $whitelist, true)) {
             return $query->orderBy($by, $dir);

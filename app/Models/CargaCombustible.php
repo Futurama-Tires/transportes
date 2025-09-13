@@ -37,8 +37,10 @@ class CargaCombustible extends Model
         'precio'      => 'decimal:2',
         'total'       => 'decimal:2',
         'rendimiento' => 'decimal:2',
+        'diferencia'  => 'decimal:2',
         'km_inicial'  => 'integer',
         'km_final'    => 'integer',
+        'recorrido'   => 'integer',
     ];
 
     // Opciones fijas conocidas
@@ -107,6 +109,7 @@ class CargaCombustible extends Model
             ['rendimiento', 'rend_min', '>='], ['rendimiento', 'rend_max', '<='],
             ['km_inicial',  'km_ini_min', '>='], ['km_inicial',  'km_ini_max', '<='],
             ['km_final',    'km_fin_min', '>='], ['km_final',    'km_fin_max', '<='],
+            ['recorrido',   'rec_min', '>='],   ['recorrido',    'rec_max', '<='], // 👈 agregado
         ];
         foreach ($ranges as [$col, $key, $op]) {
             if (isset($filters[$key]) && $filters[$key] !== '') {
@@ -128,6 +131,7 @@ class CargaCombustible extends Model
             'rendimiento'      => 'cargas_combustible.rendimiento',
             'km_inicial'       => 'cargas_combustible.km_inicial',
             'km_final'         => 'cargas_combustible.km_final',
+            'recorrido'        => 'cargas_combustible.recorrido', // 👈 agregado
             'vehiculo'         => 'vehiculos.unidad',
             'placa'            => 'vehiculos.placa',
             'operador'         => null,

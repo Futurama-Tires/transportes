@@ -163,18 +163,23 @@
                                             @endforeach
                                         </select>
                                         @error('vehiculo_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        <div class="form-hint">
+                                            Si cambias el vehículo, el sistema recalculará el <strong>KM inicial</strong> usando la carga previa del vehículo seleccionado.
+                                        </div>
                                     </div>
 
-                                    {{-- KM Inicial --}}
+                                    {{-- KM Inicial (solo lectura) --}}
                                     <div class="col-12 col-md-4">
                                         <label class="form-label">KM Inicial</label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="ti ti-road"></i></span>
                                             <input type="number" name="km_inicial"
                                                    value="{{ old('km_inicial', $carga->km_inicial ?? null) }}"
-                                                   class="form-control @error('km_inicial') is-invalid @enderror">
+                                                   class="form-control @error('km_inicial') is-invalid @enderror"
+                                                   readonly>
                                             @error('km_inicial')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                         </div>
+                                        <div class="form-hint">Se determina automáticamente a partir del histórico.</div>
                                     </div>
 
                                     {{-- KM Final --}}
@@ -184,9 +189,11 @@
                                             <span class="input-group-text"><i class="ti ti-road"></i></span>
                                             <input type="number" name="km_final"
                                                    value="{{ old('km_final', $carga->km_final ?? null) }}"
-                                                   class="form-control @error('km_final') is-invalid @enderror">
+                                                   class="form-control @error('km_final') is-invalid @enderror"
+                                                   inputmode="numeric" min="0">
                                             @error('km_final')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                         </div>
+                                        <div class="form-hint">Si esta carga queda como la más reciente, actualizará el odómetro del vehículo.</div>
                                     </div>
 
                                     {{-- Destino --}}
@@ -243,19 +250,19 @@
                                 <div class="row g-3">
                                     <div class="col-12 col-sm-6 col-lg-3">
                                         <label class="form-label">Total ($)</label>
-                                        <input type="text" class="form-control" value="{{ number_format($carga->total, 2) }}" disabled>
+                                        <input type="text" class="form-control" value="{{ number_format((float)($carga->total ?? 0), 2) }}" disabled>
                                     </div>
                                     <div class="col-12 col-sm-6 col-lg-3">
                                         <label class="form-label">Recorrido (km)</label>
-                                        <input type="text" class="form-control" value="{{ $carga->recorrido }}" disabled>
+                                        <input type="text" class="form-control" value="{{ $carga->recorrido ?? '' }}" disabled>
                                     </div>
                                     <div class="col-12 col-sm-6 col-lg-3">
                                         <label class="form-label">Rendimiento (km/L)</label>
-                                        <input type="text" class="form-control" value="{{ $carga->rendimiento }}" disabled>
+                                        <input type="text" class="form-control" value="{{ $carga->rendimiento ?? '' }}" disabled>
                                     </div>
                                     <div class="col-12 col-sm-6 col-lg-3">
                                         <label class="form-label">Diferencia ($)</label>
-                                        <input type="text" class="form-control" value="{{ isset($carga->diferencia) ? number_format($carga->diferencia, 2) : '' }}" disabled>
+                                        <input type="text" class="form-control" value="{{ isset($carga->diferencia) ? number_format((float)$carga->diferencia, 2) : '' }}" disabled>
                                     </div>
                                 </div>
                             </div>

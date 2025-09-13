@@ -258,6 +258,9 @@
                                         'estado'      => $v->estado ?? null,
                                         'motor'       => $v->motor ?? null,
 
+                                        // 👇 Nuevo: odómetro / kilometraje
+                                        'kilometros'  => $v->kilometros ?? null,
+
                                         // Tarjeta SiVale (ambas variantes por compatibilidad)
                                         'tarjeta'              => $tarjetaLabel, // <— lista en modal
                                         'tarjeta_si_vale_id'   => $v->tarjeta_si_vale_id ?? null,
@@ -419,6 +422,10 @@
                                 <div class="col-6 col-md-4"><div class="text-secondary small">Ubicación</div><div class="fw-semibold" data-v="ubicacion">—</div></div>
                                 <div class="col-6 col-md-4"><div class="text-secondary small">Estado</div><div class="fw-semibold" data-v="estado">—</div></div>
                                 <div class="col-6 col-md-4"><div class="text-secondary small">Motor</div><div class="fw-semibold" data-v="motor">—</div></div>
+
+                                {{-- NUEVO: Kilometraje (odómetro) --}}
+                                <div class="col-6 col-md-4"><div class="text-secondary small">Kilometraje (km)</div><div class="fw-semibold" data-v="kilometros">—</div></div>
+
                                 <div class="col-6 col-md-4"><div class="text-secondary small">Tarjeta SiVale</div><div class="fw-semibold" data-v="tarjeta">—</div></div>
                                 <div class="col-6 col-md-4"><div class="text-secondary small">NIP</div><div class="fw-semibold" data-v="nip">—</div></div>
                                 <div class="col-6 col-md-4"><div class="text-secondary small">Venc. tarjeta</div><div class="fw-semibold" data-v="fec_vencimiento">—</div></div>
@@ -585,6 +592,8 @@
         const fmtDate = v => { if(!v) return '—'; const d = new Date(v); return isNaN(d) ? v : d.toLocaleDateString('es-MX',{year:'numeric',month:'2-digit',day:'2-digit'}); };
         const fmtNum = n => (n===''||n==null) ? '—' : (isNaN(+n)?'—':(+n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}));
         const fmtMoney = n => (n===''||n==null) ? '—' : (isNaN(+n)?'—':(+n).toLocaleString('es-MX',{style:'currency',currency:'MXN'}));
+        // 👇 Entero para odómetro / conteos
+        const fmtInt = n => (n===''||n==null) ? '—' : (isNaN(+n)?'—':Math.trunc(+n).toLocaleString('es-MX'));
 
         const getCarouselCtor = () => (window.bootstrap?.Carousel) || (window.Carousel) || null;
         const getModalCtor    = () => (window.bootstrap?.Modal) || (window.Modal) || null;
@@ -608,6 +617,9 @@
                 ubicacion: fmt(veh.ubicacion),
                 estado: fmt(veh.estado),
                 motor: fmt(veh.motor),
+
+                // Kilometraje (odómetro)
+                kilometros: fmtInt(veh.kilometros),
 
                 // AHORA simple: viene ya resuelto desde PHP (número o "ID N")
                 tarjeta: fmt(veh.tarjeta),
