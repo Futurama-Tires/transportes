@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CargaCombustibleController;
+use App\Http\Controllers\Api\OcrController;
 
 // Login (limitamos intentos para evitar fuerza bruta)
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
@@ -39,4 +40,9 @@ Route::middleware('auth:sanctum')->group(function () {
             'tipos'       => \App\Models\CargaCombustible::TIPOS_COMBUSTIBLE ?? ['Magna','Diesel','Premium'],
         ];
     });
+
+    // OCR — Paso 1 (solo reconocimiento, sin guardar en BD aún)
+    Route::post('/ocr/ticket',   [OcrController::class, 'ticket']);
+    Route::post('/ocr/voucher',  [OcrController::class, 'voucher']);
+    Route::post('/ocr/odometro', [OcrController::class, 'odometro']);
 });
