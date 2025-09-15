@@ -1,4 +1,4 @@
-{{-- resources/views/cargas_combustible/index.blade.php — versión Tabler (acciones separadas, numeración y DELETE robusto sin formularios anidados) --}}
+{{-- resources/views/cargas_combustible/index.blade.php — versión Tabler (sin oscurecimiento, acciones separadas, numeración y DELETE robusto) --}}
 <x-app-layout>
     {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
     @vite(['resources/js/app.js'])
@@ -71,17 +71,24 @@
 
                             {{-- Acciones --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                <div class="btn-group">
-                                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                {{-- Dropdown Exportar --}}
+                                <div class="dropdown">
+                                    <button id="btnExportar" type="button"
+                                            class="btn btn-outline-secondary dropdown-toggle"
+                                            data-bs-toggle="dropdown" aria-expanded="false">
                                         <i class="ti ti-download me-1"></i>Exportar
                                     </button>
-                                    <div class="dropdown-menu dropdown-menu-end">
-                                        <a class="dropdown-item" href="#"><i class="ti ti-file-spreadsheet me-2"></i>Excel</a>
-                                        <a class="dropdown-item" href="#"><i class="ti ti-file-description me-2"></i>PDF</a>
-                                    </div>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        {{-- Cambia # por tu ruta real de exportación --}}
+                                        <li>
+                                            <a class="dropdown-item" href="#">
+                                                <i class="ti ti-file-spreadsheet me-2"></i>Excel (.xlsx)
+                                            </a>
+                                        </li>
+                                    </ul>
                                 </div>
 
-                                {{-- Botón Filtros (abre Offcanvas) --}}
+                                {{-- Botón Filtros (abre Offcanvas SIN backdrop) --}}
                                 <button type="button"
                                         class="btn btn-outline-secondary position-relative"
                                         data-bs-toggle="offcanvas"
@@ -124,8 +131,13 @@
                     </div>
                 </div>
 
-                {{-- OFFCANVAS DE FILTROS --}}
-                <div class="offcanvas offcanvas-end" tabindex="-1" id="filtersOffcanvas" aria-labelledby="filtersOffcanvasLabel">
+                {{-- OFFCANVAS DE FILTROS (sin oscurecimiento) --}}
+                <div class="offcanvas offcanvas-end"
+                     tabindex="-1"
+                     id="filtersOffcanvas"
+                     aria-labelledby="filtersOffcanvasLabel"
+                     data-bs-backdrop="false"   {{-- 👈 sin overlay --}}
+                     data-bs-scroll="true">     {{-- 👈 body scrolleable --}}
                     <div class="offcanvas-header">
                         <h2 class="offcanvas-title h4" id="filtersOffcanvasLabel">
                             <i class="ti ti-adjustments me-2"></i>Filtros
@@ -210,7 +222,7 @@
                                             'rendimiento' => 'Rendimiento',
                                             'km_inicial' => 'KM Inicial',
                                             'km_final' => 'KM Final',
-                                            'id' => 'ID', // ordenar por ID aunque no se muestre
+                                            'id' => 'ID',
                                         ];
                                     @endphp
                                     <label class="form-label">Ordenar por</label>
@@ -430,7 +442,6 @@
                         @endif
                     </p>
                     <div>
-                        {{-- Para que se vea como Bootstrap/Tabler: AppServiceProvider -> Paginator::useBootstrapFive(); --}}
                         {{ $cargas->appends(request()->only([
                             'search','vehiculo_id','operador_id','ubicacion','tipo_combustible',
                             'from','to','litros_min','litros_max','precio_min','precio_max',
@@ -464,5 +475,27 @@
             </div>
         </div>
     </div>
+
+    {{-- Sin oscurecimiento: CSS defensivo + init de dropdowns --}}
+    <style>
+        /* Por si otra parte del sistema intenta crear backdrops */
+        .offcanvas-backdrop,
+        .modal-backdrop {
+            display: none !important;
+            opacity: 0 !important;
+        }
+        /* Eleva el dropdown por si hay stacking contexts raros */
+        .dropdown-menu { z-index: 1080; }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Inicializa dropdowns de Bootstrap si no están auto-inicializados
+            if (window.bootstrap && window.bootstrap.Dropdown) {
+                document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(function (el) {
+                    new window.bootstrap.Dropdown(el);
+                });
+            }
+        });
+    </script>
 </x-app-layout>
-```
