@@ -1,6 +1,5 @@
 {{-- resources/views/vehiculos/edit.blade.php — Versión Tabler (estilo ejecutivo + galería con modal) --}}
 <x-app-layout>
-    {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
     @vite(['resources/js/app.js'])
 
     {{-- ===== HEADER ===== --}}

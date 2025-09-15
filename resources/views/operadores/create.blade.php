@@ -1,4 +1,4 @@
-{{-- resources/views/operadores/create.blade.php — versión Tabler (formulario + modal de credenciales) --}}
+{{-- resources/views/operadores/create.blade.php — versión Tabler (formulario + modal de credenciales + nota de fotos) --}}
 <x-app-layout>
     {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
     @vite(['resources/js/app.js'])
@@ -59,6 +59,7 @@
                             </div>
                         </div>
 
+                        {{-- IMPORTANTE: no incluimos fotos aquí porque aún no hay ID. --}}
                         <form method="POST" action="{{ route('operadores.store') }}" novalidate>
                             @csrf
 
@@ -163,6 +164,37 @@
                             </div>
                         </form>
                     </div>
+
+                    {{-- NOTA FOTOS (solo informativa en create) --}}
+                    <div class="card mt-3">
+                        <div class="card-body">
+                            <h3 class="card-title d-flex align-items-center gap-2">
+                                <i class="ti ti-photo"></i>
+                                Fotos del operador
+                            </h3>
+                            <p class="text-secondary mb-2">
+                                Podrás subir fotos una vez creado el operador (en la pantalla de edición).
+                            </p>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="ti ti-upload"></i></span>
+                                <input type="file" class="form-control" multiple accept="image/*" disabled>
+                            </div>
+                            <div class="form-hint mt-2">Guarda primero el operador para habilitar esta sección.</div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- TARJETA LATERAL (opcional) --}}
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <span class="avatar avatar-xl avatar-rounded bg-blue-lt mb-3">
+                                <i class="ti ti-user"></i>
+                            </span>
+                            <div class="h3">Nuevo operador</div>
+                            <div class="text-secondary">Se creará una cuenta asociada.</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -206,9 +238,7 @@
                             onclick="navigator.clipboard.writeText(document.getElementById('gen-pass').innerText)">
                             <i class="ti ti-copy me-1"></i>Copiar contraseña
                         </button>
-                        <a href="{{ route('dashboard') }}" class="btn btn-primary">
-                            Aceptar
-                        </a>
+                        <a href="{{ route('dashboard') }}" class="btn btn-primary">Aceptar</a>
                     </div>
                 </div>
             </div>

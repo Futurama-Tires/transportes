@@ -69,9 +69,9 @@
                 </div>
             @endif
 
-            {{-- FORM GLOBAL (GET) --}}
+            {{-- ===== FORM DE BÚSQUEDA/FILTROS (GET) =====
+                 Importante: este formulario NO envuelve la tabla para evitar formularios anidados. --}}
             <form method="GET" action="{{ route('operadores.index') }}" autocomplete="off" novalidate>
-
                 {{-- TOOLBAR: búsqueda + acciones rápidas --}}
                 <div class="card mb-3">
                     <div class="card-body">
@@ -197,131 +197,132 @@
                     </div>
                 </div>
                 {{-- /OFFCANVAS --}}
+            </form>
+            {{-- ===== /FORM DE BÚSQUEDA/FILTROS (GET) ===== --}}
 
-                {{-- TABLA --}}
-                <div class="card">
-                    <div class="table-responsive">
-                        <table class="table table-vcenter table-striped table-hover">
-                            <thead>
-                                <tr class="text-uppercase text-secondary small">
-                                    <th class="text-center text-nowrap">#</th>
-                                    <th>Nombre completo</th>
-                                    <th>Correo electrónico</th>
-                                    <th class="text-end">Acciones</th>
+            {{-- ===== TABLA (fuera del <form GET>) ===== --}}
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-vcenter table-striped table-hover">
+                        <thead>
+                            <tr class="text-uppercase text-secondary small">
+                                <th class="text-center text-nowrap">#</th>
+                                <th>Nombre completo</th>
+                                <th>Correo electrónico</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($p as $op)
+                                @php
+                                    // Usar accessor "nombre_completo" si existe en el modelo
+                                    $nombre = $op->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
+                                    $correo = data_get($op, 'user.email', '—');
+                                @endphp
+                                <tr>
+                                    {{-- Numeración independiente del filtro/orden (reinicia por página) --}}
+                                    <td class="text-center text-nowrap">{{ $loop->iteration }}</td>
+
+                                    <td class="text-nowrap">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="avatar avatar-sm avatar-rounded bg-blue-lt" aria-hidden="true">
+                                                <i class="ti ti-user"></i>
+                                            </span>
+                                            <div class="lh-1">
+                                                <div class="fw-semibold">{{ $nombre ?: 'Operador' }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        <div class="text-truncate" style="max-width: 280px" title="{{ $correo }}">{{ $correo }}</div>
+                                    </td>
+
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1">
+                                            {{-- Ver (placeholder hacia edit si no hay show) --}}
+                                            <a href="{{ route('operadores.edit', $op) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Ver">
+                                                <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
+                                            </a>
+
+                                            {{-- Editar --}}
+                                            <a href="{{ route('operadores.edit', $op) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Editar">
+                                                <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
+                                            </a>
+
+                                            {{-- Eliminar (formulario POST DELETE FUERA de cualquier GET) --}}
+                                            <form
+                                                action="{{ route('operadores.destroy', $op) }}"
+                                                method="POST"
+                                                class="d-inline"
+                                                onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $nombre ?: 'este operador' }}?');"
+                                            >
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
+                                                    <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($p as $op)
-                                    @php
-                                        // Usar accessor "nombre_completo" si existe en el modelo
-                                        $nombre = $op->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
-                                        $correo = data_get($op, 'user.email', '—');
-                                    @endphp
-                                    <tr>
-                                        {{-- Numeración independiente del filtro/orden (reinicia por página) --}}
-                                        <td class="text-center text-nowrap">{{ $loop->iteration }}</td>
-
-                                        <td class="text-nowrap">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="avatar avatar-sm avatar-rounded bg-blue-lt" aria-hidden="true">
-                                                    <i class="ti ti-user"></i>
-                                                </span>
-                                                <div class="lh-1">
-                                                    <div class="fw-semibold">{{ $nombre ?: 'Operador' }}</div>
-                                                </div>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="py-6">
+                                        <div class="empty">
+                                            <div class="empty-icon">
+                                                <i class="ti ti-database-off" aria-hidden="true"></i>
                                             </div>
-                                        </td>
-
-                                        <td class="text-nowrap">
-                                            <div class="text-truncate" style="max-width: 280px" title="{{ $correo }}">{{ $correo }}</div>
-                                        </td>
-
-                                        <td class="text-end">
-                                            <div class="d-inline-flex gap-1">
-                                                {{-- Ver (placeholder hacia edit si no hay show) --}}
-                                                <a href="{{ route('operadores.edit', $op) }}"
-                                                   class="btn btn-outline-secondary btn-sm"
-                                                   title="Ver">
-                                                    <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
-                                                </a>
-
-                                                {{-- Editar --}}
-                                                <a href="{{ route('operadores.edit', $op) }}"
-                                                   class="btn btn-outline-secondary btn-sm"
-                                                   title="Editar">
-                                                    <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
-                                                </a>
-
-                                                {{-- Eliminar --}}
-                                                <form
-                                                    action="{{ route('operadores.destroy', $op) }}"
-                                                    method="POST"
-                                                    class="d-inline"
-                                                    onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $nombre ?: 'este operador' }}?');"
-                                                >
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
-                                                        <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="py-6">
-                                            <div class="empty">
-                                                <div class="empty-icon">
-                                                    <i class="ti ti-database-off" aria-hidden="true"></i>
-                                                </div>
-                                                <p class="empty-title">No hay datos</p>
-                                                <p class="empty-subtitle text-secondary">
-                                                    @if($search !== '')
-                                                        No se encontraron resultados con los filtros aplicados.
-                                                    @else
-                                                        Aún no has registrado operadores.
-                                                    @endif
-                                                </p>
-                                                <div class="empty-action">
-                                                    @if($search !== '')
-                                                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
-                                                            Limpiar filtros
-                                                        </a>
-                                                    @endif
-                                                    <a href="{{ route('operadores.create') }}" class="btn btn-primary">
-                                                        <i class="ti ti-plus me-2" aria-hidden="true"></i>Agregar Nuevo Operador
+                                            <p class="empty-title">No hay datos</p>
+                                            <p class="empty-subtitle text-secondary">
+                                                @if($search !== '')
+                                                    No se encontraron resultados con los filtros aplicados.
+                                                @else
+                                                    Aún no has registrado operadores.
+                                                @endif
+                                            </p>
+                                            <div class="empty-action">
+                                                @if($search !== '')
+                                                    <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
+                                                        Limpiar filtros
                                                     </a>
-                                                </div>
+                                                @endif
+                                                <a href="{{ route('operadores.create') }}" class="btn btn-primary">
+                                                    <i class="ti ti-plus me-2" aria-hidden="true"></i>Agregar Nuevo Operador
+                                                </a>
                                             </div>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
+            </div>
+            {{-- ===== /TABLA ===== --}}
 
             {{-- PAGINACIÓN + CONTADOR --}}
-                @if(method_exists($p, 'links'))
-                    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
-                        <p class="text-secondary small mb-2 mb-sm-0">
-                            @if($total === 0)
-                                Mostrando 0 resultados
-                            @elseif($total === 1)
-                                Resultado <strong>(1 de 1)</strong>
-                            @else
-                                Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> —
-                                Mostrando <strong>{{ $firstItem }}–{{ $lastItem }}</strong> de <strong>{{ $total }}</strong> resultados
-                            @endif
-                        </p>
-                        <div>
-                            {{ $p->appends($q->only($keepParams))->links() }}
-                        </div>
+            @if(method_exists($p, 'links'))
+                <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
+                    <p class="text-secondary small mb-2 mb-sm-0">
+                        @if($total === 0)
+                            Mostrando 0 resultados
+                        @elseif($total === 1)
+                            Resultado <strong>(1 de 1)</strong>
+                        @else
+                            Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> —
+                            Mostrando <strong>{{ $firstItem }}–{{ $lastItem }}</strong> de <strong>{{ $total }}</strong> resultados
+                        @endif
+                    </p>
+                    <div>
+                        {{ $p->appends($q->only($keepParams))->links() }}
                     </div>
-                @endif
-
-            </form>
+                </div>
+            @endif
 
             {{-- FOOTER --}}
             <div class="text-center text-secondary small py-4">

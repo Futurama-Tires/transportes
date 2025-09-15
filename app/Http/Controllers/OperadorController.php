@@ -2,118 +2,157 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\Operador;
+use App\Models\OperadorFoto;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class OperadorController extends Controller
 {
-    public function index(\Illuminate\Http\Request $request)
-{
-    $filters = $request->only(['search', 'sort_by', 'sort_dir']);
+    public function __construct()
+    {
+        $this->middleware(['auth', 'role:administrador|capturista']);
+    }
 
-    $operadores = \App\Models\Operador::query()
-        ->with('user')
-        ->filter($filters)
-        ->paginate(20)          // paginación solicitada
-        ->withQueryString();      // conserva filtros en la paginación
+    /** Listado con filtros y paginación. */
+    public function index(Request $request)
+    {
+        $operadores = Operador::with(['user'])
+            ->withCount('fotos')
+            ->filter($request->all())
+            ->paginate(25)
+            ->withQueryString();
 
-    return view('operadores.index', compact('operadores'));
-}
+        return view('operadores.index', compact('operadores'));
+    }
 
-
+    /** Form de creación. */
     public function create()
     {
         return view('operadores.create');
     }
 
+    /** Persistir un operador nuevo. */
     public function store(Request $request)
-{
-    $request->validate([
-        'nombre' => 'required|string|max:255',
-        'apellido_paterno' => 'required|string|max:255',
-        'apellido_materno' => 'nullable|string|max:255',
-        'email' => ['required', 'email', 'regex:/@futuramatiresmx\.com$/i', 'unique:users,email'],
-    ]);
-
-    $randomPassword = Str::random(10);
-
-    // Crear usuario
-    $user = User::create([
-        'name' => $request->nombre . ' ' . $request->apellido_paterno,
-        'email' => $request->email,
-        'password' => Hash::make($randomPassword),
-    ]);
-
-    $user->assignRole('operador');
-
-    // Crear operador
-    Operador::create([
-        'user_id' => $user->id,
-        'nombre' => $request->nombre,
-        'apellido_paterno' => $request->apellido_paterno,
-        'apellido_materno' => $request->apellido_materno,
-    ]);
-
-    // Redirige a la misma vista de crear con datos en sesión para el modal
-    return redirect()
-        ->route('operadores.create')
-        ->with([
-            'created'  => true,
-            'email'    => $user->email,
-            'password' => $randomPassword,
-        ]);
-}
-
-    public function edit($id)
     {
-        $operador = Operador::with('user')->findOrFail($id);
+        $data = $this->validateOperador($request);
+
+        $operador = Operador::create($data);
+
+        return redirect()
+            ->route('operadores.index')
+            ->with('success', 'Operador creado correctamente.');
+    }
+
+    /** Mostrar detalles. */
+    public function show(Operador $operador)
+    {
+        $operador->load(['user', 'fotos']);
+        return view('operadores.show', compact('operador'));
+    }
+
+    /** Form de edición. */
+    public function edit(Operador $operador)
+    {
+        $operador->load(['user','fotos']);
         return view('operadores.edit', compact('operador'));
     }
 
-    public function update(Request $request, $id)
-{
-    // 1) Trae al operador con su usuario
-    $operador = Operador::with('user')->findOrFail($id);
-
-    // 2) Valida ignorando el ID del usuario actual
-    $validated = $request->validate([
-        'nombre'            => ['required','string','max:255'],
-        'apellido_paterno'  => ['required','string','max:255'],
-        'apellido_materno'  => ['nullable','string','max:255'],
-        'email' => [
-            'required',
-            'email',
-            'regex:/@futuramatiresmx\.com$/i',
-            Rule::unique('users', 'email')->ignore($operador->user->id), // 👈 clave
-        ],
-    ]);
-
-    // 3) Actualiza el operador
-    $operador->update([
-        'nombre'            => $validated['nombre'],
-        'apellido_paterno'  => $validated['apellido_paterno'],
-        'apellido_materno'  => $validated['apellido_materno'] ?? null,
-    ]);
-
-    // 4) Actualiza el usuario (email solo si cambió)
-    $operador->user->update([
-        'name'  => $validated['nombre'].' '.$validated['apellido_paterno'],
-        'email' => $validated['email'], // puedes envolver en if si quieres tocarlo solo cuando cambie
-    ]);
-
-    return redirect()
-        ->route('operadores.index')
-        ->with('success', 'Operador actualizado correctamente');
-}
-
-    public function destroy($id)
+    /** Actualizar datos + subir/borrar fotos en un solo submit. */
+    public function update(Request $request, Operador $operador)
     {
-        $operador = Operador::findOrFail($id);
-        $operador->user->delete(); // Elimina también el operador por la relación ON DELETE CASCADE
-        return redirect()->route('operadores.index')->with('success', 'Operador eliminado correctamente');
+        // 1) Validación de campos del Operador
+        $data = $this->validateOperador($request, $operador->id);
+
+        // 2) Actualizar Operador
+        $operador->update($data);
+
+        // 3) (Opcional) Actualizar email del usuario ligado, si existe y viene en request
+        if ($request->filled('email') && $operador->user) {
+            $request->validate([
+                'email' => ['nullable', 'email', Rule::unique('users', 'email')->ignore($operador->user->id)],
+            ]);
+            $operador->user->update(['email' => $request->input('email')]);
+        }
+
+        // 4) Borrar fotos marcadas
+        $toDelete = $request->input('delete_fotos', []);
+        if (!empty($toDelete) && is_array($toDelete)) {
+            $fotos = OperadorFoto::whereIn('id', $toDelete)
+                ->where('operador_id', $operador->id)
+                ->get();
+
+            foreach ($fotos as $foto) {
+                // eliminar archivo físico si existe
+                Storage::disk('local')->delete($foto->ruta);
+                // eliminar registro
+                $foto->delete();
+            }
+        }
+
+        // 5) Subir nuevas fotos (si vienen)
+        if ($request->hasFile('fotos')) {
+            $request->validate([
+                'fotos'   => ['array'],
+                'fotos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            ], [
+                'fotos.*.image' => 'Cada archivo debe ser una imagen.',
+                'fotos.*.mimes' => 'Formatos permitidos: jpg, jpeg, png, webp.',
+                'fotos.*.max'   => 'Cada imagen no debe superar los 8 MB.',
+            ]);
+
+            foreach ($request->file('fotos', []) as $file) {
+                $dir = "operadores/{$operador->id}";
+                $filename = now()->format('Ymd_His') . '_' . $operador->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+
+                $relativePath = $file->storeAs($dir, $filename, 'local');
+
+                OperadorFoto::create([
+                    'operador_id' => $operador->id,
+                    'ruta'        => $relativePath,
+                    'orden'       => 0,
+                ]);
+            }
+        }
+
+        // Opción A (recomendada): pasar el modelo
+return redirect()
+    ->route('operadores.edit', $operador)
+    ->with('success', 'Operador actualizado correctamente.');
+
+    }
+
+    /** Eliminar operador (+ sus fotos). */
+    public function destroy(Operador $operador)
+    {
+        $operador->load('fotos');
+
+        foreach ($operador->fotos as $foto) {
+            Storage::disk('local')->delete($foto->ruta);
+            $foto->delete();
+        }
+
+        $operador->delete();
+
+        return redirect()
+            ->route('operadores.index')
+            ->with('success', 'Operador eliminado correctamente.');
+    }
+
+    /** Reglas de validación compartidas. */
+    private function validateOperador(Request $request, $operadorId = null): array
+    {
+        return $request->validate([
+            'user_id'          => ['nullable', 'exists:users,id'],
+            'nombre'           => ['required', 'string', 'max:255'],
+            'apellido_paterno' => ['nullable', 'string', 'max:255'],
+            'apellido_materno' => ['nullable', 'string', 'max:255'],
+        ], [
+            'user_id.exists'   => 'El usuario seleccionado no es válido.',
+            'nombre.required'  => 'El nombre es obligatorio.',
+        ]);
     }
 }

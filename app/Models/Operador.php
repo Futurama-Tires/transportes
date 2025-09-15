@@ -29,6 +29,17 @@ class Operador extends Model
     }
 
     /**
+     * Relación: fotos asociadas al operador (para galería).
+     * Ordena por 'orden' y luego por 'created_at' desc.
+     */
+    public function fotos()
+    {
+        return $this->hasMany(OperadorFoto::class)
+            ->orderBy('orden')
+            ->orderByDesc('created_at');
+    }
+
+    /**
      * Accesor para "nombre_completo".
      */
     public function getNombreCompletoAttribute(): string
@@ -45,9 +56,9 @@ class Operador extends Model
      * Filtro principal: búsqueda global + ordenamiento.
      *
      * Acepta:
-     * - search   (string)   // búsqueda global
-     * - sort_by  (string)   // 'nombre_completo' | 'email'
-     * - sort_dir (string)   // 'asc' | 'desc'
+     * - search   (string) // búsqueda global
+     * - sort_by  (string) // 'nombre_completo' | 'email'
+     * - sort_dir (string) // 'asc' | 'desc'
      */
     public function scopeFilter($query, array $filters)
     {
@@ -59,15 +70,15 @@ class Operador extends Model
             $q->where(function ($qq) use ($like) {
                 // Campos locales
                 $qq->where('operadores.nombre', 'like', $like)
-                    ->orWhere('operadores.apellido_paterno', 'like', $like)
-                    ->orWhere('operadores.apellido_materno', 'like', $like)
-                    // Nombre completo
-                    ->orWhereRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) LIKE ?", [$like])
-                    // Relación user: email (y opcionalmente name si lo usas)
-                    ->orWhereHas('user', function ($uq) use ($like) {
-                        $uq->where('email', 'like', $like)
-                           ->orWhere('name', 'like', $like);
-                    });
+                   ->orWhere('operadores.apellido_paterno', 'like', $like)
+                   ->orWhere('operadores.apellido_materno', 'like', $like)
+                   // Nombre completo
+                   ->orWhereRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) LIKE ?", [$like])
+                   // Relación user: email y (opcional) name
+                   ->orWhereHas('user', function ($uq) use ($like) {
+                       $uq->where('email', 'like', $like)
+                          ->orWhere('name', 'like', $like);
+                   });
             });
         });
 
