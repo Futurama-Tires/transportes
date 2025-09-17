@@ -7,6 +7,10 @@ use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Event;
 
+// >>> IMPORTA MODELO Y OBSERVER <<<
+use App\Models\CargaCombustible;
+use App\Observers\CargaCombustibleObserver;
+
 class EventServiceProvider extends ServiceProvider
 {
     /**
@@ -25,7 +29,7 @@ class EventServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        CargaCombustible::observe(CargaCombustibleObserver::class);
     }
 
     /**

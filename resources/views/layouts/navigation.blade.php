@@ -1,3 +1,4 @@
+
 {{-- resources/views/layouts/navigation.blade.php --}}
 @php
     // Clases base para links de navegación principales (desktop)
@@ -76,24 +77,57 @@
                 </div>
             </div>
 
-            {{-- DERECHA: menú usuario --}}
-            <div class="hidden sm:ml-6 sm:flex sm:items-center">
+            {{-- DERECHA: notificaciones + menú usuario --}}
+            <div class="hidden sm:ml-6 sm:flex sm:items-center gap-4">
+
+                {{-- 🔔 Notificaciones --}}
+                <div class="relative" x-data="{ open:false }">
+                    <button
+                        @click="open = !open"
+                        :aria-expanded="open"
+                        class="relative inline-flex items-center justify-center rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none"
+                        aria-label="Abrir notificaciones"
+                    >
+                        {{-- Campana (más pequeña) --}}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-700 dark:text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+
+                        {{-- Badge con conteo --}}
+                        <span id="notif-count"
+                            class="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-semibold h-4 min-w-[16px] px-1">
+                            0
+                        </span>
+                    </button>
+
+                    {{-- Dropdown --}}
+                    <div x-cloak x-show="open" @click.away="open=false"
+                        class="absolute right-0 mt-2 w-80 max-w-[90vw] rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black/5 overflow-hidden z-50">
+                        <div class="py-2" id="notif-list">
+                            {{-- El JS rellenará aquí. Fallback inicial: --}}
+                            <div class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">Cargando…</div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Menú usuario (igual que lo tenías) --}}
                 <div class="relative" x-data="{ open:false }">
                     <button @click="open=!open"
                             class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white px-2 py-1">
                         {{ Auth::user()->name ?? 'Usuario' }}
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-                             viewBox="0 0 24 24" stroke="currentColor">
+                            viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M19 9l-7 7-7-7"/>
+                                d="M19 9l-7 7-7-7"/>
                         </svg>
                     </button>
 
                     <div x-cloak x-show="open" @click.away="open=false"
-                         class="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black/5">
+                        class="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black/5">
                         <div class="py-1">
                             <a href="{{ route('profile.edit') }}"
-                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
+                            class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
                                 Mi perfil
                             </a>
                             <form method="POST" action="{{ route('logout') }}">
@@ -164,11 +198,7 @@
                 <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200">
                     Mi perfil
                 </a>
-                @role('administrador')
-                <a href="{{ route('dashboard.admin') }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200">
-                    Dashboard Admin
-                </a>
-                @endrole
+
                 <form method="POST" action="{{ route('logout') }}" class="px-4">
                     @csrf
                     <button type="submit" class="w-full text-left text-sm text-red-600 dark:text-red-400">
@@ -179,3 +209,4 @@
         </div>
     </div>
 </nav>
+```

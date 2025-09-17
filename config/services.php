@@ -36,5 +36,12 @@ return [
     'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
     ],
 
+    'telegram' => [
+    'bot_token'        => env('TELEGRAM_BOT_TOKEN'),
+    'default_chat_id'  => env('TELEGRAM_CHAT_ID'),
+    'api_url'          => env('TELEGRAM_API_URL', 'https://api.telegram.org'),
+    ],
+
+
 
 ];

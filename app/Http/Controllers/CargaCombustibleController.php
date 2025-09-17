@@ -6,6 +6,8 @@ use App\Models\CargaCombustible;
 use App\Models\CargaFoto;
 use App\Models\Operador;
 use App\Models\Vehiculo;
+use App\Models\User;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +15,8 @@ use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
+use App\Notifications\NuevaCarga;
+use Illuminate\Support\Facades\Notification;
 
 class CargaCombustibleController extends Controller
 {
@@ -92,6 +96,16 @@ class CargaCombustibleController extends Controller
             $carga->forceFill($data)->save();
 
             $vehiculo->update(['kilometros' => $data['km_final']]);
+
+            // 🔔 Notificar después del commit
+            $carga->loadMissing('vehiculo','operador'); // opcional
+            DB::afterCommit(function () use ($carga) {
+                $destinatarios = User::role(['administrador','capturista'], 'web')
+                    // ->whereKeyNot(auth()->id()) // descomenta si no quieres notificar al que registró
+                    ->get();
+
+                Notification::send($destinatarios, new NuevaCarga($carga));
+            });
 
             return redirect()->route('cargas.index')
                 ->with('success', 'Carga registrada y odómetro del vehículo actualizado.');
@@ -192,16 +206,11 @@ class CargaCombustibleController extends Controller
 
     protected function applyDerived(array &$data, ?int $kmInicial): void
     {
-        // 'mes' es NOT NULL en tu tabla => siempre lo calculamos
         $data['mes'] = ucfirst(Carbon::parse($data['fecha'])->locale('es')->translatedFormat('F'));
-
-        // 'total' es NOT NULL en tu tabla
         $data['total'] = round(((float)$data['precio']) * ((float)$data['litros']), 2);
 
-        // Odómetro inicial (puede ser null en tabla)
         $data['km_inicial'] = $kmInicial;
 
-        // Recorrido / Rendimiento / Diferencia (todas pueden ser null)
         $recorrido = (!is_null($kmInicial) && isset($data['km_final']))
             ? max(0, (int)$data['km_final'] - (int)$kmInicial)
             : null;
@@ -223,9 +232,6 @@ class CargaCombustibleController extends Controller
 
     /**
      * API móvil: crea carga y, si vienen imágenes temporales, las anexa (tabla carga_fotos).
-     * IMPORTANTE: Tu tabla 'cargas_combustible' NO tiene columnas de importes ni imagenes,
-     * así que aquí SOLO validamos lo necesario y EXCLUIMOS esos campos del guardado.
-     *
      * Entrada opcional:
      *   - imagenes: [{tipo: 'ticket|voucher|odometro|extra', tmp_path: 'tmp/ocr/...'}]
      */
@@ -242,15 +248,13 @@ class CargaCombustibleController extends Controller
             'km_final'         => ['required', 'integer', 'min:0'],
             'destino'          => ['nullable', 'string', 'max:255'],
             'observaciones'    => ['nullable', 'string', 'max:2000'],
-
-            // Imágenes (opcional, para mover de tmp hacia carpeta final y registrar en carga_fotos)
             'imagenes'             => ['nullable', 'array'],
             'imagenes.*.tipo'      => ['nullable', 'in:ticket,voucher,odometro,extra'],
             'imagenes.*.tmp_path'  => ['required_with:imagenes', 'string'],
         ]);
 
         $imagenes = $data['imagenes'] ?? [];
-        unset($data['imagenes']); // 👈 evitar insertar columna inexistente
+        unset($data['imagenes']);
 
         $user = $request->user();
         $operador = Operador::where('user_id', $user->id)->first();
@@ -271,24 +275,26 @@ class CargaCombustibleController extends Controller
                 ], 422);
             }
 
-            // Payload final a guardar (la tabla no tiene más columnas extra)
             $payload = $data;
             $payload['operador_id'] = $operador->id;
 
-            // Derivados obligatorios por tu esquema (mes, total)
             $this->applyDerived($payload, $kmInicial);
 
-            // Guarda carga
             $carga = new CargaCombustible();
             $carga->forceFill($payload)->save();
 
-            // Actualiza odómetro del vehículo
             $vehiculo->update(['kilometros' => $payload['km_final']]);
 
-            // Mover imágenes desde tmp a carpeta definitiva y crear registros 1:N
             if (!empty($imagenes)) {
                 $this->attachTmpImagesToCarga($carga, $imagenes);
             }
+
+            // 🔔 Notificar después del commit
+            $carga->loadMissing('vehiculo','operador'); // opcional
+            DB::afterCommit(function () use ($carga) {
+                $destinatarios = User::role(['administrador','capturista'], 'web')->get();
+                Notification::send($destinatarios, new NuevaCarga($carga));
+            });
 
             return response()->json(
                 $carga->load([
@@ -320,7 +326,6 @@ class CargaCombustibleController extends Controller
             if (!$tmp || !is_string($tmp)) {
                 continue;
             }
-            // Seguridad: solo permitimos mover desde tmp/ocr
             if (!str_starts_with($tmp, 'tmp/ocr/')) {
                 continue;
             }
@@ -332,12 +337,10 @@ class CargaCombustibleController extends Controller
             $name = ($tipo ?: 'extra') . '-' . now()->format('Ymd-His') . '-' . Str::random(6) . '.' . $ext;
             $dest = $baseDir . '/' . $name;
 
-            // Move
             if (!$disk->move($tmp, $dest)) {
                 throw ValidationException::withMessages(['imagenes' => "No se pudo mover la imagen temporal {$tmp}."]);
             }
 
-            // Meta
             $mime = $disk->mimeType($dest);
             $size = $disk->size($dest);
 
