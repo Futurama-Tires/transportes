@@ -45,4 +45,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/ocr/ticket',   [OcrController::class, 'ticket']);
     Route::post('/ocr/voucher',  [OcrController::class, 'voucher']);
     Route::post('/ocr/odometro', [OcrController::class, 'odometro']);
+
+    // Crear carga (móvil) con validación de importes y anexado de fotos desde tmp
+    Route::post('/cargas', [CargaCombustibleController::class, 'storeApi']);
+
+    // Añadir / eliminar fotos adicionales a una carga
+    Route::get('/cargas/{carga}/fotos', [CargaFotoController::class, 'index']);              // listar
+    Route::get('/cargas/{carga}/fotos/{foto}', [CargaFotoController::class, 'show']);        // ver una
+    Route::get('/cargas/{carga}/fotos/{foto}/download', [CargaFotoController::class, 'download']); // descargar/mostrar archivo
+    Route::post('/cargas/{carga}/fotos', [CargaFotoController::class, 'store']);             // subir nueva
+    Route::delete('/cargas/{carga}/fotos/{foto}', [CargaFotoController::class, 'destroy']);
 });

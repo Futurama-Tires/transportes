@@ -28,7 +28,7 @@ class CargaCombustible extends Model
         'total',
         'destino',
         'observaciones',
-        // 'mes' lo calculamos; se guarda con forceFill() desde el controlador
+        // 'mes' se calcula en el controlador
     ];
 
     protected $casts = [
@@ -55,6 +55,26 @@ class CargaCombustible extends Model
     public function vehiculo()
     {
         return $this->belongsTo(Vehiculo::class);
+    }
+
+    /** Fotos 1:N (igual patrón que vehículos/operadores) */
+    public function fotos()
+    {
+        return $this->hasMany(CargaFoto::class, 'carga_id');
+    }
+
+    /** Atajos por tipo (opcional) */
+    public function fotosTicket()
+    {
+        return $this->fotos()->where('tipo', CargaFoto::TICKET);
+    }
+    public function fotosVoucher()
+    {
+        return $this->fotos()->where('tipo', CargaFoto::VOUCHER);
+    }
+    public function fotosOdometro()
+    {
+        return $this->fotos()->where('tipo', CargaFoto::ODOMETRO);
     }
 
     /** Scope de filtros y ordenamiento (para la vista web) */
@@ -109,7 +129,7 @@ class CargaCombustible extends Model
             ['rendimiento', 'rend_min', '>='], ['rendimiento', 'rend_max', '<='],
             ['km_inicial',  'km_ini_min', '>='], ['km_inicial',  'km_ini_max', '<='],
             ['km_final',    'km_fin_min', '>='], ['km_final',    'km_fin_max', '<='],
-            ['recorrido',   'rec_min', '>='],   ['recorrido',    'rec_max', '<='], // 👈 agregado
+            ['recorrido',   'rec_min', '>='],   ['recorrido',    'rec_max', '<='],
         ];
         foreach ($ranges as [$col, $key, $op]) {
             if (isset($filters[$key]) && $filters[$key] !== '') {
@@ -131,7 +151,7 @@ class CargaCombustible extends Model
             'rendimiento'      => 'cargas_combustible.rendimiento',
             'km_inicial'       => 'cargas_combustible.km_inicial',
             'km_final'         => 'cargas_combustible.km_final',
-            'recorrido'        => 'cargas_combustible.recorrido', // 👈 agregado
+            'recorrido'        => 'cargas_combustible.recorrido',
             'vehiculo'         => 'vehiculos.unidad',
             'placa'            => 'vehiculos.placa',
             'operador'         => null,

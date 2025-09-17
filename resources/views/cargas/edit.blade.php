@@ -285,6 +285,112 @@
                 @method('DELETE')
             </form>
 
+            {{-- ===== GALERÍA DE FOTOS DE LA CARGA (fuera del form principal) ===== --}}
+            <div class="row row-cards mt-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                            <h3 class="card-title mb-0">Fotos de la carga #{{ $carga->id }}</h3>
+
+                            {{-- Mensajes flash lado derecho (compactos) --}}
+                            <div class="d-none d-md-block">
+                                @if (session('success'))
+                                    <span class="badge bg-green-lt">{{ session('success') }}</span>
+                                @endif
+                                @if (session('error'))
+                                    <span class="badge bg-red-lt">{{ session('error') }}</span>
+                                @endif
+                            </div>
+
+                            {{-- Form subir nueva foto --}}
+                            <form class="d-flex flex-wrap align-items-center gap-2"
+                                  action="{{ route('cargas.fotos.store', $carga) }}"
+                                  method="POST" enctype="multipart/form-data">
+                                @csrf
+                                <select name="tipo" class="form-select" style="width:auto">
+                                    <option value="ticket">Ticket</option>
+                                    <option value="voucher">Voucher</option>
+                                    <option value="odometro">Odómetro</option>
+                                    <option value="extra" selected>Extra</option>
+                                </select>
+                                <input type="file" name="image" class="form-control" style="width:260px" accept="image/*" required>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="ti ti-upload me-1"></i> Subir foto
+                                </button>
+                            </form>
+                        </div>
+
+                        <div class="card-body">
+                            @php
+                                $fotos = $carga->fotos ?? collect();
+                            @endphp
+
+                            {{-- Mensajes flash en móviles --}}
+                            <div class="d-md-none mb-2">
+                                @if (session('success'))
+                                    <div class="alert alert-success py-2">{{ session('success') }}</div>
+                                @endif
+                                @if (session('error'))
+                                    <div class="alert alert-danger py-2">{{ session('error') }}</div>
+                                @endif
+                            </div>
+
+                            @if ($fotos->isEmpty())
+                                <div class="text-secondary">No hay fotos asociadas todavía.</div>
+                            @else
+                                <div class="row g-3">
+                                    @foreach ($fotos as $foto)
+                                        @php
+                                            $url = route('cargas.fotos.show', $foto);
+                                        @endphp
+                                        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                            <div class="card card-sm shadow-sm">
+                                                <div class="card-body p-2">
+                                                    <div class="ratio ratio-4x3 rounded overflow-hidden border">
+                                                        <a href="{{ $url }}" target="_blank" title="Ver imagen">
+                                                            <img src="{{ $url }}"
+                                                                 alt="{{ $foto->tipo }}"
+                                                                 class="w-100 h-100"
+                                                                 loading="lazy"
+                                                                 style="object-fit: cover;">
+                                                        </a>
+                                                    </div>
+                                                    <div class="mt-2 small d-flex justify-content-between align-items-center">
+                                                        <div class="text-secondary">
+                                                            <i class="ti ti-tag"></i> {{ strtoupper($foto->tipo) }}
+                                                        </div>
+                                                        <form action="{{ route('cargas.fotos.destroy', [$carga, $foto]) }}"
+                                                              method="POST"
+                                                              onsubmit="return confirm('Eliminar esta foto?');">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
+                                                                <i class="ti ti-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                    @if($foto->original_name || $foto->size)
+                                                        <div class="text-secondary mt-1" style="font-size: 11px;">
+                                                            {{ $foto->original_name ?? basename($foto->path) }}
+                                                            @if($foto->size) · {{ number_format($foto->size/1024, 1) }} KB @endif
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="card-footer text-muted small">
+                            Si no ves las imágenes, ejecuta <code>php artisan storage:link</code> y verifica permisos de escritura en <code>storage/app/public</code>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{-- ===== FIN GALERÍA ===== --}}
+
             {{-- FOOTER --}}
             <div class="text-center text-secondary small py-4">
                 © {{ date('Y') }} Futurama Tires · Todos los derechos reservados

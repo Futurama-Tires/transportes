@@ -10,7 +10,7 @@ use App\Http\Controllers\CargaCombustibleController;
 use App\Http\Controllers\TanqueController;
 use App\Http\Controllers\VehiculoFotoController;
 use App\Http\Controllers\OperadorFotoController;
-// === NUEVOS ===
+use App\Http\Controllers\CargaFotoWebController; 
 use App\Http\Controllers\TarjetaComodinController;
 use App\Http\Controllers\ComodinGastoController;
 
@@ -115,6 +115,19 @@ Route::middleware('auth')->group(function () {
         });
         // Mostrar imagen privada por ID (URL corta, no anidada)
         Route::get('/operadores/fotos/{foto}', [OperadorFotoController::class, 'show'])->name('operadores.fotos.show');
+
+        // Mostrar imagen privada por ID (URL corta, protegida)
+Route::get('/cargas/fotos/{foto}', [CargaFotoWebController::class, 'show'])
+    ->name('cargas.fotos.show');
+
+// Subir foto a una carga (web)
+Route::post('/cargas/{carga}/fotos', [CargaFotoWebController::class, 'store'])
+    ->name('cargas.fotos.store');
+
+// Borrar foto de una carga (web)
+Route::delete('/cargas/{carga}/fotos/{foto}', [CargaFotoWebController::class, 'destroy'])
+    ->name('cargas.fotos.destroy');
+
     });
 });
 
