@@ -6,15 +6,16 @@
     $linkOff  = 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300 dark:text-gray-300 dark:hover:text-white';
     $linkOn   = 'border-blue-600 text-blue-700 dark:text-blue-400';
 
-    // Items del submenú "Gestión"
+    // Items del submenú "Gestión" tarjetas-comodin
     $gestionLinks = [
-        ['type' => 'route', 'value' => 'vehiculos.index',     'label' => 'Vehículos'],
-        ['type' => 'route', 'value' => 'operadores.index',    'label' => 'Operadores'],
-        ['type' => 'route', 'value' => 'capturistas.index',   'label' => 'Capturistas'],
-        ['type' => 'route', 'value' => 'tarjetas.index',      'label' => 'Tarjetas Si Vale'],
-        ['type' => 'route', 'value' => 'verificaciones.index','label' => 'Verificaciones'],
-        ['type' => 'url',   'value' => '#',                   'label' => 'Bases de datos'],
-        ['type' => 'url',   'value' => '#',                   'label' => 'Reportes y estadísticas'],
+        ['type' => 'route', 'value' => 'vehiculos.index',        'label' => 'Vehículos'],
+        ['type' => 'route', 'value' => 'operadores.index',       'label' => 'Operadores'],
+        ['type' => 'route', 'value' => 'capturistas.index',      'label' => 'Capturistas'],
+        ['type' => 'route', 'value' => 'tarjetas.index',         'label' => 'Tarjetas SiVale'],
+        ['type' => 'route', 'value' => 'tarjetas-comodin.index', 'label' => 'Tarjetas Comodín'],
+        ['type' => 'route', 'value' => 'verificaciones.index',   'label' => 'Verificaciones'],
+        ['type' => 'url',   'value' => '#',                      'label' => 'Bases de datos'],
+        ['type' => 'url',   'value' => '#',                      'label' => 'Reportes y estadísticas'],
     ];
 @endphp
 
@@ -209,4 +210,3 @@
         </div>
     </div>
 </nav>
-```
