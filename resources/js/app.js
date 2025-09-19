@@ -1,20 +1,12 @@
 import './bootstrap';
 import Alpine from 'alpinejs';
 
-// 👇 Bootstrap antes que Tabler (el orden importa)
+// Bootstrap antes que Tabler (JS)
 import * as bootstrap from 'bootstrap/dist/js/bootstrap.bundle.min.js';
 window.bootstrap = bootstrap;
 
-// Tabler JS
+// Tabler JS (solo JS, sin CSS aquí)
 import '@tabler/core/dist/js/tabler.min.js';
-
-// CSS de Tabler e iconos (deja esto si los usas)
-import '@tabler/icons-webfont/dist/tabler-icons.min.css';
-import '@tabler/core/dist/css/tabler.min.css';
-import '@tabler/core/dist/css/tabler-vendors.min.css';
-
-// ❌ NO importes aquí '../css/app.css' si ya lo cargas con @vite en Blade
-// import '../css/app.css';
 
 window.Alpine = Alpine;
 Alpine.start();
@@ -24,11 +16,9 @@ function cargarNotificaciones() {
     fetch('/notificaciones/nuevas', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(r => r.json())
         .then(({ count, items }) => {
-            // Badge
             const badge = document.getElementById('notif-count');
             if (badge) badge.textContent = count > 9 ? '9+' : String(count ?? 0);
 
-            // Lista
             const list = document.getElementById('notif-list');
             if (!list) return;
 
@@ -40,15 +30,13 @@ function cargarNotificaciones() {
 
             items.forEach(n => {
                 const a = document.createElement('a');
-                a.href = n.url || '/cargas'; // fallback
+                a.href = n.url || '/cargas';
                 a.className = 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700';
                 a.innerHTML = `
                     <div class="font-medium">${n.titulo ?? 'Notificación'}</div>
                     <div class="text-gray-500 dark:text-gray-400 text-xs">${n.mensaje ?? ''}</div>
                     <div class="text-gray-400 dark:text-gray-500 text-[10px] mt-1">${n.fecha ?? ''}</div>
                 `;
-
-                // Marcar como leída en background
                 a.addEventListener('click', () => {
                     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
                     fetch(`/notificaciones/${n.id}/leer`, {
@@ -59,11 +47,9 @@ function cargarNotificaciones() {
                         }
                     }).catch(() => {});
                 });
-
                 list.appendChild(a);
             });
 
-            // Divider + acceso a "Ir a cargas"
             const divider = document.createElement('div');
             divider.className = 'border-t border-gray-200 dark:border-gray-700 my-1';
             list.appendChild(divider);
@@ -78,6 +64,6 @@ function cargarNotificaciones() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    cargarNotificaciones();                 // carga inicial
-    setInterval(cargarNotificaciones, 15000); // cada 15s
+    cargarNotificaciones();
+    setInterval(cargarNotificaciones, 15000);
 });

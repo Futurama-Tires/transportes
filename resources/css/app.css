@@ -2,8 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* resources/css/app.css */
-
+/* Tabler e iconos (sin ~) */
+@import "@tabler/icons-webfont/dist/tabler-icons.min.css";
+@import "@tabler/core/dist/css/tabler.min.css";
+@import "@tabler/core/dist/css/tabler-vendors.min.css";
+/* Tus estilos */
 nav[role="navigation"] > div:first-child {
     display: none !important;
 }
@@ -13,7 +16,6 @@ nav[role="navigation"] > div:first-child {
         @apply hidden;
     }
 }
-
 
 .header_modulo {
   @apply text-xl font-semibold text-gray-800 dark:text-gray-200 leading-tight;
@@ -54,4 +56,3 @@ nav[role="navigation"] > div:first-child {
 .tabla_crud_link-eliminar {
   @apply text-red-500 hover:underline ml-2;
 }
-

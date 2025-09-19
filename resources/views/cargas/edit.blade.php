@@ -1,9 +1,24 @@
-{{-- resources/views/cargas_combustible/edit.blade.php — versión Tabler ejecutiva (sin "ubicación") --}}
+{{-- resources/views/cargas/edit.blade.php — versión Tabler ejecutiva (con galería/lightbox estilo Vehículos) --}}
 <x-app-layout>
+    @vite(['resources/js/app.js'])
+
     @php
         /** @var \App\Models\CargaCombustible $carga */
         $isEdit = isset($carga) && $carga->exists;
         $fechaValue = old('fecha', isset($carga->fecha) ? \Illuminate\Support\Carbon::parse($carga->fecha)->format('Y-m-d') : '');
+
+        // ✅ Precomputar items de galería (sin arrow functions ni coalesce) para evitar errores de compilación de Blade/PHP
+        $galleryItems = [];
+        $fotosCol = isset($carga->fotos) ? $carga->fotos : collect();
+        $fotosCol = method_exists($fotosCol, 'values') ? $fotosCol->values() : $fotosCol;
+        foreach ($fotosCol as $f) {
+            $tipo = isset($f->tipo) && $f->tipo !== null ? strtoupper($f->tipo) : 'FOTO';
+            $galleryItems[] = [
+                'src'  => route('cargas.fotos.show', $f),
+                'tipo' => $tipo,
+                'id'   => $f->id,
+            ];
+        }
     @endphp
 
     {{-- HEADER --}}
@@ -208,7 +223,6 @@
 
                             {{-- FOOTER de la card principal --}}
                             <div class="card-footer d-flex justify-content-between">
-                                {{-- Botón que dispara el form de DELETE (separado) --}}
                                 <button type="submit"
                                         class="btn btn-outline-danger"
                                         form="delete-carga-{{ $carga->id }}"
@@ -217,9 +231,7 @@
                                 </button>
 
                                 <div class="d-flex gap-2">
-                                    <a href="{{ route('cargas.index') }}" class="btn btn-link">
-                                        Cancelar
-                                    </a>
+                                    <a href="{{ route('cargas.index') }}" class="btn btn-link">Cancelar</a>
                                     <button type="submit" class="btn btn-primary">
                                         <i class="ti ti-device-floppy me-1"></i> Guardar cambios
                                     </button>
@@ -261,11 +273,10 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
             </form>
 
-            {{-- === FORM SEPARADO: DELETE (OCULTO) === --}}
+            {{-- DELETE oculto --}}
             <form id="delete-carga-{{ $carga->id }}"
                   action="{{ route('cargas.destroy', $carga) }}"
                   method="POST" class="d-none">
@@ -273,14 +284,18 @@
                 @method('DELETE')
             </form>
 
-            {{-- ===== GALERÍA DE FOTOS DE LA CARGA (fuera del form principal) ===== --}}
+            {{-- ===== GALERÍA DE FOTOS DE LA CARGA ===== --}}
             <div class="row row-cards mt-3">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
-                            <h3 class="card-title mb-0">Fotos de la carga #{{ $carga->id }}</h3>
+                            <div class="d-flex align-items-center gap-2">
+                                <h3 class="card-title mb-0">Fotos de la carga #{{ $carga->id }}</h3>
+                                <button id="openGalleryBtn" type="button" class="btn btn-dark btn-sm d-none">
+                                    <i class="ti ti-slideshow me-1"></i> Ver galería
+                                </button>
+                            </div>
 
-                            {{-- Mensajes flash lado derecho (compactos) --}}
                             <div class="d-none d-md-block">
                                 @if (session('success'))
                                     <span class="badge bg-green-lt">{{ session('success') }}</span>
@@ -290,7 +305,6 @@
                                 @endif
                             </div>
 
-                            {{-- Form subir nueva foto --}}
                             <form class="d-flex flex-wrap align-items-center gap-2"
                                   action="{{ route('cargas.fotos.store', $carga) }}"
                                   method="POST" enctype="multipart/form-data">
@@ -309,11 +323,8 @@
                         </div>
 
                         <div class="card-body">
-                            @php
-                                $fotos = $carga->fotos ?? collect();
-                            @endphp
+                            @php $fotos = $carga->fotos ?? collect(); @endphp
 
-                            {{-- Mensajes flash en móviles --}}
                             <div class="d-md-none mb-2">
                                 @if (session('success'))
                                     <div class="alert alert-success py-2">{{ session('success') }}</div>
@@ -326,16 +337,18 @@
                             @if ($fotos->isEmpty())
                                 <div class="text-secondary">No hay fotos asociadas todavía.</div>
                             @else
-                                <div class="row g-3">
-                                    @foreach ($fotos as $foto)
-                                        @php
-                                            $url = route('cargas.fotos.show', $foto);
-                                        @endphp
+                                <div id="cargaPhotosGrid" class="row g-3">
+                                    @foreach ($fotos as $idx => $foto)
+                                        @php $url = route('cargas.fotos.show', $foto); @endphp
                                         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                                             <div class="card card-sm shadow-sm">
                                                 <div class="card-body p-2">
                                                     <div class="ratio ratio-4x3 rounded overflow-hidden border">
-                                                        <a href="{{ $url }}" target="_blank" title="Ver imagen">
+                                                        <a href="{{ $url }}"
+                                                           class="carga-photo-link"
+                                                           data-gallery-index="{{ $idx }}"
+                                                           title="Ver imagen ({{ strtoupper($foto->tipo) }})"
+                                                           target="_blank">
                                                             <img src="{{ $url }}"
                                                                  alt="{{ $foto->tipo }}"
                                                                  class="w-100 h-100"
@@ -377,13 +390,172 @@
                     </div>
                 </div>
             </div>
-            {{-- ===== FIN GALERÍA ===== --}}
 
-            {{-- FOOTER --}}
             <div class="text-center text-secondary small py-4">
                 © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
             </div>
 
         </div>
     </div>
+
+    {{-- ===== MODAL GALERÍA ===== --}}
+    <style>
+        #galleryModal .modal-dialog { max-width: min(96vw, 1200px); }
+        #galleryModal .modal-content { background: #0b0b0b; color: #fff; border: 0; }
+        #galleryModal .modal-header { border: 0; background: transparent; }
+        #galleryModal .btn-close { filter: invert(1); opacity: .9; }
+        #galleryModal .modal-body { padding: 0; background: #000; }
+        #galleryModal .carousel,
+        #galleryModal .carousel-inner { height: 82vh; }
+        @media (max-width: 768px){
+            #galleryModal .carousel,
+            #galleryModal .carousel-inner { height: 75vh; }
+        }
+        #galleryModal .carousel-item { height: 100%; }
+        #galleryModal .carousel-item.active,
+        #galleryModal .carousel-item-next,
+        #galleryModal .carousel-item-prev,
+        #galleryModal .carousel-item-start,
+        #galleryModal .carousel-item-end {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        #galleryModal .lightbox-img {
+          max-height: 80vh; width: auto; max-width: 100%;
+          object-fit: contain; user-select: none;
+        }
+        #galleryModal .carousel-control-prev,
+        #galleryModal .carousel-control-next { filter: drop-shadow(0 0 6px rgba(0,0,0,.6)); }
+        #galleryModal .carousel-control-prev-icon,
+        #galleryModal .carousel-control-next-icon { width: 3rem; height: 3rem; }
+        #galleryModal .thumbs { display:flex; gap:.5rem; overflow-x:auto; scrollbar-width:thin; padding:.75rem 1rem 1rem; background:#0b0b0b; }
+        #galleryModal .thumb { flex:0 0 auto; width:76px; height:56px; border-radius:.5rem; overflow:hidden; border:2px solid transparent; cursor:pointer; opacity:.9; }
+        #galleryModal .thumb:hover { opacity:1; }
+        #galleryModal .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+        #galleryModal .thumb.active { border-color:#5b9cff; }
+        #galleryModal .caption-badge{ position:absolute; left:1rem; top:1rem; z-index:2; }
+    </style>
+
+    <div class="modal modal-blur fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title h4" id="galleryModalLabel">
+                        <i class="ti ti-photo me-2"></i>Galería de fotos
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body position-relative">
+                    <div id="galleryCarousel" class="carousel slide" data-bs-interval="false" data-bs-touch="true">
+                        <div class="carousel-inner" id="galleryInner"></div>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Anterior</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Siguiente</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="thumbs" id="galleryThumbs"></div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ===== SCRIPTS ===== --}}
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const getCarouselCtor = () => (window.bootstrap && window.bootstrap.Carousel) ? window.bootstrap.Carousel : (window.Carousel || null);
+        const getModalCtor    = () => (window.bootstrap && window.bootstrap.Modal)    ? window.bootstrap.Modal    : (window.Modal || null);
+
+        const openGalleryBtn   = document.getElementById('openGalleryBtn');
+        const galleryModalEl    = document.getElementById('galleryModal');
+        const galleryCarouselEl = document.getElementById('galleryCarousel');
+        const galleryInner      = document.getElementById('galleryInner');
+        const galleryThumbs     = document.getElementById('galleryThumbs');
+
+        // JSON seguro desde PHP (sin closures ni sintaxis moderna en Blade)
+        const galleryItems = @json($galleryItems);
+
+        if (Array.isArray(galleryItems) && galleryItems.length > 0) {
+            if (openGalleryBtn) openGalleryBtn.classList.remove('d-none');
+        }
+
+        function updateThumbsActive(i){
+            Array.prototype.forEach.call(galleryThumbs.querySelectorAll('.thumb'), function(el, idx){
+                if (idx === i) el.classList.add('active'); else el.classList.remove('active');
+            });
+        }
+
+        function buildCarouselSlides(startIndex){
+            if (typeof startIndex !== 'number') startIndex = 0;
+            galleryInner.innerHTML = '';
+            galleryThumbs.innerHTML = '';
+
+            galleryItems.forEach(function(it, i){
+                var item = document.createElement('div');
+                item.className = 'carousel-item' + (i === startIndex ? ' active' : '');
+                item.setAttribute('data-index', i);
+                item.innerHTML =
+                    '<div class="position-relative h-100 w-100 d-flex align-items-center justify-content-center">' +
+                        '<span class="badge bg-primary caption-badge">' + (it.tipo || '') + '</span>' +
+                        '<img src="' + it.src + '" class="lightbox-img" alt="Foto ' + (i+1) + ' — ' + (it.tipo || '') + '">' +
+                    '</div>';
+                galleryInner.appendChild(item);
+
+                var th = document.createElement('button');
+                th.type = 'button';
+                th.className = 'thumb' + (i === startIndex ? ' active' : '');
+                th.setAttribute('data-index', i);
+                th.innerHTML = '<img src="' + it.src + '" alt="Miniatura ' + (i+1) + '">';
+                th.addEventListener('click', function(){
+                    var Carousel = getCarouselCtor();
+                    if (!Carousel) return;
+                    var car = Carousel.getInstance(galleryCarouselEl);
+                    if (car && typeof car.to === 'function') { car.to(i); }
+                    updateThumbsActive(i);
+                });
+                galleryThumbs.appendChild(th);
+            });
+
+            var Carousel = getCarouselCtor();
+            if (Carousel) {
+                var existing = Carousel.getInstance(galleryCarouselEl);
+                if (existing && typeof existing.dispose === 'function') existing.dispose();
+                var carousel = new Carousel(galleryCarouselEl, { interval: false, ride: false, wrap: true, keyboard: true, touch: true });
+
+                galleryCarouselEl.addEventListener('slid.bs.carousel', function(){
+                    var children = Array.prototype.slice.call(galleryInner.children);
+                    var idx = children.findIndex(function(el){ return el.classList.contains('active'); });
+                    updateThumbsActive(idx);
+                }, { passive: true });
+
+                if (startIndex > 0 && typeof carousel.to === 'function') carousel.to(startIndex);
+            }
+        }
+
+        function openGallery(startIndex){
+            if (!Array.isArray(galleryItems) || !galleryItems.length) return;
+            buildCarouselSlides(startIndex || 0);
+            var Modal = getModalCtor();
+            if (!Modal) return;
+            var modal = new Modal(galleryModalEl);
+            modal.show();
+        }
+
+        document.addEventListener('click', function(e){
+            var link = e.target.closest ? e.target.closest('.carga-photo-link[data-gallery-index]') : null;
+            if (!link) return;
+            e.preventDefault();
+            var idx = parseInt(link.getAttribute('data-gallery-index'), 10) || 0;
+            openGallery(idx);
+        });
+
+        if (openGalleryBtn) {
+            openGalleryBtn.addEventListener('click', function(){ openGallery(0); });
+        }
+    });
+    </script>
 </x-app-layout>

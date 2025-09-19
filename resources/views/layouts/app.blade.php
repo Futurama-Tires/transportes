@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
@@ -11,24 +13,24 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
-        <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        <!-- CSS + JS (CSS incluye ahora Tabler) -->
+        @vite([
+    'resources/css/app.css',
+    'resources/js/app.js',
+    'node_modules/@tabler/core/dist/css/tabler.min.css',
+    'node_modules/@tabler/core/dist/css/tabler-vendors.min.css',
+    'node_modules/@tabler/icons-webfont/dist/tabler-icons.min.css',
+])
 
 
-        <!-- Material Symbols (outline, rounded o sharp) -->
-        <link rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
-
-        <!-- O bien la familia clásica "Material Icons" -->
-        <link rel="stylesheet"
-            href="https://fonts.googleapis.com/icon?family=Material+Icons" />
-
+        <!-- Material Symbols / Icons -->
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
     </head>
     <body class="font-sans antialiased">
         <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
             @include('layouts.navigation')
 
-            <!-- Page Heading -->
             @if (isset($header))
                 <header class="bg-white dark:bg-gray-800 shadow">
                     <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
@@ -37,7 +39,6 @@
                 </header>
             @endif
 
-            <!-- Page Content -->
             <main>
                 {{ $slot }}
             </main>
