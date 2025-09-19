@@ -12,7 +12,6 @@ class CargaCombustible extends Model
     protected $table = 'cargas_combustible';
 
     protected $fillable = [
-        'ubicacion',
         'fecha',
         'precio',
         'tipo_combustible',
@@ -43,8 +42,6 @@ class CargaCombustible extends Model
         'recorrido'   => 'integer',
     ];
 
-    // Opciones fijas conocidas
-    public const UBICACIONES = ['Cuernavaca', 'Ixtapaluca', 'Queretaro', 'Vallejo', 'Guadalajara'];
     public const TIPOS_COMBUSTIBLE = ['Magna', 'Diesel', 'Premium'];
 
     public function operador()
@@ -57,41 +54,39 @@ class CargaCombustible extends Model
         return $this->belongsTo(Vehiculo::class);
     }
 
-    /** Fotos 1:N (igual patrón que vehículos/operadores) */
     public function fotos()
     {
         return $this->hasMany(CargaFoto::class, 'carga_id');
     }
 
-    /** Atajos por tipo (opcional) */
     public function fotosTicket()
     {
         return $this->fotos()->where('tipo', CargaFoto::TICKET);
     }
+
     public function fotosVoucher()
     {
         return $this->fotos()->where('tipo', CargaFoto::VOUCHER);
     }
+
     public function fotosOdometro()
     {
         return $this->fotos()->where('tipo', CargaFoto::ODOMETRO);
     }
 
-    /** Scope de filtros y ordenamiento (para la vista web) */
     public function scopeFilter($query, array $filters)
     {
         $query->leftJoin('vehiculos', 'vehiculos.id', '=', 'cargas_combustible.vehiculo_id')
               ->leftJoin('operadores', 'operadores.id', '=', 'cargas_combustible.operador_id')
               ->select('cargas_combustible.*');
 
-        // --- BÚSQUEDA GLOBAL ---
+        // Búsqueda global
         $query->when($filters['search'] ?? null, function ($q, $term) {
             $term = trim($term);
             $like = '%' . $term . '%';
 
             $q->where(function ($qq) use ($like) {
-                $qq->where('cargas_combustible.ubicacion', 'like', $like)
-                   ->orWhere('cargas_combustible.destino', 'like', $like)
+                $qq->orWhere('cargas_combustible.destino', 'like', $like)
                    ->orWhere('cargas_combustible.observaciones', 'like', $like)
                    ->orWhere('cargas_combustible.custodio', 'like', $like)
                    ->orWhere('cargas_combustible.tipo_combustible', 'like', $like)
@@ -107,13 +102,9 @@ class CargaCombustible extends Model
             });
         });
 
-        // --- FILTROS ---
+        // Filtros
         $query->when($filters['vehiculo_id'] ?? null, fn($q, $id) => $q->where('cargas_combustible.vehiculo_id', $id));
         $query->when($filters['operador_id'] ?? null, fn($q, $id) => $q->where('cargas_combustible.operador_id', $id));
-
-        $query->when($filters['ubicacion'] ?? null, function ($q, $u) {
-            if ($u !== '') $q->where('cargas_combustible.ubicacion', $u);
-        });
 
         $query->when($filters['tipo_combustible'] ?? null, function ($q, $t) {
             if ($t !== '') $q->where('cargas_combustible.tipo_combustible', $t);
@@ -140,10 +131,10 @@ class CargaCombustible extends Model
         $query->when($filters['destino']  ?? null, fn($q, $v) => $q->where('cargas_combustible.destino', 'like', '%'.$v.'%'));
         $query->when($filters['custodio'] ?? null, fn($q, $v) => $q->where('cargas_combustible.custodio','like', '%'.$v.'%'));
 
+        // Ordenamiento
         $map = [
             'id'               => 'cargas_combustible.id',
             'fecha'            => 'cargas_combustible.fecha',
-            'ubicacion'        => 'cargas_combustible.ubicacion',
             'tipo_combustible' => 'cargas_combustible.tipo_combustible',
             'litros'           => 'cargas_combustible.litros',
             'precio'           => 'cargas_combustible.precio',

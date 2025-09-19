@@ -36,7 +36,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/catalogos/cargas', function () {
         return [
-            'ubicaciones' => \App\Models\CargaCombustible::UBICACIONES,
             'tipos'       => \App\Models\CargaCombustible::TIPOS_COMBUSTIBLE ?? ['Magna','Diesel','Premium'],
         ];
     });

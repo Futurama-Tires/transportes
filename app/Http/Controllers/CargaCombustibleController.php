@@ -7,14 +7,12 @@ use App\Models\CargaFoto;
 use App\Models\Operador;
 use App\Models\Vehiculo;
 use App\Models\User;
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
-use Illuminate\Support\Arr;
 use App\Notifications\NuevaCarga;
 use Illuminate\Support\Facades\Notification;
 
@@ -25,7 +23,7 @@ class CargaCombustibleController extends Controller
         $filters = $request->only([
             'search',
             'vehiculo_id', 'operador_id',
-            'ubicacion', 'tipo_combustible',
+            'tipo_combustible',
             'from', 'to',
             'litros_min','litros_max',
             'precio_min','precio_max',
@@ -37,12 +35,11 @@ class CargaCombustibleController extends Controller
             'sort_by','sort_dir',
         ]);
 
-        $vehiculos = Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']);
+        $vehiculos  = Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']);
         $operadores = Operador::select('id','nombre','apellido_paterno','apellido_materno')
             ->orderBy('nombre')->orderBy('apellido_paterno')->get();
 
-        $ubicaciones = CargaCombustible::UBICACIONES;
-        $tipos       = CargaCombustible::TIPOS_COMBUSTIBLE;
+        $tipos = CargaCombustible::TIPOS_COMBUSTIBLE;
 
         $cargas = CargaCombustible::query()
             ->with(['vehiculo','operador'])
@@ -50,24 +47,22 @@ class CargaCombustibleController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        return view('cargas.index', compact('cargas','vehiculos','operadores','ubicaciones','tipos'));
+        return view('cargas.index', compact('cargas','vehiculos','operadores','tipos'));
     }
 
     public function create()
     {
         return view('cargas.create', [
-            'carga'       => new CargaCombustible(),
-            'operadores'  => Operador::orderBy('nombre')->get(),
-            'vehiculos'   => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
-            'ubicaciones' => CargaCombustible::UBICACIONES,
-            'tipos'       => CargaCombustible::TIPOS_COMBUSTIBLE,
+            'carga'      => new CargaCombustible(),
+            'operadores' => Operador::orderBy('nombre')->get(),
+            'vehiculos'  => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
+            'tipos'      => CargaCombustible::TIPOS_COMBUSTIBLE,
         ]);
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'ubicacion'        => ['nullable', 'in:' . implode(',', CargaCombustible::UBICACIONES)],
             'fecha'            => ['required', 'date'],
             'precio'           => ['required', 'numeric', 'min:0'],
             'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
@@ -81,7 +76,7 @@ class CargaCombustibleController extends Controller
         ]);
 
         return DB::transaction(function () use ($data) {
-            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+            $vehiculo  = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
             $kmInicial = $vehiculo->kilometros;
 
             if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
@@ -98,10 +93,10 @@ class CargaCombustibleController extends Controller
             $vehiculo->update(['kilometros' => $data['km_final']]);
 
             // 🔔 Notificar después del commit
-            $carga->loadMissing('vehiculo','operador'); // opcional
+            $carga->loadMissing('vehiculo','operador');
             DB::afterCommit(function () use ($carga) {
                 $destinatarios = User::role(['administrador','capturista'], 'web')
-                    // ->whereKeyNot(auth()->id()) // descomenta si no quieres notificar al que registró
+                    // ->whereKeyNot(auth()->id())
                     ->get();
 
                 Notification::send($destinatarios, new NuevaCarga($carga));
@@ -117,18 +112,17 @@ class CargaCombustibleController extends Controller
         $carga->load(['fotos', 'vehiculo', 'operador']);
 
         return view('cargas.edit', [
-            'carga'       => $carga,
-            'operadores'  => Operador::orderBy('nombre')->get(),
-            'vehiculos'   => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
-            'ubicaciones' => CargaCombustible::UBICACIONES,
-            'tipos'       => CargaCombustible::TIPOS_COMBUSTIBLE,
+            'carga'      => $carga,
+            'operadores' => Operador::orderBy('nombre')->get(),
+            'vehiculos'  => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
+            'tipos'      => CargaCombustible::TIPOS_COMBUSTIBLE,
         ]);
     }
 
     public function update(Request $request, CargaCombustible $carga)
     {
         $data = $request->validate([
-            'ubicacion'        => ['nullable', 'in:' . implode(',', CargaCombustible::UBICACIONES)],
+            // 'ubicacion'        => ['nullable', 'in:' . implode(',', CargaCombustible::UBICACIONES)], // ❌ quitado
             'fecha'            => ['required', 'date'],
             'precio'           => ['required', 'numeric', 'min:0'],
             'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
@@ -142,32 +136,42 @@ class CargaCombustibleController extends Controller
         ]);
 
         return DB::transaction(function () use ($carga, $data) {
+            // Bloquea el vehículo para evitar condiciones de carrera al leer/actualizar odómetro
             $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
 
+            // Busca la carga previa (por fecha y, a igualdad, por id) respecto a los NUEVOS datos
             $previa = CargaCombustible::where('vehiculo_id', $vehiculo->id)
                 ->where(function($q) use ($carga, $data){
                     $fechaNueva = $data['fecha'];
                     $q->where('fecha','<', $fechaNueva)
-                      ->orWhere(function($q2) use ($fechaNueva, $carga){
-                          $q2->where('fecha', $fechaNueva)->where('id','<', $carga->id);
-                      });
+                    ->orWhere(function($q2) use ($fechaNueva, $carga){
+                        $q2->where('fecha', $fechaNueva)->where('id','<', $carga->id);
+                    });
                 })
-                ->orderBy('fecha','desc')->orderBy('id','desc')->first();
+                ->orderBy('fecha','desc')->orderBy('id','desc')
+                ->first();
 
-            $kmInicial = $previa?->km_final;
+            // ✅ Fallback: si NO hay carga previa (es la primera en la línea de tiempo),
+            // usa el odómetro actual del vehículo.
+            $kmInicial = $previa?->km_final ?? $vehiculo->kilometros;
 
+            // Validación defensiva: km_final no puede ser menor al km_inicial calculado
             if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
                 throw ValidationException::withMessages([
-                    'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el KM final de la carga previa ({$kmInicial}).",
+                    'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el KM inicial calculado ({$kmInicial}).",
                 ]);
             }
 
+            // Calcula campos derivados (km_inicial, recorrido, rendimiento, total, diferencia, mes)
             $this->applyDerived($data, $kmInicial);
 
+            // Guarda cambios de la carga
             $carga->forceFill($data)->save();
 
+            // Si esta carga (con sus nuevos datos) es la más reciente, actualiza odómetro del vehículo
             $ultima = CargaCombustible::where('vehiculo_id', $vehiculo->id)
-                ->orderBy('fecha','desc')->orderBy('id','desc')->first();
+                ->orderBy('fecha','desc')->orderBy('id','desc')
+                ->first();
 
             if ($ultima && $ultima->id === $carga->id) {
                 $vehiculo->update(['kilometros' => $data['km_final']]);
@@ -177,6 +181,7 @@ class CargaCombustibleController extends Controller
                 ->with('success', 'Carga actualizada correctamente.');
         });
     }
+
 
     public function destroy(CargaCombustible $carga)
     {
@@ -206,7 +211,7 @@ class CargaCombustibleController extends Controller
 
     protected function applyDerived(array &$data, ?int $kmInicial): void
     {
-        $data['mes'] = ucfirst(Carbon::parse($data['fecha'])->locale('es')->translatedFormat('F'));
+        $data['mes']   = ucfirst(Carbon::parse($data['fecha'])->locale('es')->translatedFormat('F'));
         $data['total'] = round(((float)$data['precio']) * ((float)$data['litros']), 2);
 
         $data['km_inicial'] = $kmInicial;
@@ -238,7 +243,6 @@ class CargaCombustibleController extends Controller
     public function storeApi(Request $request)
     {
         $data = $request->validate([
-            'ubicacion'        => ['nullable', 'in:' . implode(',', CargaCombustible::UBICACIONES)],
             'fecha'            => ['required', 'date'],
             'precio'           => ['required', 'numeric', 'min:0'],
             'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
@@ -266,7 +270,7 @@ class CargaCombustibleController extends Controller
         }
 
         return DB::transaction(function () use ($data, $operador, $imagenes) {
-            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+            $vehiculo  = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
             $kmInicial = $vehiculo->kilometros;
 
             if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
@@ -290,7 +294,7 @@ class CargaCombustibleController extends Controller
             }
 
             // 🔔 Notificar después del commit
-            $carga->loadMissing('vehiculo','operador'); // opcional
+            $carga->loadMissing('vehiculo','operador');
             DB::afterCommit(function () use ($carga) {
                 $destinatarios = User::role(['administrador','capturista'], 'web')->get();
                 Notification::send($destinatarios, new NuevaCarga($carga));
@@ -320,20 +324,14 @@ class CargaCombustibleController extends Controller
         }
 
         foreach ($imagenes as $img) {
-            $tmp = $img['tmp_path'] ?? null;
+            $tmp  = $img['tmp_path'] ?? null;
             $tipo = $img['tipo'] ?? CargaFoto::EXTRA;
 
-            if (!$tmp || !is_string($tmp)) {
-                continue;
-            }
-            if (!str_starts_with($tmp, 'tmp/ocr/')) {
-                continue;
-            }
-            if (!$disk->exists($tmp)) {
-                continue;
-            }
+            if (!$tmp || !is_string($tmp)) continue;
+            if (!str_starts_with($tmp, 'tmp/ocr/')) continue;
+            if (!$disk->exists($tmp)) continue;
 
-            $ext = pathinfo($tmp, PATHINFO_EXTENSION) ?: 'jpg';
+            $ext  = pathinfo($tmp, PATHINFO_EXTENSION) ?: 'jpg';
             $name = ($tipo ?: 'extra') . '-' . now()->format('Ymd-His') . '-' . Str::random(6) . '.' . $ext;
             $dest = $baseDir . '/' . $name;
 

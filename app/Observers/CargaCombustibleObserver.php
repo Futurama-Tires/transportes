@@ -36,12 +36,13 @@ class CargaCombustibleObserver
         $costo  = '$' . number_format((float) $total, 2);
 
         // Mensaje
-        $mensaje = "⛽ Nueva carga registrada\n"
+        $mensaje = "⛽ NUEVA CARGA DE COMBUSTIBLE \n \n"
                  . "📅 Fecha: <b>{$fecha}</b>\n"
                  . "👤 Operador: {$operador}\n"
                  . "🚚 Unidad: {$unidad}\n"
                  . "⛽ Litros: {$litros}\n"
-                 . "💰 Costo: {$costo}";
+                 . "💰 Costo: {$costo} \n \n"
+                 . "Mas información: https://www.google.com/";
 
         app(TelegramNotifier::class)->send($mensaje);
     }

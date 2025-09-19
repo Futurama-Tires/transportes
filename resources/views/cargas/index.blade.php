@@ -174,16 +174,7 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="col-12 col-sm-6">
-                                    <label class="form-label">Ubicación</label>
-                                    <select name="ubicacion" class="form-select">
-                                        <option value="">Todas</option>
-                                        @foreach($ubicaciones as $u)
-                                            <option value="{{ $u }}" @selected($u === request('ubicacion'))>{{ $u }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="col-12 col-sm-6">
+                                <div class="col-12">
                                     <label class="form-label">Tipo de combustible</label>
                                     <select name="tipo_combustible" class="form-select">
                                         <option value="">Todos</option>
@@ -214,7 +205,6 @@
                                             'vehiculo' => 'Vehículo',
                                             'placa' => 'Placa',
                                             'operador' => 'Operador',
-                                            'ubicacion' => 'Ubicación',
                                             'tipo_combustible' => 'Tipo',
                                             'litros' => 'Litros',
                                             'precio' => 'Precio',
@@ -222,6 +212,7 @@
                                             'rendimiento' => 'Rendimiento',
                                             'km_inicial' => 'KM Inicial',
                                             'km_final' => 'KM Final',
+                                            'recorrido' => 'KM Recorridos',
                                             'id' => 'ID',
                                         ];
                                     @endphp
@@ -298,7 +289,6 @@
                                 <th class="text-end">KM Inicial</th>
                                 <th class="text-end">KM Final</th>
                                 <th class="text-end">KM Recorridos</th>
-                                <th>Ubicación</th>
                                 <th style="min-width: 12rem;">Destino</th>
                                 <th style="min-width: 10rem;">Custodio</th>
                                 <th style="min-width: 16rem;">Observaciones</th>
@@ -344,8 +334,6 @@
                                     <td class="text-end text-nowrap">{{ $c->km_final ?? '—' }}</td>
                                     <td class="text-end text-nowrap">@if(!is_null($kmRec)) {{ $kmRec }} @else — @endif</td>
 
-                                    <td class="text-nowrap">{{ $c->ubicacion ?? '—' }}</td>
-
                                     <td>
                                         <div class="text-truncate" title="{{ $c->destino }}">{{ $c->destino ?? '—' }}</div>
                                     </td>
@@ -389,21 +377,21 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="17" class="py-6">
+                                    <td colspan="16" class="py-6">
                                         <div class="empty">
                                             <div class="empty-icon">
                                                 <i class="ti ti-database-off"></i>
                                             </div>
                                             <p class="empty-title">No hay datos</p>
                                             <p class="empty-subtitle text-secondary">
-                                                @if(request()->hasAny(['search','vehiculo_id','operador_id','ubicacion','tipo_combustible','from','to','litros_min','litros_max','precio_min','precio_max','total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max','destino','custodio']))
+                                                @if(request()->hasAny(['search','vehiculo_id','operador_id','tipo_combustible','from','to','litros_min','litros_max','precio_min','precio_max','total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max','destino','custodio']))
                                                     No se encontraron resultados con los filtros aplicados.
                                                 @else
                                                     Aún no has registrado cargas de combustible.
                                                 @endif
                                             </p>
                                             <div class="empty-action">
-                                                @if(request()->hasAny(['search','vehiculo_id','operador_id','ubicacion','tipo_combustible','from','to','litros_min','litros_max','precio_min','precio_max','total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max','destino','custodio']))
+                                                @if(request()->hasAny(['search','vehiculo_id','operador_id','tipo_combustible','from','to','litros_min','litros_max','precio_min','precio_max','total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max','destino','custodio']))
                                                     <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">
                                                         Limpiar filtros
                                                     </a>
@@ -443,7 +431,7 @@
                     </p>
                     <div>
                         {{ $cargas->appends(request()->only([
-                            'search','vehiculo_id','operador_id','ubicacion','tipo_combustible',
+                            'search','vehiculo_id','operador_id','tipo_combustible',
                             'from','to','litros_min','litros_max','precio_min','precio_max',
                             'total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max',
                             'km_fin_min','km_fin_max','destino','custodio','sort_by','sort_dir',

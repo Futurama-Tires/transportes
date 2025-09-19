@@ -1,4 +1,4 @@
-{{-- resources/views/cargas_combustible/edit.blade.php — versión Tabler ejecutiva --}}
+{{-- resources/views/cargas_combustible/edit.blade.php — versión Tabler ejecutiva (sin "ubicación") --}}
 <x-app-layout>
     @php
         /** @var \App\Models\CargaCombustible $carga */
@@ -71,18 +71,6 @@
                                                    required>
                                             @error('fecha')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                         </div>
-                                    </div>
-
-                                    {{-- Ubicación --}}
-                                    <div class="col-12 col-md-4">
-                                        <label class="form-label">Ubicación</label>
-                                        <select name="ubicacion" class="form-select @error('ubicacion') is-invalid @enderror">
-                                            <option value="">Seleccione…</option>
-                                            @foreach($ubicaciones as $u)
-                                                <option value="{{ $u }}" @selected(old('ubicacion', $carga->ubicacion ?? null) === $u)>{{ $u }}</option>
-                                            @endforeach
-                                        </select>
-                                        @error('ubicacion')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                     </div>
 
                                     {{-- Tipo de combustible --}}

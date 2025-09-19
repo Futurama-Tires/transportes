@@ -47,6 +47,7 @@
                 </div>
             @endif
 
+            {{-- === FORM PRINCIPAL: CREATE/UPDATE === --}}
             <form method="POST" action="{{ $action }}" autocomplete="off">
                 @csrf
                 @if($isEdit) @method('PUT') @endif
@@ -72,18 +73,6 @@
                                                    required>
                                             @error('fecha')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                         </div>
-                                    </div>
-
-                                    {{-- Ubicación --}}
-                                    <div class="col-12 col-md-4">
-                                        <label class="form-label">Ubicación</label>
-                                        <select name="ubicacion" class="form-select @error('ubicacion') is-invalid @enderror">
-                                            <option value="">Seleccione…</option>
-                                            @foreach($ubicaciones as $u)
-                                                <option value="{{ $u }}" @selected(old('ubicacion', $carga->ubicacion ?? null) === $u)>{{ $u }}</option>
-                                            @endforeach
-                                        </select>
-                                        @error('ubicacion')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                     </div>
 
                                     {{-- Tipo de combustible --}}
@@ -154,7 +143,7 @@
                                     {{-- Vehículo --}}
                                     <div class="col-12 col-lg-8">
                                         <label class="form-label">Vehículo (Unidad / Placa) <span class="text-danger">*</span></label>
-                                        <select id="vehiculoSelect" name="vehiculo_id" class="form-select @error('vehiculo_id') is-invalid @enderror" required {{ $isEdit ? '' : '' }}>
+                                        <select id="vehiculoSelect" name="vehiculo_id" class="form-select @error('vehiculo_id') is-invalid @enderror" required>
                                             <option value="">Seleccione…</option>
                                             @foreach($vehiculos as $v)
                                                 <option value="{{ $v->id }}"
@@ -274,6 +263,103 @@
                     @endif
                 </div>
             </form>
+
+            {{-- ====== FOTOS (mismo patrón que en EDIT) ====== --}}
+            <div class="row row-cards mt-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                            <h3 class="card-title mb-0">Fotos de la carga</h3>
+
+                            {{-- En creación aún no hay ID de carga --}}
+                            @if(!$isEdit)
+                                <span class="badge bg-yellow-lt">Guarda la carga para poder subir fotos.</span>
+                            @endif
+
+                            {{-- Form subir nueva foto (solo cuando ya existe la carga) --}}
+                            @if($isEdit)
+                                <form class="d-flex flex-wrap align-items-center gap-2"
+                                      action="{{ route('cargas.fotos.store', $carga) }}"
+                                      method="POST" enctype="multipart/form-data">
+                                    @csrf
+                                    <select name="tipo" class="form-select" style="width:auto">
+                                        <option value="ticket">Ticket</option>
+                                        <option value="voucher">Voucher</option>
+                                        <option value="odometro">Odómetro</option>
+                                        <option value="extra" selected>Extra</option>
+                                    </select>
+                                    <input type="file" name="image" class="form-control" style="width:260px" accept="image/*" required>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="ti ti-upload me-1"></i> Subir foto
+                                    </button>
+                                </form>
+                            @endif
+                        </div>
+
+                        <div class="card-body">
+                            @if($isEdit)
+                                @php $fotos = $carga->fotos ?? collect(); @endphp
+
+                                @if ($fotos->isEmpty())
+                                    <div class="text-secondary">No hay fotos asociadas todavía.</div>
+                                @else
+                                    <div class="row g-3">
+                                        @foreach ($fotos as $foto)
+                                            @php
+                                                $url = route('cargas.fotos.show', $foto);
+                                            @endphp
+                                            <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                                <div class="card card-sm shadow-sm">
+                                                    <div class="card-body p-2">
+                                                        <div class="ratio ratio-4x3 rounded overflow-hidden border">
+                                                            <a href="{{ $url }}" target="_blank" title="Ver imagen">
+                                                                <img src="{{ $url }}"
+                                                                     alt="{{ $foto->tipo }}"
+                                                                     class="w-100 h-100"
+                                                                     loading="lazy"
+                                                                     style="object-fit: cover;">
+                                                            </a>
+                                                        </div>
+                                                        <div class="mt-2 small d-flex justify-content-between align-items-center">
+                                                            <div class="text-secondary">
+                                                                <i class="ti ti-tag"></i> {{ strtoupper($foto->tipo) }}
+                                                            </div>
+                                                            <form action="{{ route('cargas.fotos.destroy', [$carga, $foto]) }}"
+                                                                  method="POST"
+                                                                  onsubmit="return confirm('Eliminar esta foto?');">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
+                                                                    <i class="ti ti-trash"></i>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                        @if($foto->original_name || $foto->size)
+                                                            <div class="text-secondary mt-1" style="font-size: 11px;">
+                                                                {{ $foto->original_name ?? basename($foto->path) }}
+                                                                @if($foto->size) · {{ number_format($foto->size/1024, 1) }} KB @endif
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            @else
+                                <div class="text-secondary">
+                                    Primero guarda la carga. Luego podrás volver a esta pantalla para subir **ticket, voucher, odómetro** o fotos **extra**.
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="card-footer text-muted small">
+                            Si no ves las imágenes, ejecuta <code>php artisan storage:link</code> y verifica permisos de escritura en <code>storage/app/public</code>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{-- ====== FIN FOTOS ====== --}}
 
             {{-- FOOTER --}}
             <div class="text-center text-secondary small py-4">
