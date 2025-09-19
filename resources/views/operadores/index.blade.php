@@ -149,7 +149,14 @@
                 </div>
 
                 {{-- OFFCANVAS DE FILTROS (incluye ordenación) --}}
-                <div class="offcanvas offcanvas-end" tabindex="-1" id="filtersOffcanvas" aria-labelledby="filtersOffcanvasLabel">
+                <div
+                    class="offcanvas offcanvas-end"
+                    tabindex="-1"
+                    id="filtersOffcanvas"
+                    aria-labelledby="filtersOffcanvasLabel"
+                    data-bs-backdrop="false"   {{-- ← sin oscurecimiento --}}
+                    data-bs-scroll="true"      {{-- ← permite scroll del contenido de fondo --}}
+                >
                     <div class="offcanvas-header">
                         <h2 class="offcanvas-title h4" id="filtersOffcanvasLabel">
                             <i class="ti ti-adjustments me-2" aria-hidden="true"></i>Filtros
