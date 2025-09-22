@@ -39,16 +39,6 @@ class TanqueController extends Controller
             'tipo_combustible'     => ['required','in:Magna,Diesel,Premium'],
         ]);
 
-        // Si quieres que numero_tanque sea único por vehículo, valida manual:
-        if (!empty($data['numero_tanque'])) {
-            $exists = Tanque::where('vehiculo_id', $vehiculo->id)
-                ->where('numero_tanque', $data['numero_tanque'])->exists();
-            if ($exists) {
-                return back()->withErrors(['numero_tanque' => 'El número de tanque ya existe para este vehículo.'])
-                             ->withInput();
-            }
-        }
-
         $cap = (float)($data['capacidad_litros'] ?? 0);
         $ren = (float)($data['rendimiento_estimado'] ?? 0);
         $data['km_recorre'] = $cap * $ren;

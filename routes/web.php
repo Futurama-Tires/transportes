@@ -16,6 +16,7 @@ use App\Http\Controllers\OperadorFotoController;
 use App\Http\Controllers\CargaFotoWebController;
 use App\Http\Controllers\TarjetaComodinController;
 use App\Http\Controllers\ComodinGastoController;
+use App\Http\Controllers\CalendarioVerificacionController;
 use App\Services\TelegramNotifier;
 
 /*
@@ -185,6 +186,11 @@ Route::middleware('auth')->group(function () {
             // Borrar foto de una carga
             Route::delete('{carga}/fotos/{foto}', [CargaFotoWebController::class, 'destroy'])->name('fotos.destroy');
         });
+
+        Route::resource('calendarios', CalendarioVerificacionController::class)
+        ->parameters(['calendarios' => 'calendario'])
+        ->names('calendarios');
+
     });
 });
 
