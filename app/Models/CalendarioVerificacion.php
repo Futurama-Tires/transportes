@@ -3,37 +3,68 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * Cada fila representa una "ventana" de verificación para un estado y una terminación.
+ *
+ * Campos esperados en la tabla:
+ * - id (bigint)
+ * - regla_id (bigint, nullable)  => FK a verificacion_reglas.id
+ * - estado (string)              => nombre del estado (ej. "CDMX", "México")
+ * - terminacion (tinyint)        => 0..9
+ * - mes_inicio (tinyint)         => 1..12
+ * - mes_fin (tinyint)            => 1..12
+ * - semestre (tinyint|null)
+ * - frecuencia (enum)            => 'Semestral'|'Anual'
+ * - anio (smallint|null)
+ * - vigente_desde (date|null)
+ * - vigente_hasta (date|null)
+ * - timestamps
+ */
 class CalendarioVerificacion extends Model
 {
     protected $table = 'calendario_verificacion';
 
     protected $fillable = [
-        'estado','terminacion','mes_inicio','mes_fin','semestre',
-        'frecuencia','anio','vigente_desde','vigente_hasta'
+        'regla_id',
+        'estado',
+        'terminacion',
+        'mes_inicio',
+        'mes_fin',
+        'semestre',
+        'frecuencia',
+        'anio',
+        'vigente_desde',
+        'vigente_hasta',
     ];
 
     protected $casts = [
-        'terminacion' => 'integer',
-        'mes_inicio'  => 'integer',
-        'mes_fin'     => 'integer',
-        'semestre'    => 'integer',
-        'anio'        => 'integer',
+        'semestre'      => 'integer',
+        'terminacion'   => 'integer',
+        'mes_inicio'    => 'integer',
+        'mes_fin'       => 'integer',
+        'anio'          => 'integer',
         'vigente_desde' => 'date',
         'vigente_hasta' => 'date',
     ];
 
-    public function scopeDeEstadoYTerminacion(Builder $q, string $estado, int $terminacion): Builder
+    // Relaciones
+    public function regla()
     {
-        return $q->where('estado', $estado)->where('terminacion', $terminacion);
+        return $this->belongsTo(VerificacionRegla::class, 'regla_id');
     }
 
-    public function getPeriodoLabelAttribute(): string
+    // Helpers para UI
+    public function getEtiquetaBimestreAttribute(): string
     {
-        $mes = [1=>'Ene',2=>'Feb',3=>'Mar',4=>'Abr',5=>'May',6=>'Jun',7=>'Jul',8=>'Ago',9=>'Sep',10=>'Oct',11=>'Nov',12=>'Dic'];
-        $a = $mes[$this->mes_inicio] ?? $this->mes_inicio;
-        $b = $mes[$this->mes_fin]    ?? $this->mes_fin;
-        return "{$a}-{$b}".($this->anio ? " {$this->anio}" : '');
+        $meses = [null,'Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        $ini = $meses[$this->mes_inicio] ?? $this->mes_inicio;
+        $fin = $meses[$this->mes_fin]    ?? $this->mes_fin;
+        return "{$ini}-{$fin}";
+    }
+
+    public function getEtiquetaSemestreAttribute(): ?string
+    {
+        return $this->semestre ? ($this->semestre === 1 ? '1er semestre' : '2º semestre') : null;
     }
 }
