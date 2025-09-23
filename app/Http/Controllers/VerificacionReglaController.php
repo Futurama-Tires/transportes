@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\VerificacionRegla;
 use App\Models\CalendarioVerificacion;
+use App\Models\VerificacionReglaEstado;
+use App\Models\VerificacionReglaDetalle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -22,43 +24,44 @@ class VerificacionReglaController extends Controller
             'San Luis Potosí','Sinaloa','Sonora','Tabasco','Tamaulipas','Tlaxcala','Veracruz','Yucatán','Zacatecas'
         ];
     }
-    protected function megalopolis(): array
+
+    protected function mesesES(): array
     {
-        return ['Ciudad de México','México','Hidalgo','Morelos','Puebla','Tlaxcala','Querétaro'];
+        return [
+            1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',
+            7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'
+        ];
     }
 
-    /* ===== Normalización de estado ===== */
     protected function normalizeEstado(?string $s): string
     {
         $norm = $s ? Str::of($s)->ascii()->upper()->replaceMatches('/\s+/', ' ')->trim() : '';
-        $val = (string) $norm;
-
-        if (in_array($val, [
-            'ESTADO DE MEXICO','MEXICO','EDO MEXICO','EDO. MEX','E DOMEX'
-        ], true)) {
+        $val  = (string) $norm;
+        if (in_array($val, ['ESTADO DE MEXICO','MEXICO','EDO MEXICO','EDO. MEX','E DOMEX'], true)) {
             return 'EDO MEX';
         }
-
         return $val;
     }
 
-    /* ===== Vistas ===== */
+    /* ===== UI CRUD ===== */
     public function index()
     {
-        $reglas = VerificacionRegla::withCount('periodos')
-            ->orderByDesc('created_at')
-            ->paginate(15);
-
-        return view('verificacion_reglas.index', [
-            'reglas' => $reglas,
-        ]);
+        $reglas = VerificacionRegla::withCount('periodos')->orderByDesc('created_at')->paginate(15);
+        return view('verificacion_reglas.index', ['reglas' => $reglas]);
     }
 
     public function create()
     {
+        // Defaults para precargar la tabla de terminaciones:
+        $defaultsSemestral = $this->defaultSemestralDetalles(); // tipo CAMe por bimestres
+        $defaultsAnual     = $this->defaultAnualDetalles();     // estilo Jalisco (1→Ene–Feb, 2→Feb–Mar, ...)
+
         return view('verificacion_reglas.create', [
-            'catalogoEstados' => $this->catalogoEstados(),
-            'megalopolis'     => $this->megalopolis(),
+            'catalogoEstados'  => $this->catalogoEstados(),
+            'meses'            => $this->mesesES(),
+            'defaultsSemestral'=> $defaultsSemestral,
+            'defaultsAnual'    => $defaultsAnual,
+            'anioDefault'      => now()->year,
         ]);
     }
 
@@ -67,155 +70,250 @@ class VerificacionReglaController extends Controller
         return view('verificacion_reglas.edit', [
             'regla'           => $verificacion_regla,
             'catalogoEstados' => $this->catalogoEstados(),
-            'megalopolis'     => $this->megalopolis(),
         ]);
     }
 
     public function generarForm(VerificacionRegla $verificacion_regla)
     {
-        return view('verificacion_reglas.generar', [
-            'regla' => $verificacion_regla,
-        ]);
+        return view('verificacion_reglas.generar', ['regla' => $verificacion_regla]);
     }
 
-    /* ===== Acciones ===== */
+    /* ===== Store con menú flexible ===== */
     public function store(Request $request)
     {
+        // Validación base de la regla + menú flexible
         $data = $request->validate([
             'nombre'          => ['required', 'string', 'max:255'],
             'version'         => ['nullable', 'string', 'max:50'],
-            'status'          => ['nullable', Rule::in(['draft','published','archived'])],
-            'vigencia_inicio' => ['nullable', 'date'],
-            'vigencia_fin'    => ['nullable', 'date', 'after_or_equal:vigencia_inicio'],
             'frecuencia'      => ['required', Rule::in(['Semestral','Anual'])],
-            'estados'         => ['required', 'array', 'min:1'],
-            'estados.*'       => ['string', 'max:100'],
             'notas'           => ['nullable','string'],
+
+            // Menú:
+            'anio'            => ['required','integer','min:2000','max:2999'],
+            'estados'         => ['required','array','min:1'],
+            'estados.*'       => ['string','max:100'],
+
+            // Detalles (tabla de terminaciones → meses)
+            'detalles'        => ['required','array'],
         ]);
 
-        $data['status'] = $data['status'] ?? 'published';
+        DB::transaction(function () use ($data) {
+            // 1) Crear la regla
+            $regla = VerificacionRegla::create([
+                'nombre'          => $data['nombre'],
+                'version'         => $data['version'] ?? null,
+                'status'          => 'published',
+                'vigencia_inicio' => Carbon::create($data['anio'], 1, 1)->toDateString(),
+                'vigencia_fin'    => Carbon::create($data['anio'], 12, 31)->toDateString(),
+                'frecuencia'      => $data['frecuencia'],
+                'estados'         => [], // dejamos vacío (usaremos tabla por año)
+                'notas'           => $data['notas'] ?? null,
+            ]);
 
-        VerificacionRegla::create([
-            'nombre'          => $data['nombre'],
-            'version'         => $data['version'] ?? null,
-            'status'          => $data['status'],
-            'vigencia_inicio' => $data['vigencia_inicio'] ?? null,
-            'vigencia_fin'    => $data['vigencia_fin'] ?? null,
-            'frecuencia'      => $data['frecuencia'],
-            'estados'         => $data['estados'], // guardamos legible; normalizamos hasta generar periodos
-            'notas'           => $data['notas'] ?? null,
-        ]);
+            // 2) Guardar estados por AÑO (únicos por anio+estado)
+            $anio = (int) $data['anio'];
+            foreach ($data['estados'] as $label) {
+                VerificacionReglaEstado::create([
+                    'regla_id' => $regla->id,
+                    'anio'     => $anio,
+                    'estado'   => $label, // se normaliza en el setter del modelo
+                ]);
+            }
+
+            // 3) Guardar DETALLES (terminación → meses)
+            // Estructura esperada:
+            //  - Semestral: detalles[d][1][mes_inicio], detalles[d][1][mes_fin], detalles[d][2][mes_inicio], detalles[d][2][mes_fin]
+            //  - Anual:     detalles[d][0][mes_inicio], detalles[d][0][mes_fin]
+            $seen = [];
+            foreach ($data['detalles'] as $terminacionStr => $porSemestre) {
+                $terminacion = (int) $terminacionStr;
+
+                foreach ($porSemestre as $sem => $mm) {
+                    $semestre = (int) $sem; // 0 (anual), 1 o 2 (semestral)
+                    $mi = (int) ($mm['mes_inicio'] ?? 0);
+                    $mf = (int) ($mm['mes_fin'] ?? 0);
+                    if ($mi < 1 || $mi > 12 || $mf < 1 || $mf > 12) {
+                        continue; // ignora filas malformadas
+                    }
+
+                    // Evita duplicados exactos al guardar
+                    $k = $terminacion.'|'.$semestre.'|'.$mi.'|'.$mf;
+                    if (isset($seen[$k])) continue;
+                    $seen[$k] = true;
+
+                    VerificacionReglaDetalle::create([
+                        'regla_id'   => $regla->id,
+                        'frecuencia' => $data['frecuencia'],
+                        'terminacion'=> $terminacion,
+                        'semestre'   => $semestre,
+                        'mes_inicio' => $mi,
+                        'mes_fin'    => $mf,
+                    ]);
+                }
+            }
+        });
 
         return redirect()->route('verificacion-reglas.index')
-            ->with('success', 'Regla creada correctamente.');
+            ->with('success', 'Regla creada. Ahora puedes generar los periodos para ese año.');
     }
 
     public function update(Request $request, VerificacionRegla $verificacion_regla)
     {
         $data = $request->validate([
-            'nombre'          => ['required', 'string', 'max:255'],
-            'version'         => ['nullable', 'string', 'max:50'],
-            'status'          => ['required', Rule::in(['draft','published','archived'])],
-            'vigencia_inicio' => ['nullable', 'date'],
-            'vigencia_fin'    => ['nullable', 'date', 'after_or_equal:vigencia_inicio'],
-            'frecuencia'      => ['required', Rule::in(['Semestral','Anual'])],
-            'estados'         => ['required', 'array', 'min:1'],
-            'estados.*'       => ['string', 'max:100'],
-            'notas'           => ['nullable','string'],
+            'nombre'     => ['required', 'string', 'max:255'],
+            'version'    => ['nullable', 'string', 'max:50'],
+            'status'     => ['required', Rule::in(['draft','published','archived'])],
+            'frecuencia' => ['required', Rule::in(['Semestral','Anual'])],
+            'notas'      => ['nullable','string'],
         ]);
 
         $verificacion_regla->update([
-            'nombre'          => $data['nombre'],
-            'version'         => $data['version'] ?? null,
-            'status'          => $data['status'],
-            'vigencia_inicio' => $data['vigencia_inicio'] ?? null,
-            'vigencia_fin'    => $data['vigencia_fin'] ?? null,
-            'frecuencia'      => $data['frecuencia'],
-            'estados'         => $data['estados'],
-            'notas'           => $data['notas'] ?? null,
+            'nombre'     => $data['nombre'],
+            'version'    => $data['version'] ?? null,
+            'status'     => $data['status'],
+            'frecuencia' => $data['frecuencia'],
+            'notas'      => $data['notas'] ?? null,
         ]);
 
         return redirect()->route('verificacion-reglas.index')
             ->with('success', 'Regla actualizada.');
     }
 
-    public function destroy(Request $request, VerificacionRegla $verificacion_regla)
+    public function destroy(VerificacionRegla $verificacion_regla)
     {
-        $deletePeriodos = (bool) $request->boolean('deletePeriodos', false);
+        // Si ya aplicaste CASCADE en la BD, con esto basta:
+        $verificacion_regla->delete();
 
-        DB::transaction(function () use ($verificacion_regla, $deletePeriodos) {
-            if ($deletePeriodos) {
-                CalendarioVerificacion::where('regla_id', $verificacion_regla->id)->delete();
-            }
-            $verificacion_regla->delete();
-        });
-
-        return redirect()->route('verificacion-reglas.index')
+        return redirect()
+            ->route('verificacion-reglas.index')
             ->with('success', 'Regla eliminada.');
     }
 
+
+    /* ===== Generación usando ESTADOS (por año) + DETALLES ===== */
     public function generar(Request $request, VerificacionRegla $verificacion_regla)
     {
-        $data = $request->validate([
+        $request->validate([
             'anio'         => ['required', 'integer', 'min:2000', 'max:2999'],
             'sobrescribir' => ['nullable', 'boolean'],
         ]);
 
-        $anio = (int) $data['anio'];
-        $sobrescribir = (bool) ($data['sobrescribir'] ?? true);
+        $anio         = (int) $request->integer('anio');
+        $sobrescribir = (bool) $request->boolean('sobrescribir');
 
-        if (empty($verificacion_regla->estados) || !is_array($verificacion_regla->estados)) {
-            return back()->withErrors(['estados'=>'La regla no tiene estados seleccionados.'])->withInput();
+        // Estados asignados a la regla para ese año (normalizados, únicos)
+        $estados = VerificacionReglaEstado::query()
+            ->where('regla_id', $verificacion_regla->id)
+            ->where('anio', $anio)
+            ->pluck('estado')
+            ->map(fn($e) => mb_strtoupper(trim($e)))
+            ->unique()
+            ->values()
+            ->all();
+
+        // Backward-compat: si no hay pivot, usa JSON de la regla (si existiera).
+        if (empty($estados) && is_array($verificacion_regla->estados)) {
+            $estados = collect($verificacion_regla->estados)
+                ->map(fn($e) => mb_strtoupper(trim($e)))
+                ->unique()
+                ->values()
+                ->all();
         }
 
-        $bimestres = $this->defaultBimestralMapping();
+        if (empty($estados)) {
+            return back()->withErrors('Esta regla no tiene estados asignados para el año seleccionado.');
+        }
 
-        DB::transaction(function () use ($verificacion_regla, $anio, $sobrescribir, $bimestres) {
+        // Trae los detalles tal como fueron guardados (una fila por terminación+semestre).
+        $detalles = VerificacionReglaDetalle::query()
+            ->where('regla_id', $verificacion_regla->id)
+            ->orderBy('terminacion')
+            ->get(['terminacion','semestre','mes_inicio','mes_fin']);
+
+        if ($detalles->isEmpty()) {
+            return back()->withErrors('La regla no tiene calendario por terminación configurado.');
+        }
+
+        // 1) Deduplicar detalles por combinación clave
+        $detalles = $detalles->unique(function ($d) {
+            return $d->terminacion.'|'.$d->semestre.'|'.$d->mes_inicio.'|'.$d->mes_fin;
+        })->values();
+
+        DB::transaction(function () use (
+            $anio,
+            $sobrescribir,
+            $estados,
+            $detalles,
+            $verificacion_regla
+        ) {
+            // 2) Si sobrescribe, borra lo previo de ESTA regla y año (y solo eso)
             if ($sobrescribir) {
-                CalendarioVerificacion::where('regla_id', $verificacion_regla->id)
+                CalendarioVerificacion::query()
+                    ->where('regla_id', $verificacion_regla->id)
                     ->where('anio', $anio)
                     ->delete();
             }
 
-            $toInsert = [];
+            // 3) Construye filas únicas por (estado, terminación, mes_inicio, mes_fin, anio)
+            $rows     = [];
+            $seenKeys = [];
 
-            foreach ($verificacion_regla->estados as $estadoLegible) {
-                $estadoNorm = $this->normalizeEstado($estadoLegible);
+            foreach ($estados as $estado) {
+                foreach ($detalles as $d) {
+                    $mi  = (int) $d->mes_inicio;
+                    $mf  = (int) $d->mes_fin;
+                    $sem = (int) $d->semestre; // 1,2 para Semestral; 0 para Anual
 
-                foreach ($bimestres as $bm) {
-                    $mi = $bm['mes_inicio'];
-                    $mf = $bm['mes_fin'];
-                    $semestre = $bm['semestre'];
-                    $desde = Carbon::create($anio, $mi, 1)->startOfDay();
-                    $hasta = Carbon::create($anio, $mf, 1)->endOfMonth()->endOfDay();
+                    // Fechas de vigencia dentro del mismo año
+                    $desde = Carbon::create($anio, $mi, 1)->startOfMonth();
+                    $hasta = Carbon::create($anio, $mf, 1)->endOfMonth();
 
-                    foreach ($bm['terminaciones'] as $digit) {
-                        $toInsert[] = [
-                            'regla_id'       => $verificacion_regla->id,
-                            'estado'         => $estadoNorm, // <— guardamos normalizado
-                            'terminacion'    => $digit,
-                            'mes_inicio'     => $mi,
-                            'mes_fin'        => $mf,
-                            'semestre'       => $semestre,
-                            'frecuencia'     => $verificacion_regla->frecuencia,
-                            'anio'           => $anio,
-                            'vigente_desde'  => $desde->toDateString(),
-                            'vigente_hasta'  => $hasta->toDateString(),
-                            'created_at'     => now(),
-                            'updated_at'     => now(),
-                        ];
+                    // Clave contra tu índice único (no incluye regla_id ni semestre)
+                    $uk = implode('|', [
+                        mb_strtoupper($estado),
+                        (int) $d->terminacion,
+                        $mi, $mf,
+                        $anio,
+                    ]);
+                    if (isset($seenKeys[$uk])) {
+                        continue; // evita duplicados en el propio lote
                     }
+                    $seenKeys[$uk] = true;
+
+                    // Para anual: guardamos semestre 1 si cae en 1–6, 2 si cae en 7–12
+                    $semestreEfectivo = ($sem === 0) ? ($mf <= 6 ? 1 : 2) : $sem;
+
+                    $rows[] = [
+                        'estado'         => mb_strtoupper($estado),
+                        'terminacion'    => (int) $d->terminacion,
+                        'mes_inicio'     => $mi,
+                        'mes_fin'        => $mf,
+                        'semestre'       => $semestreEfectivo,
+                        'frecuencia'     => $verificacion_regla->frecuencia, // "Semestral" | "Anual"
+                        'anio'           => $anio,
+                        'vigente_desde'  => $desde->toDateString(),
+                        'vigente_hasta'  => $hasta->toDateString(),
+                        'regla_id'       => $verificacion_regla->id,
+                        'created_at'     => now(),
+                        'updated_at'     => now(),
+                    ];
                 }
             }
 
-            if (!empty($toInsert)) {
-                foreach (array_chunk($toInsert, 1000) as $chunk) {
-                    CalendarioVerificacion::insert($chunk);
-                }
+            if (empty($rows)) {
+                throw new \RuntimeException('No hay periodos a insertar (verifica los detalles).');
             }
+
+            // 4) Inserta con tolerancia a colisiones del índice único
+            DB::table('calendario_verificacion')->upsert(
+                $rows,
+                ['estado','terminacion','mes_inicio','mes_fin','anio'], // columnas únicas (índice cal_verif_regla_unica)
+                ['regla_id','semestre','frecuencia','vigente_desde','vigente_hasta','updated_at'] // columnas a actualizar en choque
+            );
         });
 
-        $count = CalendarioVerificacion::where('regla_id', $verificacion_regla->id)
+        $count = CalendarioVerificacion::query()
+            ->where('regla_id', $verificacion_regla->id)
             ->where('anio', $anio)
             ->count();
 
@@ -223,20 +321,92 @@ class VerificacionReglaController extends Controller
             ->with('success', "Periodos generados para {$verificacion_regla->nombre} ({$anio}). Registros: {$count}");
     }
 
-    /* ===== Mapa bimestral típico CAMe ===== */
-    protected function defaultBimestralMapping(): array
+    /* ===== Defaults para precarga en UI ===== */
+    protected function defaultSemestralDetalles(): array
     {
-        return [
-            ['clave'=>1,  'mes_inicio'=>1,  'mes_fin'=>2,  'semestre'=>1, 'terminaciones'=>[5,6]],
-            ['clave'=>2,  'mes_inicio'=>2,  'mes_fin'=>3,  'semestre'=>1, 'terminaciones'=>[7,8]],
-            ['clave'=>3,  'mes_inicio'=>3,  'mes_fin'=>4,  'semestre'=>1, 'terminaciones'=>[3,4]],
-            ['clave'=>4,  'mes_inicio'=>4,  'mes_fin'=>5,  'semestre'=>1, 'terminaciones'=>[1,2]],
-            ['clave'=>5,  'mes_inicio'=>5,  'mes_fin'=>6,  'semestre'=>1, 'terminaciones'=>[9,0]],
-            ['clave'=>6,  'mes_inicio'=>7,  'mes_fin'=>8,  'semestre'=>2, 'terminaciones'=>[5,6]],
-            ['clave'=>7,  'mes_inicio'=>8,  'mes_fin'=>9,  'semestre'=>2, 'terminaciones'=>[7,8]],
-            ['clave'=>8,  'mes_inicio'=>9,  'mes_fin'=>10, 'semestre'=>2, 'terminaciones'=>[3,4]],
-            ['clave'=>9,  'mes_inicio'=>10, 'mes_fin'=>11, 'semestre'=>2, 'terminaciones'=>[1,2]],
-            ['clave'=>10, 'mes_inicio'=>11, 'mes_fin'=>12, 'semestre'=>2, 'terminaciones'=>[9,0]],
+        // Mapeo “par” típico (puedes ajustar si lo deseas):
+        // S1: 5-6 Ene-Feb | 7-8 Feb-Mar | 3-4 Mar-Abr | 1-2 Abr-May | 9-0 May-Jun
+        // S2: 5-6 Jul-Ago | 7-8 Ago-Sep | 3-4 Sep-Oct | 1-2 Oct-Nov | 9-0 Nov-Dic
+        $mapS1 = [
+            5 => [1,2], 6 => [1,2],
+            7 => [2,3], 8 => [2,3],
+            3 => [3,4], 4 => [3,4],
+            1 => [4,5], 2 => [4,5],
+            9 => [5,6], 0 => [5,6],
         ];
+
+        $out = [];
+        foreach (range(0,9) as $d) {
+            [$mi1, $mf1] = $mapS1[$d] ?? [1,2];
+            $mi2 = $mi1 + 6; if ($mi2 > 12) $mi2 -= 12;
+            $mf2 = $mf1 + 6; if ($mf2 > 12) $mf2 -= 12;
+
+            $out[$d][1]['mes_inicio'] = $mi1;
+            $out[$d][1]['mes_fin']    = $mf1;
+            $out[$d][2]['mes_inicio'] = $mi2;
+            $out[$d][2]['mes_fin']    = $mf2;
+        }
+        return $out;
+    }
+
+    protected function defaultAnualDetalles(): array
+    {
+        // Estilo Jalisco: 1→Ene–Feb, 2→Feb–Mar, ... 0→Nov–Dic
+        $map = [
+            1 => [1,2], 2 => [2,3], 3 => [3,4], 4 => [4,5], 5 => [5,6],
+            6 => [6,7], 7 => [7,8], 8 => [8,9], 9 => [9,10], 0 => [11,12],
+        ];
+        $out = [];
+        foreach (range(0,9) as $d) {
+            $mi = $map[$d][0] ?? 1;
+            $mf = $map[$d][1] ?? 2;
+            $out[$d][0]['mes_inicio'] = $mi;
+            $out[$d][0]['mes_fin']    = $mf;
+        }
+        return $out;
+    }
+
+    /* ===== Estados disponibles por AÑO (para el menú) ===== */
+    public function estadosDisponibles(Request $request)
+    {
+        $anio = (int) $request->query('anio', now()->year);
+
+        if ($anio < 2000 || $anio > 2999) {
+            return response()->json([
+                'ok'          => false,
+                'message'     => 'Año inválido',
+                'anio'        => $anio,
+                'disponibles' => [],
+                'ocupados'    => [],
+            ], 400);
+        }
+
+        // Estados ya ocupados (normalizados) EN CUALQUIER regla para ese año
+        $ocupados = VerificacionReglaEstado::where('anio', $anio)
+            ->pluck('estado')
+            ->map(fn($e) => $this->normalizeEstado($e))
+            ->unique()
+            ->values()
+            ->all();
+
+        $catalogo = $this->catalogoEstados();
+
+        $disponibles = [];
+        foreach ($catalogo as $label) {
+            $norm = $this->normalizeEstado($label);
+            if (!in_array($norm, $ocupados, true)) {
+                $disponibles[] = [
+                    'value' => $label, // el modelo normaliza al guardar
+                    'label' => $label,
+                ];
+            }
+        }
+
+        return response()->json([
+            'ok'          => true,
+            'anio'        => $anio,
+            'disponibles' => $disponibles,
+            'ocupados'    => $ocupados,
+        ]);
     }
 }

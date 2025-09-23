@@ -88,7 +88,7 @@
 
                         <div class="row">
                             @php
-                                $seleccionados = old('estados', is_array($regla->estados)?$regla->estados:[]);
+                                $seleccionados = old('estados', is_array($regla->estados) ? $regla->estados : []);
                             @endphp
                             @foreach ($catalogoEstados as $e)
                                 <div class="col-md-4 col-lg-3">
@@ -117,13 +117,32 @@
         </form>
     </div>
 
+    @php
+        // Fallback: si el controlador no envía $megalopolis,
+        // definimos la lista solo para "auto-marcar" casillas.
+        // NO obliga a que la regla use estos estados.
+        $megalopolis = $megalopolis ?? [
+            'Ciudad de México',
+            'México',   // Estado de México, como aparece en tu catálogo
+            'Hidalgo',
+            'Morelos',
+            'Puebla',
+            'Tlaxcala',
+            'Querétaro',
+        ];
+    @endphp
+
     <script>
         const MEGALOPOLIS = @json($megalopolis);
+
+        // Marca o desmarca únicamente los estados de la Megalópolis.
         function seleccionarMegalopolis(flag) {
             document.querySelectorAll('.estado-check').forEach(chk => {
                 if (MEGALOPOLIS.includes(chk.value)) chk.checked = !!flag;
             });
         }
+
+        // Alterna todos los checkboxes (no guarda estado previo; es un toggle simple).
         function toggleTodos() {
             document.querySelectorAll('.estado-check').forEach(chk => chk.checked = !chk.checked);
         }

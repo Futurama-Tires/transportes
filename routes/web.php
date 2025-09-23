@@ -49,6 +49,7 @@ Route::pattern('tarjeta_comodin', '\d+');    // Tarjeta Comodín
 Route::pattern('gasto', '\d+');
 Route::pattern('carga', '\d+');
 Route::pattern('foto', '\d+');
+Route::pattern('verificacion_regla', '\d+'); // id de regla de verificación
 
 /* ------------------------------------------------------------------ */
 /* Rutas públicas                                                     */
@@ -191,19 +192,23 @@ Route::middleware('auth')->group(function () {
         });
 
         Route::resource('calendarios', CalendarioVerificacionController::class)
-        ->parameters(['calendarios' => 'calendario'])
-        ->names('calendarios');
-
-
+            ->parameters(['calendarios' => 'calendario'])
+            ->names('calendarios');
 
         // --- Verificación: Reglas y generación de periodos ---
         Route::prefix('verificacion-reglas')->name('verificacion-reglas.')->group(function () {
-            Route::get('/',                         [VerificacionReglaController::class, 'index'])->name('index');
-            Route::get('/create',                   [VerificacionReglaController::class, 'create'])->name('create');
-            Route::post('/',                        [VerificacionReglaController::class, 'store'])->name('store');
-            Route::get('/{verificacion_regla}/edit',[VerificacionReglaController::class, 'edit'])->name('edit');
-            Route::put('/{verificacion_regla}',     [VerificacionReglaController::class, 'update'])->name('update');
-            Route::delete('/{verificacion_regla}',  [VerificacionReglaController::class, 'destroy'])->name('destroy');
+
+            // Primero el endpoint JSON para evitar choques con rutas dinámicas
+            Route::get('/estados-disponibles', [VerificacionReglaController::class, 'estadosDisponibles'])
+                ->name('estados-disponibles');
+
+            // CRUD
+            Route::get('/',                          [VerificacionReglaController::class, 'index'])->name('index');
+            Route::get('/create',                    [VerificacionReglaController::class, 'create'])->name('create');
+            Route::post('/',                         [VerificacionReglaController::class, 'store'])->name('store');
+            Route::get('/{verificacion_regla}/edit', [VerificacionReglaController::class, 'edit'])->name('edit');
+            Route::put('/{verificacion_regla}',      [VerificacionReglaController::class, 'update'])->name('update');
+            Route::delete('/{verificacion_regla}',   [VerificacionReglaController::class, 'destroy'])->name('destroy');
 
             // Generar periodos
             Route::get('/{verificacion_regla}/generar',  [VerificacionReglaController::class, 'generarForm'])->name('generar.form');
@@ -211,11 +216,9 @@ Route::middleware('auth')->group(function () {
         });
 
         Route::prefix('programa-verificacion')->name('programa-verificacion.')->group(function () {
-            Route::get('/',  [ProgramaVerificacionController::class, 'index'])->name('index');
-            Route::post('/marcar', [ProgramaVerificacionController::class, 'marcar'])->name('marcar');
+            Route::get('/',         [ProgramaVerificacionController::class, 'index'])->name('index');
+            Route::post('/marcar',  [ProgramaVerificacionController::class, 'marcar'])->name('marcar');
         });
-
-
     });
 });
 
