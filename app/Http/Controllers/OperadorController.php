@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Operador;
 use App\Models\OperadorFoto;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class OperadorController extends Controller
 {
@@ -35,17 +37,46 @@ class OperadorController extends Controller
         return view('operadores.create');
     }
 
-    /** Persistir un operador nuevo. */
+    /** Persistir un operador nuevo (crea también el User ligado). */
     public function store(Request $request)
     {
-        $data = $this->validateOperador($request);
+        // Validaciones
+        $data = $this->validateOperador($request, isUpdate:false);
+        $request->validate([
+            'email' => ['required','email', Rule::unique('users','email')],
+        ]);
 
-        $operador = Operador::create($data);
+        // Creamos todo y devolvemos lo necesario
+        $payload = \DB::transaction(function () use ($request, $data) {
+            $passwordPlain = \Illuminate\Support\Str::password(12);
 
+            $user = \App\Models\User::create([
+                'name'     => trim(($data['nombre'] ?? '').' '.($data['apellido_paterno'] ?? '').' '.($data['apellido_materno'] ?? '')),
+                'email'    => $request->input('email'),
+                'password' => \Illuminate\Support\Facades\Hash::make($passwordPlain),
+            ]);
+
+            if (method_exists($user, 'assignRole')) {
+                try { $user->assignRole('operador'); } catch (\Throwable $e) {}
+            }
+
+            $data['user_id'] = $user->id;
+            $operador = \App\Models\Operador::create($data);
+
+            return compact('operador','user','passwordPlain');
+        });
+
+        // Volvemos a CREATE para que aparezca el modal que ya tienes ahí
         return redirect()
-            ->route('operadores.index')
-            ->with('success', 'Operador creado correctamente.');
+            ->route('operadores.create')
+            ->with([
+                'success'  => 'Operador creado correctamente.',
+                'created'  => true,
+                'email'    => $payload['user']->email,
+                'password' => $payload['passwordPlain'],
+            ]);
     }
+
 
     /** Mostrar detalles. */
     public function show(Operador $operador)
@@ -64,8 +95,8 @@ class OperadorController extends Controller
     /** Actualizar datos + subir/borrar fotos en un solo submit. */
     public function update(Request $request, Operador $operador)
     {
-        // 1) Validación de campos del Operador
-        $data = $this->validateOperador($request, $operador->id);
+        // 1) Validación de campos del Operador (modo update)
+        $data = $this->validateOperador($request, isUpdate:true);
 
         // 2) Actualizar Operador
         $operador->update($data);
@@ -86,9 +117,7 @@ class OperadorController extends Controller
                 ->get();
 
             foreach ($fotos as $foto) {
-                // eliminar archivo físico si existe
                 Storage::disk('local')->delete($foto->ruta);
-                // eliminar registro
                 $foto->delete();
             }
         }
@@ -118,11 +147,9 @@ class OperadorController extends Controller
             }
         }
 
-        // Opción A (recomendada): pasar el modelo
-return redirect()
-    ->route('operadores.edit', $operador)
-    ->with('success', 'Operador actualizado correctamente.');
-
+        return redirect()
+            ->route('operadores.edit', $operador)
+            ->with('success', 'Operador actualizado correctamente.');
     }
 
     /** Eliminar operador (+ sus fotos). */
@@ -142,17 +169,28 @@ return redirect()
             ->with('success', 'Operador eliminado correctamente.');
     }
 
-    /** Reglas de validación compartidas. */
-    private function validateOperador(Request $request, $operadorId = null): array
+    /**
+     * Reglas de validación compartidas.
+     * - En create: apellido_paterno y email requeridos (email se valida aparte en store()).
+     * - En update: email opcional (se valida cuando viene).
+     */
+    private function validateOperador(Request $request, bool $isUpdate): array
     {
         return $request->validate([
-            'user_id'          => ['nullable', 'exists:users,id'],
-            'nombre'           => ['required', 'string', 'max:255'],
-            'apellido_paterno' => ['nullable', 'string', 'max:255'],
-            'apellido_materno' => ['nullable', 'string', 'max:255'],
+            'user_id'                   => ['nullable', 'exists:users,id'],
+            'nombre'                    => ['required', 'string', 'max:255'],
+            'apellido_paterno'          => ['required', 'string', 'max:255'], // ← requerido como en tus vistas
+            'apellido_materno'          => ['nullable', 'string', 'max:255'],
+
+            // Campos nuevos (nullable)
+            'telefono'                  => ['nullable', 'string', 'max:20'],
+            'contacto_emergencia_nombre'=> ['nullable', 'string', 'max:255'],
+            'contacto_emergencia_tel'   => ['nullable', 'string', 'max:20'],
+            'tipo_sangre'               => ['nullable', 'string', 'max:5'],
         ], [
             'user_id.exists'   => 'El usuario seleccionado no es válido.',
             'nombre.required'  => 'El nombre es obligatorio.',
+            'apellido_paterno.required' => 'El apellido paterno es obligatorio.',
         ]);
     }
 }

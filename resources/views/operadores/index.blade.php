@@ -85,7 +85,7 @@
                                         name="search"
                                         value="{{ $search }}"
                                         class="form-control"
-                                        placeholder="Buscar por nombre, apellidos, correo…"
+                                        placeholder="Buscar por nombre, apellidos, correo, teléfono…"
                                         aria-label="Búsqueda global"
                                     >
                                     <button class="btn btn-primary" type="submit">
@@ -216,15 +216,20 @@
                                 <th class="text-center text-nowrap">#</th>
                                 <th>Nombre completo</th>
                                 <th>Correo electrónico</th>
+                                <th>Teléfono</th>
+                                <th class="text-nowrap">Tipo sangre</th>
                                 <th class="text-end">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($p as $op)
                                 @php
-                                    // Usar accessor "nombre_completo" si existe en el modelo
                                     $nombre = $op->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
                                     $correo = data_get($op, 'user.email', '—');
+                                    $telefono = $op->telefono ?: '—';
+                                    $tsangre = $op->tipo_sangre ?: '—';
+                                    $emNombre = $op->contacto_emergencia_nombre ?: null;
+                                    $emTel    = $op->contacto_emergencia_tel ?: null;
                                 @endphp
                                 <tr>
                                     {{-- Numeración independiente del filtro/orden (reinicia por página) --}}
@@ -243,6 +248,14 @@
 
                                     <td class="text-nowrap">
                                         <div class="text-truncate" style="max-width: 280px" title="{{ $correo }}">{{ $correo }}</div>
+                                    </td>
+
+                                    <td class="text-nowrap" title="{{ $telefono }}">
+                                        <i class="ti ti-device-mobile me-1"></i>{{ $telefono }}
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        <span class="badge bg-red-lt"><i class="ti ti-droplet me-1"></i>{{ $tsangre }}</span>
                                     </td>
 
                                     <td class="text-end">
@@ -279,7 +292,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="py-6">
+                                    <td colspan="6" class="py-6">
                                         <div class="empty">
                                             <div class="empty-icon">
                                                 <i class="ti ti-database-off" aria-hidden="true"></i>

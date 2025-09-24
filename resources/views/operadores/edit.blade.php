@@ -1,4 +1,4 @@
-{{-- resources/views/operadores/edit.blade.php — un solo form (datos + fotos subir/borrar + galería) --}}
+{{-- resources/views/operadores/edit.blade.php — un solo form (datos + fotos subir/borrar + galería) con Material Symbols (Google Fonts) --}}
 <x-app-layout>
     @vite(['resources/js/app.js'])
 
@@ -9,12 +9,11 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <p class="text-secondary text-uppercase small mb-1">Operadores</p>
-                        <h2 class="page-title mb-0">Editar Operador</h2>
-                        <div class="text-secondary small mt-1">Actualiza la información básica del operador.</div>
+                        <h2 class="page-title mb-0">Editar un Operador</h2>
                     </div>
                     <div class="col-auto ms-auto">
                         <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
-                            <i class="ti ti-arrow-left me-1"></i> Volver al listado
+                            <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver al listado
                         </a>
                     </div>
                 </div>
@@ -28,13 +27,13 @@
             {{-- FLASHES --}}
             @if (session('success'))
                 <div class="alert alert-success mb-4" role="alert">
-                    <i class="ti ti-check me-2"></i>{{ session('success') }}
+                    <span class="material-symbols-outlined me-2 align-middle">check_circle</span>{{ session('success') }}
                 </div>
             @endif
 
             @if ($errors->any())
                 <div class="alert alert-danger mb-4" role="alert">
-                    <i class="ti ti-alert-triangle me-2"></i>Revisa los campos marcados y vuelve a intentar.
+                    <span class="material-symbols-outlined me-2 align-middle">warning</span>Revisa los campos marcados y vuelve a intentar.
                 </div>
             @endif
 
@@ -49,21 +48,20 @@
             <div class="row g-4">
                 {{-- ===== FORM ÚNICO (incluye datos y fotos) ===== --}}
                 <div class="col-12 col-xl-8">
-                    {{-- Opción 1: pasar el modelo directamente (recomendada) --}}
 <form id="operador-form" method="POST"
       action="{{ route('operadores.update', $operador) }}"
       enctype="multipart/form-data" novalidate>
-
                         @csrf
                         @method('PUT')
 
                         {{-- DATOS --}}
                         <div class="card">
                             <div class="card-header">
-                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
-                                    <i class="ti ti-id-badge"></i> Datos del operador
+                                <h3 class="card-title mb-0 d-flex align-items-center">
+                                    <span class="material-symbols-outlined me-2">badge</span>
+                                    Datos del operador
                                 </h3>
-                                <div class="card-subtitle">Completa o corrige la información requerida.</div>
+                                <div class="card-subtitle ms-2">Completa o corrige la información requerida.</div>
                             </div>
 
                             <div class="card-body pt-3">
@@ -71,7 +69,7 @@
                                     <div class="col-12 col-md-6">
                                         <label for="nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
                                         <div class="input-group">
-                                            <span class="input-group-text"><i class="ti ti-signature"></i></span>
+                                            <span class="input-group-text"><span class="material-symbols-outlined">edit_note</span></span>
                                             <input id="nombre" name="nombre" type="text" autocomplete="given-name"
                                                    class="form-control @error('nombre') is-invalid @enderror"
                                                    value="{{ old('nombre', $operador->nombre) }}" required placeholder="Ej. Juan">
@@ -82,7 +80,7 @@
                                     <div class="col-12 col-md-6">
                                         <label for="apellido_paterno" class="form-label">Apellido paterno <span class="text-danger">*</span></label>
                                         <div class="input-group">
-                                            <span class="input-group-text"><i class="ti ti-user"></i></span>
+                                            <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
                                             <input id="apellido_paterno" name="apellido_paterno" type="text" autocomplete="family-name"
                                                    class="form-control @error('apellido_paterno') is-invalid @enderror"
                                                    value="{{ old('apellido_paterno', $operador->apellido_paterno) }}" required placeholder="Ej. Pérez">
@@ -93,7 +91,7 @@
                                     <div class="col-12 col-md-6">
                                         <label for="apellido_materno" class="form-label">Apellido materno</label>
                                         <div class="input-group">
-                                            <span class="input-group-text"><i class="ti ti-user-circle"></i></span>
+                                            <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
                                             <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
                                                    class="form-control @error('apellido_materno') is-invalid @enderror"
                                                    value="{{ old('apellido_materno', $operador->apellido_materno) }}" placeholder="(opcional)">
@@ -104,14 +102,66 @@
                                     <div class="col-12 col-md-6">
                                         <label for="email" class="form-label">Correo electrónico</label>
                                         <div class="input-group">
-                                            <span class="input-group-text"><i class="ti ti-mail"></i></span>
+                                            <span class="input-group-text"><span class="material-symbols-outlined">mail</span></span>
                                             <input id="email" name="email" type="email" autocomplete="email"
                                                    class="form-control @error('email') is-invalid @enderror"
                                                    value="{{ old('email', optional($operador->user)->email) }}"
                                                    placeholder="usuario@dominio.com" aria-describedby="email_help">
                                             @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                         </div>
-                                        <div id="email_help" class="form-hint">Si este operador tiene usuario, el email se actualizará.</div>
+                                    </div>
+
+                                    {{-- Teléfono --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="telefono" class="form-label">Teléfono</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                                            <input id="telefono" name="telefono" type="tel"
+                                                   class="form-control @error('telefono') is-invalid @enderror"
+                                                   value="{{ old('telefono', $operador->telefono) }}"
+                                                   placeholder="+52 777 123 4567" autocomplete="tel">
+                                            @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Tipo de sangre --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="tipo_sangre" class="form-label">Tipo de sangre</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">bloodtype</span></span>
+                                            <input id="tipo_sangre" name="tipo_sangre" type="text"
+                                                   class="form-control @error('tipo_sangre') is-invalid @enderror"
+                                                   value="{{ old('tipo_sangre', $operador->tipo_sangre) }}"
+                                                   placeholder="Ej. O+, A-, B+" maxlength="5">
+                                            @error('tipo_sangre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                        <div class="form-hint">Formato corto (ej.: O+, A-, AB-).</div>
+                                    </div>
+
+                                    {{-- Contacto emergencia nombre --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="contacto_emergencia_nombre" class="form-label">Contacto de emergencia (nombre completo)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">contact_emergency</span></span>
+                                            <input id="contacto_emergencia_nombre" name="contacto_emergencia_nombre" type="text"
+                                                   class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror"
+                                                   value="{{ old('contacto_emergencia_nombre', $operador->contacto_emergencia_nombre) }}"
+                                                   placeholder="Ej. Juan Pérez">
+                                            @error('contacto_emergencia_nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Contacto emergencia teléfono --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="contacto_emergencia_tel" class="form-label">Contacto de emergencia (teléfono)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                                            <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
+                                                   class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
+                                                   value="{{ old('contacto_emergencia_tel', $operador->contacto_emergencia_tel) }}"
+                                                   placeholder="+52 777 000 0000">
+                                            @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -120,30 +170,25 @@
                         {{-- FOTOS: subir + marcar para borrar + galería --}}
                         <div class="card mt-4">
                             <div class="card-header">
-                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
-                                    <i class="ti ti-photo"></i> Fotos del operador
+                                <h3 class="card-title mb-0 d-flex align-items-center">
+                                    <span class="material-symbols-outlined me-2">add_photo_alternate</span>
+                                    Agregar fotografías
                                 </h3>
                             </div>
 
                             {{-- Subir nuevas --}}
                             <div class="card-body">
-                                <h4 class="h5 d-flex align-items-center gap-2 mb-2">
-                                    <i class="ti ti-photo-plus"></i> Agregar nuevas fotos
-                                </h4>
                                 <div class="form-hint mb-3">JPG, JPEG, PNG o WEBP. Máx 8&nbsp;MB por archivo.</div>
 
                                 <div class="row g-3 align-items-end">
                                     <div class="col-12 col-lg-8">
                                         <div class="input-group">
-                                            <span class="input-group-text"><i class="ti ti-upload"></i></span>
+                                            <span class="input-group-text"><span class="material-symbols-outlined">upload</span></span>
                                             <input type="file" name="fotos[]" accept="image/*" multiple
                                                    class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror">
                                         </div>
                                         @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                                         @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                    </div>
-                                    <div class="col-12 col-lg-4">
-                                        <div class="text-secondary small">Se subirán al guardar.</div>
                                     </div>
                                 </div>
                             </div>
@@ -152,17 +197,17 @@
                             <div class="card-body border-top">
                                 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                                     <div class="d-flex align-items-center gap-2">
-                                        <h4 class="h5 mb-0 d-flex align-items-center gap-2">
-                                            <i class="ti ti-photo"></i> Fotos actuales
+                                        <h4 class="h5 mb-0 d-flex align-items-center">
+                                            <span class="material-symbols-outlined me-2">photo</span>
+                                            Fotografías actuales
                                         </h4>
                                         <span class="badge bg-secondary-lt">{{ $operador->fotos->count() }} foto(s)</span>
                                     </div>
                                     <div class="d-flex align-items-center gap-3">
                                         <button type="button" class="btn btn-dark btn-sm" id="openGalleryAll">
-                                            <i class="ti ti-slideshow me-1"></i> Ver galería
+                                            <span class="material-symbols-outlined me-1 align-middle">slideshow</span> Ver galería
                                         </button>
                                         <span class="small text-secondary">
-                                            <i class="ti ti-trash me-1"></i>
                                             Marcadas para borrar: <strong id="delCount">0</strong>
                                         </span>
                                     </div>
@@ -170,7 +215,9 @@
 
                                 @if($operador->fotos->isEmpty())
                                     <div class="empty my-4">
-                                        <div class="empty-icon"><i class="ti ti-photo-off"></i></div>
+                                        <div class="empty-icon">
+                                            <span class="material-symbols-outlined">image_not_supported</span>
+                                        </div>
                                         <p class="empty-title">Este operador aún no tiene fotos</p>
                                         <p class="empty-subtitle text-secondary">Puedes subirlas en la sección “Agregar nuevas fotos”.</p>
                                     </div>
@@ -188,7 +235,7 @@
                                                     <button type="button"
                                                             class="btn btn-danger btn-icon btn-sm position-absolute top-0 end-0 m-1 toggle-delete z-3"
                                                             data-id="{{ $foto->id }}" title="Marcar para borrar">
-                                                        <i class="ti ti-trash"></i>
+                                                        <span class="material-symbols-outlined">delete</span>
                                                     </button>
 
                                                     {{-- Checkbox oculto que viaja en el form --}}
@@ -199,7 +246,7 @@
                                                     {{-- Cinta visual cuando está marcada --}}
                                                     <div class="position-absolute top-0 start-0 w-100 h-100 rounded bg-danger opacity-25 d-none overlay-del"></div>
                                                     <span class="badge bg-danger position-absolute bottom-0 start-0 m-2 d-none badge-del">
-                                                        <i class="ti ti-trash me-1"></i> Se borrará
+                                                        <span class="material-symbols-outlined me-1 align-middle">delete</span> Se borrará
                                                     </span>
 
                                                     {{-- Abrir galería (clic en tarjeta) --}}
@@ -216,7 +263,7 @@
                         <div class="d-flex justify-content-end gap-2 mt-4">
                             <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">Cancelar</a>
                             <button type="submit" class="btn btn-primary">
-                                <i class="ti ti-device-floppy me-1"></i> Guardar todo
+                                <span class="material-symbols-outlined me-1 align-middle">save</span> Guardar todo
                             </button>
                         </div>
                     </form>
@@ -227,28 +274,29 @@
                     <div class="card">
                         <div class="card-body text-center py-4">
                             <span class="avatar avatar-xl avatar-rounded bg-blue-lt mb-3">
-                                <i class="ti ti-user"></i>
+                                <span class="material-symbols-outlined" style="font-size:32px; line-height:1;">person</span>
                             </span>
                             <div class="h3 mb-1">{{ $nombreCompleto ?: 'Operador #'.$operador->id }}</div>
                             <div class="text-secondary">{{ $correo }}</div>
 
                             <div class="mt-3 text-start small text-secondary">
                                 @if(optional($operador->created_at)->isValid())
-                                    <div><i class="ti ti-calendar-stats me-1"></i> Registrado:
+                                    <div>
+                                        <span class="material-symbols-outlined me-1 align-middle">calendar_month</span>
+                                        Registrado:
                                         <span class="fw-semibold">{{ optional($operador->created_at)->format('Y-m-d') }}</span>
                                     </div>
                                 @endif
                                 @if(optional($operador->updated_at)->isValid())
-                                    <div><i class="ti ti-history me-1"></i> Actualizado:
+                                    <div>
+                                        <span class="material-symbols-outlined me-1 align-middle">history</span>
+                                        Actualizado:
                                         <span class="fw-semibold">{{ optional($operador->updated_at)->diffForHumans() }}</span>
                                     </div>
                                 @endif
                             </div>
 
                             <div class="d-grid gap-2 mt-4">
-                                <a href="{{ route('operadores.index') }}" class="btn btn-light">
-                                    <i class="ti ti-list-details me-1"></i> Ir al listado
-                                </a>
                             </div>
                         </div>
                     </div>
@@ -268,7 +316,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h3 class="modal-title h4" id="galleryModalLabel">
-                        <i class="ti ti-photo me-2"></i>Galería de fotos
+                        <span class="material-symbols-outlined me-2 align-middle">photo</span>Galería de fotos
                     </h3>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -340,7 +388,6 @@
 
         photosGrid?.querySelectorAll('.toggle-delete').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                // Evitar que la stretched-link abra la galería
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -353,7 +400,6 @@
                 if (!input) return;
                 input.checked = !input.checked;
 
-                // UI state
                 const marked = input.checked;
                 btn.classList.toggle('btn-danger', !marked);
                 btn.classList.toggle('btn-warning', marked);

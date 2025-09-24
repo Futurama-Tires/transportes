@@ -16,6 +16,11 @@ class Operador extends Model
         'nombre',
         'apellido_paterno',
         'apellido_materno',
+        // Nuevos campos
+        'telefono',
+        'contacto_emergencia_nombre',
+        'contacto_emergencia_tel',
+        'tipo_sangre',
     ];
 
     protected $appends = ['nombre_completo'];
@@ -72,6 +77,11 @@ class Operador extends Model
                 $qq->where('operadores.nombre', 'like', $like)
                    ->orWhere('operadores.apellido_paterno', 'like', $like)
                    ->orWhere('operadores.apellido_materno', 'like', $like)
+                   // Nuevos campos de contacto
+                   ->orWhere('operadores.telefono', 'like', $like)
+                   ->orWhere('operadores.contacto_emergencia_nombre', 'like', $like)
+                   ->orWhere('operadores.contacto_emergencia_tel', 'like', $like)
+                   ->orWhere('operadores.tipo_sangre', 'like', $like)
                    // Nombre completo
                    ->orWhereRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) LIKE ?", [$like])
                    // Relación user: email y (opcional) name

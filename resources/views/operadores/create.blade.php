@@ -1,6 +1,5 @@
-{{-- resources/views/operadores/create.blade.php — versión Tabler (formulario + modal de credenciales + nota de fotos) --}}
+{{-- resources/views/operadores/create.blade.php — diseño alineado al EDIT (un solo form + 2 cards + Material Symbols) --}}
 <x-app-layout>
-    {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
     @vite(['resources/js/app.js'])
 
     {{-- HEADER --}}
@@ -10,13 +9,11 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <p class="text-secondary text-uppercase small mb-1">Operadores</p>
-                        <h2 class="page-title mb-0">Registrar Nuevo Operador</h2>
-                        <div class="text-secondary small mt-1">Crea un nuevo operador y asigna su correo institucional.</div>
+                        <h2 class="page-title mb-0">Registrar un nuevo Operador</h2>
                     </div>
                     <div class="col-auto ms-auto">
                         <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
-                            <i class="ti ti-arrow-left me-1"></i>
-                            Volver al listado
+                            <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver al listado
                         </a>
                     </div>
                 </div>
@@ -29,15 +26,15 @@
 
             {{-- FLASH ÉXITO --}}
             @if(session('success'))
-                <div class="alert alert-success" role="alert">
-                    <i class="ti ti-check me-2"></i>{{ session('success') }}
+                <div class="alert alert-success mb-4" role="alert">
+                    <span class="material-symbols-outlined me-2 align-middle">check_circle</span>{{ session('success') }}
                 </div>
             @endif
 
             {{-- ERRORES --}}
             @if ($errors->any())
-                <div class="alert alert-danger" role="alert">
-                    <i class="ti ti-alert-triangle me-2"></i>Revisa los campos marcados y vuelve a intentar.
+                <div class="alert alert-danger mb-4" role="alert">
+                    <span class="material-symbols-outlined me-2 align-middle">warning</span>Revisa los campos marcados y vuelve a intentar.
                     @if($errors->count() > 0)
                         <ul class="mt-2 mb-0 ps-4">
                             @foreach ($errors->all() as $error)
@@ -48,155 +45,186 @@
                 </div>
             @endif
 
-            <div class="row row-deck row-cards">
-                {{-- FORM PRINCIPAL --}}
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-header">
-                            <div>
-                                <h3 class="card-title">Datos del operador</h3>
-                                <div class="card-subtitle">Completa la información requerida para crear el registro.</div>
+            <div class="row g-4">
+                {{-- ===== FORM ÚNICO (incluye datos y fotos) ===== --}}
+                <div class="col-12 col-xl-8">
+                    <form id="operador-form" method="POST" action="{{ route('operadores.store') }}" enctype="multipart/form-data" novalidate>
+                        @csrf
+
+                        {{-- DATOS --}}
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
+                                    <span class="material-symbols-outlined">badge</span> Datos del operador
+                                </h3> 
+                                <div class="card-subtitle">&nbsp;Completa la información requerida.</div>
                             </div>
-                        </div>
 
-                        {{-- IMPORTANTE: no incluimos fotos aquí porque aún no hay ID. --}}
-                        <form method="POST" action="{{ route('operadores.store') }}" novalidate>
-                            @csrf
-
-                            <div class="card-body">
-                                <div class="row g-3">
-                                    {{-- Nombre --}}
-                                    <div class="col-md-6">
+                            <div class="card-body pt-3">
+                                <div class="row g-4">
+                                    <div class="col-12 col-md-6">
                                         <label for="nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
                                         <div class="input-group">
-                                            <span class="input-group-text"><i class="ti ti-signature"></i></span>
-                                            <input
-                                                id="nombre"
-                                                name="nombre"
-                                                type="text"
-                                                class="form-control @error('nombre') is-invalid @enderror"
-                                                value="{{ old('nombre') }}"
-                                                required
-                                                placeholder="Ej. Juan"
-                                                autocomplete="given-name"
-                                            >
-                                            @error('nombre')
-                                                <div class="invalid-feedback">{{ $message }}</div>
-                                            @enderror
+                                            <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
+                                            <input id="nombre" name="nombre" type="text" autocomplete="given-name"
+                                                   class="form-control @error('nombre') is-invalid @enderror"
+                                                   value="{{ old('nombre') }}" required placeholder="Ej. Juan">
+                                            @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                         </div>
                                     </div>
 
-                                    {{-- Apellido paterno --}}
-                                    <div class="col-md-6">
+                                    <div class="col-12 col-md-6">
                                         <label for="apellido_paterno" class="form-label">Apellido paterno <span class="text-danger">*</span></label>
                                         <div class="input-group">
-                                            <span class="input-group-text"><i class="ti ti-user"></i></span>
-                                            <input
-                                                id="apellido_paterno"
-                                                name="apellido_paterno"
-                                                type="text"
-                                                class="form-control @error('apellido_paterno') is-invalid @enderror"
-                                                value="{{ old('apellido_paterno') }}"
-                                                required
-                                                placeholder="Ej. Pérez"
-                                                autocomplete="family-name"
-                                            >
-                                            @error('apellido_paterno')
-                                                <div class="invalid-feedback">{{ $message }}</div>
-                                            @enderror
+                                            <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
+                                            <input id="apellido_paterno" name="apellido_paterno" type="text" autocomplete="family-name"
+                                                   class="form-control @error('apellido_paterno') is-invalid @enderror"
+                                                   value="{{ old('apellido_paterno') }}" required placeholder="Ej. Pérez">
+                                            @error('apellido_paterno') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                         </div>
                                     </div>
 
-                                    {{-- Apellido materno --}}
-                                    <div class="col-md-6">
+                                    <div class="col-12 col-md-6">
                                         <label for="apellido_materno" class="form-label">Apellido materno</label>
                                         <div class="input-group">
-                                            <span class="input-group-text"><i class="ti ti-user-circle"></i></span>
-                                            <input
-                                                id="apellido_materno"
-                                                name="apellido_materno"
-                                                type="text"
-                                                class="form-control @error('apellido_materno') is-invalid @enderror"
-                                                value="{{ old('apellido_materno') }}"
-                                                placeholder="(opcional)"
-                                                autocomplete="additional-name"
-                                            >
-                                            @error('apellido_materno')
-                                                <div class="invalid-feedback">{{ $message }}</div>
-                                            @enderror
+                                            <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
+                                            <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
+                                                   class="form-control @error('apellido_materno') is-invalid @enderror"
+                                                   value="{{ old('apellido_materno') }}" placeholder="(opcional)">
+                                            @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                         </div>
                                     </div>
 
-                                    {{-- Email --}}
-                                    <div class="col-md-6">
+                                    <div class="col-12 col-md-6">
                                         <label for="email" class="form-label">Correo electrónico <span class="text-danger">*</span></label>
                                         <div class="input-group">
-                                            <span class="input-group-text"><i class="ti ti-mail"></i></span>
-                                            <input
-                                                id="email"
-                                                name="email"
-                                                type="email"
-                                                class="form-control @error('email') is-invalid @enderror"
-                                                value="{{ old('email') }}"
-                                                required
-                                                placeholder="usuario@futuramatiresmx.com"
-                                                autocomplete="email"
-                                                aria-describedby="email_help"
-                                            >
-                                            @error('email')
-                                                <div class="invalid-feedback">{{ $message }}</div>
-                                            @enderror
+                                            <span class="input-group-text"><span class="material-symbols-outlined">mail</span></span>
+                                            <input id="email" name="email" type="email" autocomplete="email"
+                                                   class="form-control @error('email') is-invalid @enderror"
+                                                   value="{{ old('email') }}" required
+                                                   placeholder="usuario@futuramatiresmx.com" aria-describedby="email_help">
+                                            @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                         </div>
-                                        <div id="email_help" class="form-hint">
-                                            Usa un correo válido del dominio <strong>@futuramatiresmx.com</strong>.
+                                        <div id="email_help" class="form-hint">Usa un correo del dominio <strong>@futuramatiresmx.com</strong>.</div>
+                                    </div>
+
+                                    {{-- Teléfono --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="telefono" class="form-label">Teléfono</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                                            <input id="telefono" name="telefono" type="tel"
+                                                   class="form-control @error('telefono') is-invalid @enderror"
+                                                   value="{{ old('telefono') }}" placeholder="+527771234567" autocomplete="tel">
+                                            @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Tipo de sangre --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="tipo_sangre" class="form-label">Tipo de sangre</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">bloodtype</span></span>
+                                            <input id="tipo_sangre" name="tipo_sangre" type="text"
+                                                   class="form-control @error('tipo_sangre') is-invalid @enderror"
+                                                   value="{{ old('tipo_sangre') }}" placeholder="Ej. O+, A-, B+" maxlength="5">
+                                            @error('tipo_sangre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                        <div class="form-hint">Formato corto (ej.: O+, A-, AB-).</div>
+                                    </div>
+
+                                    {{-- Contacto emergencia nombre --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="contacto_emergencia_nombre" class="form-label">Contacto de emergencia (nombre)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">contact_emergency</span></span>
+                                            <input id="contacto_emergencia_nombre" name="contacto_emergencia_nombre" type="text"
+                                                   class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror"
+                                                   value="{{ old('contacto_emergencia_nombre') }}" placeholder="Ej. Juan Pérez">
+                                            @error('contacto_emergencia_nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Contacto emergencia teléfono --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="contacto_emergencia_tel" class="form-label">Contacto de emergencia (teléfono)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                                            <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
+                                                   class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
+                                                   value="{{ old('contacto_emergencia_tel') }}" placeholder="+527770000000">
+                                            @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="card-footer d-flex justify-content-between">
-                                <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
-                                    Cancelar
-                                </a>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="ti ti-user-plus me-1"></i>Crear Operador
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    {{-- NOTA FOTOS (solo informativa en create) --}}
-                    <div class="card mt-3">
-                        <div class="card-body">
-                            <h3 class="card-title d-flex align-items-center gap-2">
-                                <i class="ti ti-photo"></i>
-                                Fotos del operador
-                            </h3>
-                            <p class="text-secondary mb-2">
-                                Podrás subir fotos una vez creado el operador (en la pantalla de edición).
-                            </p>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="ti ti-upload"></i></span>
-                                <input type="file" class="form-control" multiple accept="image/*" disabled>
-                            </div>
-                            <div class="form-hint mt-2">Guarda primero el operador para habilitar esta sección.</div>
                         </div>
-                    </div>
+
+                        {{-- FOTOS: subir + previsualizar --}}
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
+                                    <span class="material-symbols-outlined">add_photo_alternate</span> Agregar fotografías
+                                </h3>
+                            </div>
+
+                            {{-- Subir nuevas --}}
+                            <div class="card-body">
+                                <div class="form-hint mb-3">JPG, JPEG, PNG o WEBP. Máx 5&nbsp;MB por archivo. Máx 12 archivos.</div>
+
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-12 col-lg-8">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">upload</span></span>
+                                            <input type="file" id="fotos" name="fotos[]" accept="image/*" multiple
+                                                   class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror"
+                                                   aria-describedby="fotos_help">
+                                        </div>
+                                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                    </div>
+                                </div>
+
+                                {{-- Controles y contador --}}
+                                <div class="d-flex justify-content-between align-items-center my-3">
+                                    <div class="text-secondary small">
+                                        <span id="fotos-count">0</span> seleccionada(s)
+                                    </div>
+                                    <div class="btn-group">
+                                        <button type="button" id="btn-clear-fotos" class="btn btn-outline-secondary btn-sm" disabled>
+                                            <span class="material-symbols-outlined align-middle me-1">delete</span>Quitar todas
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {{-- Grid de vista previa --}}
+                                <div id="fotos-grid" class="row g-2"></div>
+                            </div>
+                        </div>
+
+                        {{-- FOOTER del form: un único botón que guarda TODO --}}
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">
+                                <span class="material-symbols-outlined me-1 align-middle">person_add</span> Guardar operador
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
-                {{-- TARJETA LATERAL (opcional) --}}
-                <div class="col-md-4">
+                {{-- LATERAL --}}
+                <div class="col-12 col-xl-4">
                     <div class="card">
-                        <div class="card-body text-center">
-                            <span class="avatar avatar-xl avatar-rounded bg-blue-lt mb-3">
-                                <i class="ti ti-user"></i>
+                        <div class="card-body text-center py-4">
+                            <span class="avatar avatar-xl avatar-rounded bg-blue-lt mb-3 d-inline-flex align-items-center justify-content-center">
+                                <span class="material-symbols-outlined" style="font-size:32px; line-height:1;">person</span>
                             </span>
-                            <div class="h3">Nuevo operador</div>
+                            <div class="h3 mb-1">Nuevo operador</div>
                             <div class="text-secondary">Se creará una cuenta asociada.</div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> {{-- /row --}}
 
             {{-- FOOTER --}}
             <div class="text-center text-secondary small py-4">
@@ -212,7 +240,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h3 class="modal-title h4" id="createdModalLabel">
-                            <i class="ti ti-check me-2 text-success"></i>Operador creado exitosamente
+                            <span class="material-symbols-outlined me-2 text-success align-middle">check_circle</span>Operador creado exitosamente
                         </h3>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
@@ -232,11 +260,9 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button
-                            type="button"
-                            class="btn btn-outline-secondary"
-                            onclick="navigator.clipboard.writeText(document.getElementById('gen-pass').innerText)">
-                            <i class="ti ti-copy me-1"></i>Copiar contraseña
+                        <button type="button" class="btn btn-outline-secondary"
+                                onclick="navigator.clipboard.writeText(document.getElementById('gen-pass').innerText)">
+                            <span class="material-symbols-outlined me-1 align-middle">content_copy</span>Copiar contraseña
                         </button>
                         <a href="{{ route('dashboard') }}" class="btn btn-primary">Aceptar</a>
                     </div>
@@ -257,4 +283,120 @@
             });
         </script>
     @endif
+
+    {{-- =============== JS: manejo de selección y previsualización de fotos =============== --}}
+    <script>
+        (function () {
+            const MAX_FILES = 12;
+            const MAX_SIZE_MB = 5;
+            const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
+
+            const input = document.getElementById('fotos');
+            const grid  = document.getElementById('fotos-grid');
+            const count = document.getElementById('fotos-count');
+            const btnClear = document.getElementById('btn-clear-fotos');
+
+            /** Lista viva de archivos seleccionados (mutable) */
+            let selectedFiles = [];
+
+            function updateInputFiles() {
+                const dt = new DataTransfer();
+                selectedFiles.forEach(f => dt.items.add(f));
+                input.files = dt.files;
+                count.textContent = selectedFiles.length.toString();
+                btnClear.disabled = selectedFiles.length === 0;
+            }
+
+            function renderPreviews() {
+                grid.innerHTML = '';
+                selectedFiles.forEach((file, idx) => {
+                    const url = URL.createObjectURL(file);
+
+                    const col = document.createElement('div');
+                    col.className = 'col-6 col-md-4 col-lg-3';
+
+                    const card = document.createElement('div');
+                    card.className = 'card card-sm';
+
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.alt = file.name;
+                    img.className = 'card-img-top img-fluid';
+                    img.onload = () => URL.revokeObjectURL(url); // liberar memoria cuando cargue
+
+                    const body = document.createElement('div');
+                    body.className = 'card-body p-2';
+
+                    const meta = document.createElement('div');
+                    meta.className = 'small text-truncate mb-1';
+                    meta.title = file.name;
+                    meta.textContent = file.name;
+
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-outline-danger btn-sm w-100';
+                    btn.innerHTML = '<span class="material-symbols-outlined align-middle me-1">delete</span>Quitar';
+                    btn.addEventListener('click', () => {
+                        selectedFiles.splice(idx, 1);
+                        updateInputFiles();
+                        renderPreviews();
+                    });
+
+                    body.appendChild(meta);
+                    body.appendChild(btn);
+                    card.appendChild(img);
+                    card.appendChild(body);
+                    col.appendChild(card);
+                    grid.appendChild(col);
+                });
+            }
+
+            function addFiles(files) {
+                const incoming = Array.from(files || []);
+                const accepted = [];
+
+                for (const f of incoming) {
+                    const typeOk = /^image\//i.test(f.type);
+                    const sizeOk = f.size <= MAX_SIZE;
+
+                    if (!typeOk || !sizeOk) { continue; }
+
+                    // Evitar duplicados exactos (mismo nombre + tamaño + lastModified)
+                    const dup = selectedFiles.some(sf => sf.name === f.name && sf.size === f.size && sf.lastModified === f.lastModified);
+                    if (dup) { continue; }
+
+                    accepted.push(f);
+                }
+
+                // Respeta el máximo
+                const availableSlots = MAX_FILES - selectedFiles.length;
+                if (availableSlots <= 0) return;
+
+                selectedFiles = selectedFiles.concat(accepted.slice(0, availableSlots));
+                updateInputFiles();
+                renderPreviews();
+            }
+
+            input?.addEventListener('change', (e) => {
+                addFiles(e.target.files);
+                // Limpia el input para poder volver a seleccionar los mismos archivos si se desea
+                e.target.value = '';
+            });
+
+            btnClear?.addEventListener('click', () => {
+                selectedFiles = [];
+                updateInputFiles();
+                renderPreviews();
+            });
+
+            // Soporte drag & drop al grid
+            grid?.addEventListener('dragover', (e) => { e.preventDefault(); grid.classList.add('border', 'border-primary'); });
+            grid?.addEventListener('dragleave', () => grid.classList.remove('border', 'border-primary'));
+            grid?.addEventListener('drop', (e) => {
+                e.preventDefault();
+                grid.classList.remove('border', 'border-primary');
+                addFiles(e.dataTransfer.files);
+            });
+        })();
+    </script>
 </x-app-layout>
