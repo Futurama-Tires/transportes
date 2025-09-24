@@ -385,8 +385,10 @@
                         </div>
 
                         <div class="card-footer text-muted small">
-                            Si no ves las imágenes, ejecuta <code>php artisan storage:link</code> y verifica permisos de escritura en <code>storage/app/public</code>.
+                            Las imágenes se sirven a través de una ruta protegida. 
+                            Si no se muestran, verifica que la sesión esté activa y que la ruta <code>cargas.fotos.show</code> tenga middleware de autenticación.
                         </div>
+
                     </div>
                 </div>
             </div>

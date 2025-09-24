@@ -13,20 +13,19 @@ class CargaFotoWebController extends Controller
     /**
      * Muestra la imagen protegida (inline) por ID.
      * GET /cargas/fotos/{foto}
+     * Requiere auth/roles en la ruta.
      */
     public function show(Request $request, CargaFoto $foto)
     {
-        // Se asume middleware auth + roles ya aplicado en la ruta.
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('local'); // PRIVADO: storage/app
 
         if (!$foto->path || !$disk->exists($foto->path)) {
             abort(404, 'Archivo no encontrado');
         }
 
         $name = $foto->original_name ?: basename($foto->path);
-        return $disk->response($foto->path, $name);
-        // Si quisieras forzar descarga:
-        // return $disk->download($foto->path, $name);
+        return $disk->response($foto->path, $name); // stream inline
+        // return $disk->download($foto->path, $name); // fuerza descarga (opcional)
     }
 
     /**
@@ -40,7 +39,7 @@ class CargaFotoWebController extends Controller
             'image' => ['required', 'image', 'max:10240'], // 10 MB
         ]);
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('local'); // PRIVADO
         $dir  = "cargas/{$carga->id}";
         if (!$disk->exists($dir)) {
             $disk->makeDirectory($dir);
@@ -50,7 +49,8 @@ class CargaFotoWebController extends Controller
         $ext  = $file->getClientOriginalExtension() ?: 'jpg';
         $name = ($data['tipo'] ?? 'extra') . '-' . now()->format('Ymd-His') . '-' . uniqid() . '.' . $ext;
 
-        $path = $file->storePubliclyAs($dir, $name, ['disk' => 'public']);
+        // PRIVADO: NO usar storePubliclyAs
+        $path = $file->storeAs($dir, $name, ['disk' => 'local']);
 
         CargaFoto::create([
             'carga_id'      => $carga->id,
@@ -61,7 +61,7 @@ class CargaFotoWebController extends Controller
             'original_name' => $file->getClientOriginalName(),
         ]);
 
-        return back()->with('success', 'Foto subida correctamente.');
+        return back()->with('success', 'Foto subida correctamente (privada).');
     }
 
     /**
@@ -74,7 +74,7 @@ class CargaFotoWebController extends Controller
             return back()->with('error', 'La foto no pertenece a esta carga.');
         }
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('local'); // PRIVADO
         if ($foto->path && $disk->exists($foto->path)) {
             $disk->delete($foto->path);
         }

@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 
 class CargaFoto extends Model
 {
@@ -12,7 +11,6 @@ class CargaFoto extends Model
 
     protected $table = 'carga_fotos';
 
-    // Tipos sugeridos (puedes agregar más)
     public const TICKET   = 'ticket';
     public const VOUCHER  = 'voucher';
     public const ODOMETRO = 'odometro';
@@ -27,6 +25,8 @@ class CargaFoto extends Model
         'original_name',
     ];
 
+    // Seguimos exponiendo 'url' para que tu UI/APP tenga algo que abrir,
+    // pero ahora será una RUTA PROTEGIDA (no una URL pública /storage/...).
     protected $appends = ['url'];
 
     public function carga()
@@ -34,9 +34,13 @@ class CargaFoto extends Model
         return $this->belongsTo(CargaCombustible::class, 'carga_id');
     }
 
-    // URL pública (requiere `php artisan storage:link`)
+    /**
+     * Devuelve la ruta protegida para ver la imagen.
+     * Asegúrate de tener nombrada la ruta web como 'cargas.fotos.show'.
+     * GET /cargas/fotos/{foto} (auth)
+     */
     public function getUrlAttribute(): ?string
     {
-        return $this->path ? Storage::url($this->path) : null;
+        return route('cargas.fotos.show', ['foto' => $this->id]);
     }
 }

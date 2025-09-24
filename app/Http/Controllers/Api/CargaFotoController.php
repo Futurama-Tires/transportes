@@ -12,7 +12,7 @@ class CargaFotoController extends Controller
 {
     /**
      * GET /api/cargas/{carga}/fotos
-     * Query params opcionales:
+     * Query:
      *  - tipo: ticket|voucher|odometro|extra
      *  - paginate: true|false (default false)
      *  - per_page: 1..100 (default 50)
@@ -32,7 +32,6 @@ class CargaFotoController extends Controller
             $fotos = $query->get();
         }
 
-        // CargaFoto ya expone "url" vía accessor -> appends
         return response()->json($fotos);
     }
 
@@ -49,7 +48,7 @@ class CargaFotoController extends Controller
 
     /**
      * GET /api/cargas/{carga}/fotos/{foto}/download
-     * Devuelve el archivo (útil si NO expones /storage públicamente).
+     * Devuelve el archivo (privado) por streaming.
      */
     public function download(Request $request, CargaCombustible $carga, CargaFoto $foto)
     {
@@ -57,15 +56,14 @@ class CargaFotoController extends Controller
             return response()->json(['message' => 'Foto no pertenece a la carga'], 404);
         }
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('local'); // PRIVADO
         if (!$foto->path || !$disk->exists($foto->path)) {
             return response()->json(['message' => 'Archivo no encontrado'], 404);
         }
 
         $name = $foto->original_name ?: basename($foto->path);
-        // Usa response() para ver en navegador; usa download() si quieres forzar descarga
         return $disk->response($foto->path, $name);
-        // return $disk->download($foto->path, $name); // ← alternativa
+        // return $disk->download($foto->path, $name); // si prefieres descarga
     }
 
     /**
@@ -76,10 +74,10 @@ class CargaFotoController extends Controller
     {
         $data = $request->validate([
             'tipo'  => ['nullable', 'in:ticket,voucher,odometro,extra'],
-            'image' => ['required', 'image', 'max:10240'], // hasta ~10MB
+            'image' => ['required', 'image', 'max:10240'],
         ]);
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('local'); // PRIVADO
         $dir  = "cargas/{$carga->id}";
         if (!$disk->exists($dir)) {
             $disk->makeDirectory($dir);
@@ -89,7 +87,7 @@ class CargaFotoController extends Controller
         $ext  = $file->getClientOriginalExtension() ?: 'jpg';
         $name = ($data['tipo'] ?? 'extra') . '-' . now()->format('Ymd-His') . '-' . uniqid() . '.' . $ext;
 
-        $path = $file->storePubliclyAs($dir, $name, ['disk' => 'public']);
+        $path = $file->storeAs($dir, $name, ['disk' => 'local']);
 
         $foto = CargaFoto::create([
             'carga_id'      => $carga->id,
@@ -112,7 +110,7 @@ class CargaFotoController extends Controller
             return response()->json(['message' => 'Foto no pertenece a la carga'], 404);
         }
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('local'); // PRIVADO
         if ($foto->path && $disk->exists($foto->path)) {
             $disk->delete($foto->path);
         }

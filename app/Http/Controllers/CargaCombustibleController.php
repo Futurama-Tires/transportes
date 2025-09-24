@@ -95,10 +95,7 @@ class CargaCombustibleController extends Controller
             // 🔔 Notificar después del commit
             $carga->loadMissing('vehiculo','operador');
             DB::afterCommit(function () use ($carga) {
-                $destinatarios = User::role(['administrador','capturista'], 'web')
-                    // ->whereKeyNot(auth()->id())
-                    ->get();
-
+                $destinatarios = User::role(['administrador','capturista'], 'web')->get();
                 Notification::send($destinatarios, new NuevaCarga($carga));
             });
 
@@ -122,7 +119,6 @@ class CargaCombustibleController extends Controller
     public function update(Request $request, CargaCombustible $carga)
     {
         $data = $request->validate([
-            // 'ubicacion'        => ['nullable', 'in:' . implode(',', CargaCombustible::UBICACIONES)], // ❌ quitado
             'fecha'            => ['required', 'date'],
             'precio'           => ['required', 'numeric', 'min:0'],
             'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
@@ -136,10 +132,8 @@ class CargaCombustibleController extends Controller
         ]);
 
         return DB::transaction(function () use ($carga, $data) {
-            // Bloquea el vehículo para evitar condiciones de carrera al leer/actualizar odómetro
             $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
 
-            // Busca la carga previa (por fecha y, a igualdad, por id) respecto a los NUEVOS datos
             $previa = CargaCombustible::where('vehiculo_id', $vehiculo->id)
                 ->where(function($q) use ($carga, $data){
                     $fechaNueva = $data['fecha'];
@@ -151,24 +145,18 @@ class CargaCombustibleController extends Controller
                 ->orderBy('fecha','desc')->orderBy('id','desc')
                 ->first();
 
-            // ✅ Fallback: si NO hay carga previa (es la primera en la línea de tiempo),
-            // usa el odómetro actual del vehículo.
             $kmInicial = $previa?->km_final ?? $vehiculo->kilometros;
 
-            // Validación defensiva: km_final no puede ser menor al km_inicial calculado
             if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
                 throw ValidationException::withMessages([
                     'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el KM inicial calculado ({$kmInicial}).",
                 ]);
             }
 
-            // Calcula campos derivados (km_inicial, recorrido, rendimiento, total, diferencia, mes)
             $this->applyDerived($data, $kmInicial);
 
-            // Guarda cambios de la carga
             $carga->forceFill($data)->save();
 
-            // Si esta carga (con sus nuevos datos) es la más reciente, actualiza odómetro del vehículo
             $ultima = CargaCombustible::where('vehiculo_id', $vehiculo->id)
                 ->orderBy('fecha','desc')->orderBy('id','desc')
                 ->first();
@@ -181,7 +169,6 @@ class CargaCombustibleController extends Controller
                 ->with('success', 'Carga actualizada correctamente.');
         });
     }
-
 
     public function destroy(CargaCombustible $carga)
     {
@@ -312,15 +299,20 @@ class CargaCombustibleController extends Controller
     }
 
     /**
-     * Mueve archivos desde /public/tmp/ocr/... a /public/cargas/{carga_id}/ y crea registros en carga_fotos.
-     * $imagenes = [['tipo'=>'ticket','tmp_path'=>'tmp/ocr/2025-09/xxx.jpg'], ...]
+     * Mueve archivos temporales a PRIVADO.
+     * Acepta ambos orígenes durante la transición:
+     *   - PRIVADO: storage/app/tmp/ocr/...
+     *   - LEGADO (público): storage/app/public/tmp/ocr/...
+     * Los deja en: storage/app/cargas/{carga_id}/...
      */
     protected function attachTmpImagesToCarga(CargaCombustible $carga, array $imagenes): void
     {
-        $disk = Storage::disk('public');
+        $private = Storage::disk('local');  // destino privado
+        $public  = Storage::disk('public'); // legado (origen posible)
+
         $baseDir = "cargas/{$carga->id}";
-        if (!$disk->exists($baseDir)) {
-            $disk->makeDirectory($baseDir);
+        if (!$private->exists($baseDir)) {
+            $private->makeDirectory($baseDir);
         }
 
         foreach ($imagenes as $img) {
@@ -329,18 +321,38 @@ class CargaCombustibleController extends Controller
 
             if (!$tmp || !is_string($tmp)) continue;
             if (!str_starts_with($tmp, 'tmp/ocr/')) continue;
-            if (!$disk->exists($tmp)) continue;
+
+            // Detecta en qué disco está la temporal
+            $sourceDisk = null;
+            if ($private->exists($tmp)) {
+                $sourceDisk = 'local';
+            } elseif ($public->exists($tmp)) {
+                $sourceDisk = 'public';
+            } else {
+                continue; // no existe en ninguno
+            }
 
             $ext  = pathinfo($tmp, PATHINFO_EXTENSION) ?: 'jpg';
             $name = ($tipo ?: 'extra') . '-' . now()->format('Ymd-His') . '-' . Str::random(6) . '.' . $ext;
             $dest = $baseDir . '/' . $name;
 
-            if (!$disk->move($tmp, $dest)) {
-                throw ValidationException::withMessages(['imagenes' => "No se pudo mover la imagen temporal {$tmp}."]);
+            // Mueve en-local o copia de public->local y borra origen
+            if ($sourceDisk === 'local') {
+                if (!$private->move($tmp, $dest)) {
+                    throw ValidationException::withMessages(['imagenes' => "No se pudo mover la imagen temporal {$tmp}."]);
+                }
+            } else {
+                try {
+                    $bytes = $public->get($tmp);
+                    $private->put($dest, $bytes);
+                    $public->delete($tmp);
+                } catch (\Throwable $e) {
+                    throw ValidationException::withMessages(['imagenes' => "No se pudo transferir la imagen temporal {$tmp} al almacenamiento privado."]);
+                }
             }
 
-            $mime = $disk->mimeType($dest);
-            $size = $disk->size($dest);
+            $mime = $private->mimeType($dest);
+            $size = $private->size($dest);
 
             CargaFoto::create([
                 'carga_id'      => $carga->id,
