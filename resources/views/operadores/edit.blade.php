@@ -197,10 +197,11 @@
                             <div class="card-body border-top">
                                 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                                     <div class="d-flex align-items-center gap-2">
-                                        <h4 class="h5 mb-0 d-flex align-items-center">
+                                        <h2 class="h5 mb-0 d-flex align-items-center">
                                             <span class="material-symbols-outlined me-2">photo</span>
                                             Fotografías actuales
-                                        </h4>
+                                        </h2
+                                        >
                                         <span class="badge bg-secondary-lt">{{ $operador->fotos->count() }} foto(s)</span>
                                     </div>
                                     <div class="d-flex align-items-center gap-3">

@@ -378,9 +378,10 @@
             }
 
             input?.addEventListener('change', (e) => {
-                addFiles(e.target.files);
-                // Limpia el input para poder volver a seleccionar los mismos archivos si se desea
-                e.target.value = '';
+                const el = e.currentTarget; // más seguro que target
+                const files = el && el.files ? Array.from(el.files) : []; // COPIA a array
+                el.value = '';                    // limpia primero
+                addFiles(files);                  // pásale el array, no el FileList vivo
             });
 
             btnClear?.addEventListener('click', () => {
