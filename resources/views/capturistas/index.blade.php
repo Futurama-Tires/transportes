@@ -47,6 +47,11 @@
 
         // Parámetros que deben conservarse en enlaces.
         $keepParams = ['search','sort_by','sort_dir'];
+
+        // URL de exportación a Excel (preserva filtros actuales salvo la página).
+        $exportHref = \Illuminate\Support\Facades\Route::has('capturistas.export')
+            ? route('capturistas.export', $q->except('page'))
+            : '#';
     @endphp
 
     {{-- ================= HEADER ================= --}}
@@ -111,25 +116,14 @@
                             {{-- Acciones rápidas --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
 
-                                {{-- Exportar --}}
-                                <div class="btn-group">
-                                    <button type="button"
-                                            class="btn btn-outline-secondary dropdown-toggle"
-                                            data-bs-toggle="dropdown"
-                                            aria-expanded="false"
-                                            aria-haspopup="true"
-                                            aria-controls="menuExportar">
-                                        <i class="ti ti-download me-1" aria-hidden="true"></i>Exportar
-                                    </button>
-                                    <div id="menuExportar" class="dropdown-menu dropdown-menu-end">
-                                        <a class="dropdown-item" href="#">
-                                            <i class="ti ti-file-spreadsheet me-2" aria-hidden="true"></i>Excel
-                                        </a>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="ti ti-file-description me-2" aria-hidden="true"></i>PDF
-                                        </a>
-                                    </div>
-                                </div>
+                                {{-- Exportar (botón único con ícono de Excel) --}}
+                                <a href="{{ route('capturistas.index', array_merge(request()->except('page'), ['export' => 'xlsx'])) }}"
+                                class="btn btn-outline-success"
+                                title="Exportar a Excel">
+                                <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
+                                <span>Exportar</span>
+                                </a>
+
 
                                 {{-- Filtros (offcanvas sin overlay) --}}
                                 <button

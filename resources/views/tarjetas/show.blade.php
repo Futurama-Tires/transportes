@@ -45,11 +45,11 @@
                     <div class="col-auto ms-auto d-print-none">
                         <div class="btn-list">
                             <a href="{{ route('tarjetas.index') }}" class="btn btn-outline-secondary">
-                                <i class="ti ti-arrow-left"></i>
+                                <span class="material-symbols-outlined me-1 align-middle">arrow_back</span>
                                 Volver
                             </a>
                             <a href="{{ route('tarjetas.edit', $tarjeta) }}" class="btn btn-primary">
-                                <i class="ti ti-edit"></i>
+                                <span class="material-symbols-outlined me-1 align-middle">edit</span>
                                 Editar
                             </a>
                         </div>
@@ -67,8 +67,8 @@
                 <div class="col-sm-4">
                     <div class="card card-sm">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar me-3">
-                                <i class="ti ti-gas-station"></i>
+                            <span class="avatar me-3 d-inline-flex align-items-center justify-content-center">
+                                <span class="material-symbols-outlined">local_gas_station</span>
                             </span>
                             <div class="row align-items-center flex-fill">
                                 <div class="col">
@@ -86,8 +86,8 @@
                 <div class="col-sm-4">
                     <div class="card card-sm">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar me-3">
-                                <i class="ti ti-tank"></i>
+                            <span class="avatar me-3 d-inline-flex align-items-center justify-content-center">
+                                <span class="material-symbols-outlined">propane_tank</span>
                             </span>
                             <div class="row align-items-center flex-fill">
                                 <div class="col">
@@ -105,8 +105,8 @@
                 <div class="col-sm-4">
                     <div class="card card-sm">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar me-3">
-                                <i class="ti ti-currency-dollar"></i>
+                            <span class="avatar me-3 d-inline-flex align-items-center justify-content-center">
+                                <span class="material-symbols-outlined">attach_money</span>
                             </span>
                             <div class="row align-items-center flex-fill">
                                 <div class="col">
@@ -127,9 +127,9 @@
                 <div class="col-md-5">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="ti ti-credit-card me-2"></i>
-                                Detalle de la tarjeta
+                            <h3 class="card-title d-flex align-items-center gap-2">
+                                <span class="material-symbols-outlined">credit_card</span>
+                                <span>Detalle de la tarjeta</span>
                             </h3>
                         </div>
                         <div class="card-body">
@@ -159,9 +159,9 @@
                 <div class="col-md-7">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="ti ti-truck me-2"></i>
-                                Unidad vinculada
+                            <h3 class="card-title d-flex align-items-center gap-2">
+                                <span class="material-symbols-outlined">local_shipping</span>
+                                <span>Unidad vinculada</span>
                             </h3>
                         </div>
                         <div class="card-body">
@@ -177,7 +177,8 @@
                                             if ($v->placa) $label .= " · {$v->placa}";
                                         @endphp
                                         <div class="badge bg-secondary-lt">
-                                            <i class="ti ti-car me-1"></i> {{ $label }}
+                                            <span class="material-symbols-outlined me-1 align-middle">directions_car</span>
+                                            {{ $label }}
                                         </div>
                                     @endforeach
                                 </div>
@@ -192,9 +193,9 @@
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header align-items-center">
-                            <h3 class="card-title">
-                                <i class="ti ti-gas-station me-2"></i>
-                                Cargas realizadas con esta tarjeta
+                            <h3 class="card-title d-flex align-items-center gap-2">
+                                <span class="material-symbols-outlined">local_gas_station</span>
+                                <span>Cargas realizadas con esta tarjeta</span>
                             </h3>
 
                             <div class="ms-auto d-flex gap-2 align-items-center">
@@ -203,7 +204,7 @@
                                    class="btn btn-success disabled"
                                    aria-disabled="true"
                                    title="Próximamente">
-                                    <i class="ti ti-file-spreadsheet me-1"></i>
+                                    <span class="material-symbols-outlined me-1 align-middle">table_view</span>
                                     Exportar a Excel
                                 </a>
 
@@ -251,7 +252,8 @@
                                         </td>
                                         <td class="text-nowrap">
                                             <span class="badge bg-blue-lt">
-                                                <i class="ti ti-car me-1"></i> {{ $vehLabel }}
+                                                <span class="material-symbols-outlined me-1 align-middle">directions_car</span>
+                                                {{ $vehLabel }}
                                             </span>
                                         </td>
                                         <td>
@@ -272,6 +274,7 @@
                                     <tr>
                                         <td colspan="9">
                                             <div class="text-center text-secondary py-4">
+                                                <span class="material-symbols-outlined me-2 align-middle">database_off</span>
                                                 No hay cargas registradas para esta tarjeta.
                                             </div>
                                         </td>
@@ -299,4 +302,119 @@
 
         </div>
     </div>
+
+    {{-- MODALES --}}
+    <div class="modal modal-blur fade" id="vehicleModal" tabindex="-1" aria-labelledby="vehicleModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <p class="text-secondary text-uppercase small mb-1">Detalles del Vehículo</p>
+                        <h3 class="modal-title h4" id="vehicleModalLabel">Vehículo</h3>
+                        <div class="text-secondary small" id="vehicleModalSubtitle"></div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    {{-- Datos generales (sin íconos aquí) --}}
+
+                    {{-- Fotos --}}
+                    <div class="card mb-3">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <h4 class="card-title mb-0 d-flex align-items-center gap-2">
+                                <span class="material-symbols-outlined">photo_library</span>
+                                <span>Fotos del vehículo</span>
+                            </h4>
+                            <div class="d-flex gap-2">
+                                <a id="managePhotosLink" href="#" class="btn btn-outline-secondary btn-sm">
+                                    <span class="material-symbols-outlined me-1 align-middle">add_photo_alternate</span>
+                                    Gestionar fotos
+                                </a>
+                                <button id="openGalleryBtn" type="button" class="btn btn-dark btn-sm d-none">
+                                    <span class="material-symbols-outlined me-1 align-middle">slideshow</span>
+                                    Ver galería
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="photosEmpty" class="text-secondary small">Este vehículo no tiene fotos.</div>
+                            <div id="photosGrid" class="row g-2"></div>
+                        </div>
+                    </div>
+
+                    {{-- Tanques --}}
+                    <div class="card">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <h4 class="card-title mb-0">Tanques de combustible</h4>
+                            <a id="addTankLink" href="#" class="btn btn-success btn-sm">
+                                <span class="material-symbols-outlined me-1 align-middle">add_box</span>
+                                Agregar
+                            </a>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-vcenter card-table mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Tipo</th>
+                                            <th>Capacidad (L)</th>
+                                            <th>Rend. (km/L)</th>
+                                            <th>Km recorre</th>
+                                            <th>Costo tanque lleno</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tanksTbody">
+                                        <tr><td colspan="6" class="text-secondary small">Este vehículo no tiene tanques.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <a id="editVehicleLink" href="#" class="btn btn-outline-secondary">
+                        <span class="material-symbols-outlined me-1 align-middle">edit</span>
+                        Editar vehículo
+                    </a>
+                    <button class="btn btn-primary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- MODAL GALERÍA --}}
+    <div class="modal modal-blur fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title h4" id="galleryModalLabel">
+                        <span class="material-symbols-outlined me-2 align-middle">photo_library</span>
+                        Galería de fotos
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div id="galleryCarousel" class="carousel slide" data-bs-interval="false" data-bs-touch="true">
+                        <div class="carousel-inner" id="galleryInner"></div>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Anterior</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Siguiente</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="thumbs" id="galleryThumbs"></div>
+            </div>
+        </div>
+    </div>
+
 </x-app-layout>

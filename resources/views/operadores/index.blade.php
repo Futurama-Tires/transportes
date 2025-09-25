@@ -1,4 +1,4 @@
-{{-- resources/views/operadores/index.blade.php — versión Tabler (acciones separadas, filtros en offcanvas y numeración sin mostrar ID) --}}
+{{-- resources/views/operadores/index.blade.php — versión Tabler (acciones separadas, filtros en offcanvas y numeración continua) --}}
 <x-app-layout>
     {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
     @vite(['resources/js/app.js'])
@@ -96,19 +96,15 @@
 
                             {{-- Acciones --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                <div class="btn-group">
-                                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="ti ti-download me-1" aria-hidden="true"></i>Exportar
-                                    </button>
-                                    <div class="dropdown-menu dropdown-menu-end">
-                                        <a class="dropdown-item" href="#">
-                                            <i class="ti ti-file-spreadsheet me-2" aria-hidden="true"></i>Excel
-                                        </a>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="ti ti-file-description me-2" aria-hidden="true"></i>PDF
-                                        </a>
-                                    </div>
-                                </div>
+                                {{-- Botón único: Exportar Excel --}}
+                                <a
+                                    href="{{ route('operadores.index', array_merge(request()->only($keepParams), ['export'=>'xlsx'])) }}"
+                                    class="btn btn-outline-success"
+                                    role="button"
+                                >
+                                    <i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
+                                    Exportar
+                                </a>
 
                                 {{-- Botón Filtros (abre Offcanvas) --}}
                                 <button
@@ -232,8 +228,10 @@
                                     $emTel    = $op->contacto_emergencia_tel ?: null;
                                 @endphp
                                 <tr>
-                                    {{-- Numeración independiente del filtro/orden (reinicia por página) --}}
-                                    <td class="text-center text-nowrap">{{ $loop->iteration }}</td>
+                                    {{-- Numeración continua por página --}}
+                                    <td class="text-center text-nowrap">
+                                        {{ ($firstItem ?? 0) + $loop->index }}
+                                    </td>
 
                                     <td class="text-nowrap">
                                         <div class="d-flex align-items-center gap-2">

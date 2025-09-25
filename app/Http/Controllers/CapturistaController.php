@@ -9,13 +9,24 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
+// === Exportación Excel ===
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CapturistasExport;
+
 class CapturistaController extends Controller
 {
-    public function index(\Illuminate\Http\Request $request)
+    public function index(Request $request)
     {
+        // Si viene ?export=xlsx, exportamos SIN paginar, con los filtros/orden actuales
+        if ($request->get('export') === 'xlsx') {
+            $filename = 'capturistas_' . now()->format('Ymd_His') . '.xlsx';
+            return Excel::download(new CapturistasExport($request), $filename);
+        }
+
+        // Filtros usados en el index (igual que antes)
         $filters = $request->only(['search', 'sort_by', 'sort_dir']);
 
-        $capturistas = \App\Models\Capturista::query()
+        $capturistas = Capturista::query()
             ->with('user')
             ->filter($filters)
             ->paginate(25)           // paginación solicitada
@@ -23,7 +34,6 @@ class CapturistaController extends Controller
 
         return view('capturistas.index', compact('capturistas'));
     }
-
 
     public function create()
     {
@@ -113,7 +123,7 @@ class CapturistaController extends Controller
     {
         $capturista = Capturista::with('user')->findOrFail($id);
 
-        // Elimina el usuario (si la FK de capturistas -> users tiene ON DELETE CASCADE, eliminará el capturista)
+        // Elimina el usuario (si la FK tiene ON DELETE CASCADE, eliminará el capturista)
         $capturista->user->delete();
 
         return redirect()->route('capturistas.index')->with('success', 'Capturista eliminado correctamente');

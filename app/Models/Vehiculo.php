@@ -69,10 +69,10 @@ class Vehiculo extends Model
         'vencimiento_t_circulacion',
         'cambio_placas',
         'poliza_hdi',
-        'poliza_latino',   // 👈 nuevo
-        'poliza_qualitas', // 👈 nuevo
+        'poliza_latino',  
+        'poliza_qualitas', 
         'rend',
-        'kilometros', // 👈 odómetro
+        'kilometros', 
     ];
 
     protected $casts = [

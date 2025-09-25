@@ -10,6 +10,10 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+// === Exportación Excel ===
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\VehiculosExport;
+
 class VehiculoController extends Controller
 {
     public function __construct()
@@ -21,13 +25,21 @@ class VehiculoController extends Controller
     /** Listado con filtros y paginación. */
     public function index(Request $request)
     {
+        // Si viene ?export=xlsx, exportamos SIN paginar, con los filtros/orden actuales
+        if ($request->get('export') === 'xlsx') {
+            $filename = 'vehiculos_' . now()->format('Ymd_His') . '.xlsx';
+            return Excel::download(new VehiculosExport($request), $filename);
+        }
+
+        $sortBy  = $request->get('sort_by', 'unidad'); // ← default: unidad
+        $sortDir = $request->get('sort_dir', 'asc');   // ← default: asc
+
         $vehiculos = Vehiculo::with(['tarjetaSiVale','tanques','fotos'])
             ->filter($request->all())
-            ->sort($request->get('sort_by'), $request->get('sort_dir'))
-            ->paginate(25)
+            ->sort($sortBy, $sortDir)
+            ->paginate(15)
             ->withQueryString();
 
-        // Único catálogo requerido ahora: marcas
         $marcas = Vehiculo::select('marca')
             ->whereNotNull('marca')
             ->where('marca', '!=', '')
@@ -165,11 +177,9 @@ class VehiculoController extends Controller
             'vencimiento_t_circulacion' => ['nullable', 'string', 'max:255'],
             'cambio_placas'             => ['nullable', 'string', 'max:255'],
             'poliza_hdi'                => ['nullable', 'string', 'max:255'],
-            // 👇 Nuevos campos
+            // Nuevos campos
             'poliza_latino'             => ['nullable', 'string', 'max:255'],
             'poliza_qualitas'           => ['nullable', 'string', 'max:255'],
-            // eliminado: 'rend'
-            // (si quieres validar kilometros, podrías añadir: 'kilometros' => ['nullable','integer','min:0'])
         ], [
             'serie.unique' => 'La serie ya está registrada.',
             'placa.unique' => 'La placa ya está registrada.',

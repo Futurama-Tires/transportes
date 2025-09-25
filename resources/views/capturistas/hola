@@ -1,3 +1,277 @@
+Ahora dame la funcionalidad de poder exportar a excel.
+Los datos que se exportarán son los que se muestren en el index, y si se les aplicó algún filtro entonces se exportarán solo los datos filtrados.
+Te dejo como lo hago en app/exports/OperadoresExport.php para que copies el diseño tal cual lo hago en ese, para mantener un estandar, tambien te paso el controlador e index de vehiculos
+
+OperadoresExport:
+
+<?php
+
+namespace App\Exports;
+
+use App\Models\Operador;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithCustomStartCell;
+use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\WithDrawings;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+
+class OperadoresExport implements
+    FromQuery,
+    WithHeadings,
+    WithMapping,
+    ShouldAutoSize,
+    WithEvents,
+    WithCustomStartCell,
+    WithTitle,
+    WithDrawings
+{
+    protected array $params;
+    protected int $rowNumber = 0;
+
+    /** Última columna usada (A..H) para merges/estilos */
+    private const LAST_COL = 'H';
+
+    /** Fila donde empiezan los datos (después del header visual) */
+    private const DATA_START_ROW = 6;
+
+    /**
+     * @param  Request|array  $params
+     */
+    public function __construct($params = [])
+    {
+        $this->params = $params instanceof Request ? $params->all() : (array) $params;
+    }
+
+    /**
+     * Exporta TODOS los registros que cumplen filtros/orden actuales (sin paginar).
+     */
+    public function query()
+    {
+        $sortBy  = $this->params['sort_by']  ?? 'nombre_completo';
+        $sortDir = $this->params['sort_dir'] ?? 'asc';
+        $sortDir = $sortDir === 'desc' ? 'desc' : 'asc';
+
+        $q = Operador::query()
+            ->with(['user'])
+            ->filter($this->params);
+
+        if ($sortBy === 'nombre_completo') {
+            $q->orderByRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) {$sortDir}");
+        } elseif ($sortBy === 'email') {
+            $q->leftJoin('users', 'operadores.user_id', '=', 'users.id')
+              ->orderBy('users.email', $sortDir)
+              ->select('operadores.*');
+        } else {
+            $q->orderBy($sortBy, $sortDir);
+        }
+
+        return $q;
+    }
+
+    /**
+     * Título de la hoja.
+     */
+    public function title(): string
+    {
+        return 'Operadores';
+    }
+
+    /**
+     * Encabezados de columnas (fila 5 en este diseño).
+     */
+    public function headings(): array
+    {
+        return [
+            '#',
+            'Nombre completo',
+            'Correo electrónico',
+            'Teléfono',
+            'Tipo sangre',
+            'Contacto emergencia',
+            'Tel. emergencia',
+            'Creado el',
+        ];
+    }
+
+    /**
+     * La celda donde inician los encabezados de columnas.
+     */
+    public function startCell(): string
+    {
+        // Encabezados de columnas van en la fila 5, datos empiezan en la 6
+        return 'A5';
+    }
+
+    /**
+     * Logo en A1.
+     */
+    public function drawings()
+    {
+        $logoPath = public_path('images/logoOriginal2.png'); // \transportes\public\images\logoOriginal.png
+        if (!file_exists($logoPath)) {
+            return null;
+        }
+
+        $drawing = new Drawing();
+        $drawing->setName('Logo');
+        $drawing->setDescription('Futurama Tires');
+        $drawing->setPath($logoPath);
+        $drawing->setHeight(48);       // ajusta si deseas más grande
+        $drawing->setCoordinates('A1'); // posición
+        $drawing->setOffsetX(5);
+        $drawing->setOffsetY(2);
+
+        return $drawing;
+    }
+
+    /**
+     * Mapeo de cada fila (modelo Operador -> fila XLSX).
+     */
+    public function map($op): array
+    {
+        $this->rowNumber++;
+
+        $nombre = $op->nombre_completo
+            ?? trim(($op->nombre ?? '') . ' ' . ($op->apellido_paterno ?? '') . ' ' . ($op->apellido_materno ?? ''));
+
+        return [
+            $this->rowNumber,
+            $nombre ?: 'Operador',
+            optional($op->user)->email ?: '—',
+            $op->telefono ?: '—',
+            $op->tipo_sangre ?: '—',
+            $op->contacto_emergencia_nombre ?: '—',
+            $op->contacto_emergencia_tel ?: '—',
+            optional($op->created_at)?->format('Y-m-d H:i') ?: '—',
+        ];
+    }
+
+    /**
+     * Estilos y header visual (logo, título, subtítulo, fecha, bordes).
+     */
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $e) {
+                $sheet   = $e->sheet->getDelegate();
+                $lastCol = self::LAST_COL;
+
+                // Reservamos la columna A para el logo; colocamos textos de encabezado a partir de B
+                // Fila 1: Futurama Tires
+                $sheet->mergeCells("B1:{$lastCol}1");
+                $sheet->setCellValue('B1', 'Futurama Tires');
+
+                // Fila 2: Reporte de Operadores
+                $sheet->mergeCells("B2:{$lastCol}2");
+                $sheet->setCellValue('B2', 'Reporte de Operadores');
+
+                // Fila 3: Fecha de generación
+                $sheet->mergeCells("B3:{$lastCol}3");
+                $sheet->setCellValue('B3', 'Fecha de generación: ' . now()->format('Y-m-d H:i'));
+
+                // Fondo claro para bandas superiores (A1:H3) y bordes gruesos alrededor del bloque
+                $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
+                    'font'      => [
+                        'bold' => true,
+                        'size' => 32,
+                        'color' => ['rgb' => 'F6F7EB'], // Color blanco
+                        'name' => 'Arial', // Fuente Arial
+                        'italic' => true
+                    ],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => 'E94F37']],
+                ]);
+                $sheet->getRowDimension(1)->setRowHeight(42);
+
+                $sheet->getStyle("A2:{$lastCol}2")->applyFromArray([
+                    'font'      => ['bold' => true, 'size' => 12, 'name' => 'Arial', 'color' => ['rgb' => '393E41']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => 'F6F7EB']],
+                ]);
+                $sheet->getRowDimension(2)->setRowHeight(22);
+
+                $sheet->getStyle("A3:{$lastCol}3")->applyFromArray([
+                    'font'      => ['size' => 10,'name' => 'Arial', 'color' => ['rgb' => 'f8f8ff']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => '393E41']],
+                ]);
+                $sheet->getRowDimension(3)->setRowHeight(18);
+
+                // Borde grueso que envuelve el encabezado (filas 1 a 3)
+                $sheet->getStyle("A1:{$lastCol}3")->applyFromArray([
+                    'borders' => [
+                        'outline' => [
+                            'borderStyle' => Border::BORDER_THICK,
+                            'color'       => ['rgb' => '3d0600'],
+                        ],
+                    ],
+                ]);
+
+                // Encabezados de tabla (fila 5)
+                $sheet->getStyle("A5:{$lastCol}5")->applyFromArray([
+                    'font'      => ['bold' => true],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => 'EFEFEF']],
+                    'borders'   => [
+                        'allBorders' => [
+                            'borderStyle' => Border::BORDER_THIN,
+                            'color'       => ['rgb' => '3d0600'],
+                        ],
+                    ],
+                ]);
+                // Borde grueso envolviendo la fila de headers de la tabla
+                $sheet->getStyle("A5:{$lastCol}5")->applyFromArray([
+                    'borders' => [
+                        'outline' => [
+                            'borderStyle' => Border::BORDER_THICK,
+                            'color'       => ['rgb' => '3d0600'],
+                        ],
+                    ],
+                ]);
+
+                // Auto–filter en la fila de encabezados
+                $sheet->setAutoFilter("A5:{$lastCol}5");
+
+                // Bordes finos para toda la tabla de datos
+                $dataLastRow = max(5, self::DATA_START_ROW + $this->rowNumber - 1);
+                if ($dataLastRow >= self::DATA_START_ROW) {
+                    $sheet->getStyle("A".self::DATA_START_ROW.":{$lastCol}{$dataLastRow}")->applyFromArray([
+                        'borders' => [
+                            'allBorders' => [
+                                'borderStyle' => Border::BORDER_HAIR,
+                                'color'       => ['rgb' => 'DDDDDD'],
+                            ],
+                        ],
+                    ]);
+                    // Alinear números de fila y fechas
+                    $sheet->getStyle("A".self::DATA_START_ROW.":A{$dataLastRow}")
+                          ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                    $sheet->getStyle("H".self::DATA_START_ROW.":H{$dataLastRow}")
+                          ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
+
+                // Ajuste: un pequeño ancho para la columna A (logo) si fuese necesario
+                // (AutoSize está activo, pero aseguramos mínimo)
+                $currentWidth = $sheet->getColumnDimension('A')->getWidth();
+                if ($currentWidth < 12) {
+                    $sheet->getColumnDimension('A')->setWidth(12);
+                }
+            },
+        ];
+    }
+}
+
+vehiculos index:
+
 {{-- resources/views/vehiculos/index.blade.php
      Vista Index (Tabler + Bootstrap) para la gestión de Vehículos
 --}}
@@ -30,9 +304,6 @@
                 'anio'        => 'Año',
                 'propietario' => 'Propietario',
             ];
-
-            // URL de exportación a Excel con filtros actuales (excepto la página)
-            $exportHref = route('vehiculos.index', array_merge(request()->except('page'), ['export' => 'xlsx']));
         @endphp
 
         {{-- HEADER --}}
@@ -93,13 +364,15 @@
 
                                 {{-- Acciones --}}
                                 <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                    {{-- Botón único: Exportar Excel --}}
-                                    <a href="{{ $exportHref }}"
-                                    class="btn btn-success"
-                                    title="Exportar a Excel">
-                                        <i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
-                                        Exportar
-                                    </a>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="ti ti-download me-1" aria-hidden="true"></i>Exportar
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end">
+                                            <a class="dropdown-item" href="#"><i class="ti ti-file-spreadsheet me-2" aria-hidden="true"></i>Excel</a>
+                                            <a class="dropdown-item" href="#"><i class="ti ti-file-description me-2" aria-hidden="true"></i>PDF</a>
+                                        </div>
+                                    </div>
 
                                     {{-- Botón Filtros --}}
                                     <button
@@ -116,7 +389,6 @@
                                         @endif
                                     </button>
                                 </div>
-
                             </div>
 
                             {{-- Resumen cuando hay búsqueda --}}
@@ -511,3 +783,190 @@
 
     </div>
 </x-app-layout>
+
+Vehiculos controller
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Vehiculo;
+use App\Models\TarjetaSiVale;
+use App\Models\VehiculoFoto;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+
+class VehiculoController extends Controller
+{
+    public function __construct()
+    {
+        // Listar/crear/editar para admin o capturista
+        $this->middleware(['auth', 'role:administrador|capturista']);
+    }
+
+    /** Listado con filtros y paginación. */
+    public function index(Request $request)
+    {
+        $sortBy  = $request->get('sort_by', 'unidad'); // ← default: unidad
+        $sortDir = $request->get('sort_dir', 'asc');   // ← default: asc
+
+        $vehiculos = Vehiculo::with(['tarjetaSiVale','tanques','fotos'])
+            ->filter($request->all())
+            ->sort($sortBy, $sortDir)
+            ->paginate(15)
+            ->withQueryString();
+
+        $marcas = Vehiculo::select('marca')
+            ->whereNotNull('marca')
+            ->where('marca', '!=', '')
+            ->distinct()
+            ->orderBy('marca')
+            ->pluck('marca');
+
+        return view('vehiculos.index', compact('vehiculos', 'marcas'));
+    }
+
+
+    public function create()
+    {
+        $tarjetas = class_exists(TarjetaSiVale::class) ? TarjetaSiVale::orderBy('id')->get() : collect();
+        return view('vehiculos.create', compact('tarjetas'));
+    }
+
+    public function store(Request $request)
+    {
+        // Validación de campos del vehículo (incluye poliza_latino/qualitas)
+        $data = $this->validateVehiculo($request);
+
+        // Crear vehículo
+        $vehiculo = Vehiculo::create($data);
+
+        // Si vienen fotos en el create, validarlas y guardarlas (opcional)
+        if ($request->hasFile('fotos')) {
+            $request->validate([
+                'fotos'   => ['array'],
+                'fotos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            ], [
+                'fotos.*.image' => 'Cada archivo debe ser una imagen.',
+                'fotos.*.mimes' => 'Formatos permitidos: jpg, jpeg, png, webp.',
+                'fotos.*.max'   => 'Cada imagen no debe superar los 8 MB.',
+            ]);
+
+            foreach ($request->file('fotos', []) as $file) {
+                $dir = "vehiculos/{$vehiculo->id}";
+                $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+
+                // Guarda en disco local (privado)
+                $relativePath = $file->storeAs($dir, $filename, 'local');
+
+                VehiculoFoto::create([
+                    'vehiculo_id' => $vehiculo->id,
+                    'ruta'        => $relativePath,
+                    'orden'       => 0,
+                ]);
+            }
+        }
+
+        return redirect()->route('vehiculos.index')
+            ->with('success', 'Vehículo creado correctamente.');
+    }
+
+    public function show(Vehiculo $vehiculo)
+    {
+        $vehiculo->load(['tarjetaSiVale','fotos','tanques']);
+        return view('vehiculos.show', compact('vehiculo'));
+    }
+
+    public function edit(Vehiculo $vehiculo)
+    {
+        $tarjetas = class_exists(TarjetaSiVale::class) ? TarjetaSiVale::orderBy('id')->get() : collect();
+        return view('vehiculos.edit', compact('vehiculo', 'tarjetas'));
+    }
+
+    public function update(Request $request, Vehiculo $vehiculo)
+    {
+        // Validación de campos del vehículo (incluye poliza_latino/qualitas)
+        $data = $this->validateVehiculo($request, $vehiculo->id);
+
+        // Actualizar vehículo
+        $vehiculo->update($data);
+
+        // Si se agregan nuevas fotos desde el formulario de edición
+        if ($request->hasFile('fotos')) {
+            $request->validate([
+                'fotos'   => ['array'],
+                'fotos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            ], [
+                'fotos.*.image' => 'Cada archivo debe ser una imagen.',
+                'fotos.*.mimes' => 'Formatos permitidos: jpg, jpeg, png, webp.',
+                'fotos.*.max'   => 'Cada imagen no debe superar los 8 MB.',
+            ]);
+
+            foreach ($request->file('fotos', []) as $file) {
+                $dir = "vehiculos/{$vehiculo->id}";
+                $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+
+                // Guarda en disco local (privado)
+                $relativePath = $file->storeAs($dir, $filename, 'local');
+
+                VehiculoFoto::create([
+                    'vehiculo_id' => $vehiculo->id,
+                    'ruta'        => $relativePath,
+                    'orden'       => 0,
+                ]);
+            }
+        }
+
+        return redirect()->route('vehiculos.index')
+            ->with('success', 'Vehículo actualizado correctamente.');
+    }
+
+    public function destroy(Vehiculo $vehiculo)
+    {
+        $vehiculo->delete();
+
+        return redirect()->route('vehiculos.index')
+            ->with('success', 'Vehículo eliminado correctamente.');
+    }
+
+    private function validateVehiculo(Request $request, $vehiculoId = null): array
+    {
+        return $request->validate([
+            'ubicacion'                 => ['required', Rule::in(['CVC', 'IXT', 'QRO', 'VALL', 'GDL'])],
+            'propietario'               => ['required', 'string', 'max:255'],
+            'unidad'                    => ['required', 'string', 'max:255'],
+            'marca'                     => ['nullable', 'string', 'max:255'],
+            'anio'                      => ['nullable', 'integer', 'min:1900', 'max:'.date('Y')],
+            'serie'                     => [
+                'required', 'string', 'max:255',
+                Rule::unique('vehiculos', 'serie')->ignore($vehiculoId),
+            ],
+            'motor'                     => ['nullable', 'string', 'max:255'],
+            'placa'                     => [
+                'nullable', 'string', 'max:255',
+                Rule::unique('vehiculos', 'placa')->ignore($vehiculoId),
+            ],
+            'estado'                    => ['nullable', 'string', 'max:255'],
+            // Tabla real en tu BD (según dump): tarjetassivale
+            'tarjeta_si_vale_id'        => ['nullable', 'exists:tarjetassivale,id'],
+            'nip'                       => ['nullable', 'string', 'max:255'],
+            'fec_vencimiento'           => ['nullable', 'string', 'max:255'],
+            'vencimiento_t_circulacion' => ['nullable', 'string', 'max:255'],
+            'cambio_placas'             => ['nullable', 'string', 'max:255'],
+            'poliza_hdi'                => ['nullable', 'string', 'max:255'],
+            // 👇 Nuevos campos
+            'poliza_latino'             => ['nullable', 'string', 'max:255'],
+            'poliza_qualitas'           => ['nullable', 'string', 'max:255'],
+            // eliminado: 'rend'
+            // (si quieres validar kilometros, podrías añadir: 'kilometros' => ['nullable','integer','min:0'])
+        ], [
+            'serie.unique' => 'La serie ya está registrada.',
+            'placa.unique' => 'La placa ya está registrada.',
+            'tarjeta_si_vale_id.exists' => 'La tarjeta seleccionada no es válida.',
+        ]);
+    }
+}
+
+Dame los codigos completos

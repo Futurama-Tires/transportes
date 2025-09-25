@@ -13,6 +13,10 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
 
+// === AÑADIDOS PARA EXPORTAR EXCEL ===
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\OperadoresExport;
+
 /**
  * Controlador de Operadores
  *
@@ -51,14 +55,21 @@ class OperadorController extends Controller
     }
 
     /**
-     * Listado con filtros y paginación.
+     * Listado con filtros y paginación + Exportación Excel.
      */
     public function index(Request $request)
     {
+        // Exportación Excel: respeta filtros y orden actuales, sin paginar (todos los datos que cumplen)
+        if ($request->string('export')->lower()->toString() === 'xlsx') {
+            $filename = 'operadores_' . now()->format('Ymd_His') . '.xlsx';
+            return Excel::download(new OperadoresExport($request), $filename);
+        }
+
+        // Listado normal paginado
         $operadores = Operador::with(['user'])
             ->withCount('fotos')
             ->filter($request->all())
-            ->paginate(25)
+            ->paginate(15)
             ->withQueryString();
 
         return view('operadores.index', compact('operadores'));
@@ -101,7 +112,7 @@ class OperadorController extends Controller
             $user = User::create([
                 'name'     => trim(($data['nombre'] ?? '') . ' ' . ($data['apellido_paterno'] ?? '') . ' ' . ($data['apellido_materno'] ?? '')),
                 'email'    => $request->string('email')->toString(),
-                'password' => Hash::make($passwordPlain),
+                'password' => \Hash::make($passwordPlain),
             ]);
 
             // Asignar rol "operador" si está disponible (Spatie)
@@ -381,13 +392,13 @@ class OperadorController extends Controller
 
         foreach ($dirs as $dir) {
             // Seguridad básica: sólo dentro de BASE_DIR
-            if (Str::startsWith($dir, self::BASE_DIR . '/')) {
+            if (\Str::startsWith($dir, self::BASE_DIR . '/')) {
                 try { $disk->deleteDirectory($dir); } catch (\Throwable $e) {}
             }
         }
 
         // (3) Finalmente, intenta borrar la carpeta base
-        if (Str::startsWith($baseDir, self::BASE_DIR . '/')) {
+        if (\Str::startsWith($baseDir, self::BASE_DIR . '/')) {
             try { $disk->deleteDirectory($baseDir); } catch (\Throwable $e) {}
         }
     }
