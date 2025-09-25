@@ -1,0 +1,2158 @@
+Necesito que implementemos la opción de exportacion a excel la
+información de la vista del index de Cargas de combustible, deberá
+exportar toda la información y respetar filtros y busquedas en caso
+de que los hubiera, del mismo modo debe de respetar el disño que 
+se ha estado manejando en todos los excel.
+
+Te paso VehículosExport para que veas como se maneja, tambien
+te paso el vehiculos index para que adecues cargas index a un solo
+boton de exportar, que sea Excel:
+
+Vehiculos Index:
+{{-- resources/views/vehiculos/index.blade.php
+     Vista Index (Tabler + Bootstrap) para la gestión de Vehículos
+--}}
+<x-app-layout>
+    @vite(['resources/js/app.js', 'resources/js/vehiculos/index.js', 'resources/css/gallery.css'])
+
+    <div id="vehiculos-app"
+         data-base-photo="{{ url('/vehiculos/fotos') }}"
+         data-base-veh="{{ url('/vehiculos') }}">
+
+        @php
+            // Filtros activos (para badge del botón)
+            $ignored = ['search','page','sort_by','sort_dir'];
+            $activeFilters = collect(request()->query())
+                ->reject(fn($v, $k) => in_array($k, $ignored, true))
+                ->filter(fn($v) => is_array($v)
+                    ? collect($v)->filter(fn($x) => $x !== null && $x !== '')->isNotEmpty()
+                    : $v !== null && $v !== ''
+                );
+            $activeCount = $activeFilters->count();
+
+            // Columnas de orden
+            $columns = [
+                'created_at'  => 'Fecha',
+                'id'          => 'ID',
+                'placa'       => 'Placa',
+                'serie'       => 'Serie',
+                'unidad'      => 'Unidad',
+                'marca'       => 'Marca',
+                'anio'        => 'Año',
+                'propietario' => 'Propietario',
+            ];
+
+            // URL de exportación a Excel con filtros actuales (excepto la página)
+            $exportHref = route('vehiculos.index', array_merge(request()->except('page'), ['export' => 'xlsx']));
+        @endphp
+
+        {{-- HEADER --}}
+        <x-slot name="header">
+            <div class="page-header d-print-none">
+                <div class="container-xl">
+                    <div class="row g-2 align-items-center">
+                        <div class="col">
+                            <h2 class="page-title mb-0">Gestión de Vehículos</h2>
+                            <div class="text-secondary small mt-1">Consulta, filtra y administra tu flota.</div>
+                        </div>
+                        <div class="col-auto ms-auto">
+                            <a href="{{ route('vehiculos.create') }}" class="btn btn-primary">
+                                <i class="ti ti-plus me-1" aria-hidden="true"></i>
+                                <span>Agregar Vehículo</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </x-slot>
+
+        <div class="page-body">
+            <div class="container-xl">
+
+                {{-- FLASH ÉXITO --}}
+                @if(session('success'))
+                    <div class="alert alert-success" role="alert">
+                        <i class="ti ti-check me-2" aria-hidden="true"></i>{{ session('success') }}
+                    </div>
+                @endif
+
+                {{-- FORM GLOBAL (GET) --}}
+                <form method="GET" action="{{ route('vehiculos.index') }}" aria-label="Búsqueda y filtros de vehículos">
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row g-2 align-items-center">
+                                {{-- Búsqueda --}}
+                                <div class="col-12 col-xl">
+                                    <div class="input-group" role="search" aria-label="Buscar en vehículos">
+                                        <span class="input-group-text" id="icon-search">
+                                            <i class="ti ti-search" aria-hidden="true"></i>
+                                        </span>
+                                        <input
+                                            type="text"
+                                            name="search"
+                                            value="{{ request('search') }}"
+                                            class="form-control"
+                                            placeholder="Buscar por: ID, Unidad, Placa, Serie, Año, Propietario, Pólizas…"
+                                            aria-label="Término de búsqueda"
+                                            aria-describedby="icon-search"
+                                        >
+                                        <button class="btn btn-primary" type="submit">
+                                            <i class="ti ti-search me-1" aria-hidden="true"></i>Buscar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {{-- Acciones --}}
+                                <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
+                                    {{-- Botón único: Exportar Excel --}}
+                                    <a href="{{ $exportHref }}"
+                                    class="btn btn-success"
+                                    title="Exportar a Excel">
+                                        <i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
+                                        Exportar
+                                    </a>
+
+                                    {{-- Botón Filtros --}}
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-secondary position-relative"
+                                        data-bs-toggle="offcanvas"
+                                        data-bs-target="#filtersOffcanvas"
+                                        aria-controls="filtersOffcanvas"
+                                        aria-label="Abrir filtros">
+                                        <i class="ti ti-adjustments" aria-hidden="true"></i>
+                                        <span class="ms-2">Filtros</span>
+                                        @if($activeCount > 0)
+                                            <span class="badge bg-primary ms-2" aria-label="{{ $activeCount }} filtros activos">{{ $activeCount }}</span>
+                                        @endif
+                                    </button>
+                                </div>
+
+                            </div>
+
+                            {{-- Resumen cuando hay búsqueda --}}
+                            @if(request('search'))
+                                @php
+                                    $total    = $vehiculos->total();
+                                    $first    = $vehiculos->firstItem();
+                                    $last     = $vehiculos->lastItem();
+                                    $current  = $vehiculos->currentPage();
+                                    $lastPage = $vehiculos->lastPage();
+                                @endphp
+                                <div class="mt-3 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between" role="status">
+                                    <div class="small">
+                                        <span class="badge bg-secondary text-uppercase">Filtro</span>
+                                        <span class="ms-2">“{{ request('search') }}”</span>
+                                    </div>
+                                    <div class="text-secondary small mt-2 mt-sm-0">
+                                        @if($total === 0)
+                                            Sin resultados para la búsqueda.
+                                        @elseif($total === 1)
+                                            Resultado <strong>(1 de 1)</strong>
+                                        @else
+                                            Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> —
+                                            Mostrando <strong>{{ $first }}–{{ $last }}</strong> de <strong>{{ $total }}</strong>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- OFFCANVAS (componente) --}}
+                    <x-filters-offcanvas
+                        id="filtersOffcanvas"
+                        title="Filtros"
+                        :clear-url="route('vehiculos.index')"
+                        :backdrop="true"
+                        :scroll="false"
+                    >
+                        <x-slot name="filters">
+                            {{-- Principales --}}
+                            <div class="mb-4">
+                                <div class="text-secondary text-uppercase fw-semibold small mb-2">Principales</div>
+                                <div class="row g-2">
+                                    <x-filter.input name="id"        type="number" label="ID"          class="col-12 col-sm-6" />
+                                    <x-filter.input name="unidad"    label="Unidad"                    class="col-12 col-sm-6" />
+                                    <x-filter.input name="placa"     label="Placa"                     class="col-12 col-sm-6" />
+                                    <x-filter.input name="serie"     label="Serie (VIN)"               class="col-12 col-sm-6" />
+                                    <x-filter.input name="propietario" label="Propietario"            class="col-12 col-sm-6" />
+                                    <x-filter.select name="marca"    label="Marca" :options="$marcas ?? []" empty="Todas" class="col-12 col-sm-6" />
+                                </div>
+                            </div>
+
+                            {{-- Año --}}
+                            <x-filter.number-range
+                                nameMin="anio_min"
+                                nameMax="anio_max"
+                                label="Año"
+                                class="mb-4"
+                            />
+                        </x-slot>
+
+                        <x-slot name="order">
+                            {{-- Orden --}}
+                            <div class="mb-1">
+                                <div class="text-secondary text-uppercase fw-semibold small mb-2">Orden</div>
+                                <div class="row g-2">
+                                    <x-filter.select
+                                        name="sort_by"
+                                        label="Ordenar por"
+                                        :options="$columns"
+                                        :value="request('sort_by','created_at')"
+                                        class="col-12 col-sm-6"
+                                    />
+                                    <x-filter.select
+                                        name="sort_dir"
+                                        label="Dirección"
+                                        :options="['asc' => 'Ascendente','desc' => 'Descendente']"
+                                        :value="request('sort_dir','asc')"
+                                        class="col-12 col-sm-6"
+                                    />
+                                </div>
+                            </div>
+                        </x-slot>
+                    </x-filters-offcanvas>
+                    {{-- /OFFCANVAS --}}
+                </form>
+
+                {{-- TABLA --}}
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="table table-vcenter table-striped table-hover">
+                            <thead>
+                                <tr class="text-uppercase text-secondary small">
+                                    <th class="text-nowrap text-center">#</th>
+                                    <th>Unidad</th>
+                                    <th>Placa</th>
+                                    <th>Serie</th>
+                                    <th>Año</th>
+                                    <th>Propietario</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($vehiculos as $v)
+                                    @php
+                                        $tarjetaNumero = optional($v->tarjetaSiVale)->numero_tarjeta;
+                                        $tarjetaLabel  = $tarjetaNumero ?: ($v->tarjeta_si_vale_id ? ('ID '.$v->tarjeta_si_vale_id) : null);
+
+                                        $vehData = [
+                                            'id'          => $v->id,
+                                            'unidad'      => $v->unidad,
+                                            'placa'       => $v->placa,
+                                            'serie'       => $v->serie,
+                                            'marca'       => $v->marca,
+                                            'anio'        => $v->anio,
+                                            'propietario' => $v->propietario,
+                                            'ubicacion'   => $v->ubicacion ?? null,
+                                            'estado'      => $v->estado ?? null,
+                                            'motor'       => $v->motor ?? null,
+                                            'kilometros'  => $v->kilometros ?? null,
+                                            'tarjeta'     => $tarjetaLabel,
+                                            'tarjeta_si_vale_id' => $v->tarjeta_si_vale_id ?? null,
+                                            'tarjeta_si_vale'    => [
+                                                'numero_tarjeta'    => $tarjetaNumero,
+                                                'fecha_vencimiento' => optional($v->tarjetaSiVale)->fecha_vencimiento,
+                                            ],
+                                            'nip'                       => $v->nip ?? null,
+                                            'fec_vencimiento'           => $v->fec_vencimiento ?? null,
+                                            'vencimiento_t_circulacion' => $v->vencimiento_t_circulacion ?? null,
+                                            'cambio_placas'             => $v->cambio_placas ?? null,
+                                            'poliza_hdi'      => $v->poliza_hdi ?? null,
+                                            'poliza_latino'   => $v->poliza_latino ?? null,
+                                            'poliza_qualitas' => $v->poliza_qualitas ?? null,
+                                            'fotos'   => isset($v->fotos) ? $v->fotos->map(fn($f) => ['id' => $f->id])->values() : [],
+                                            'tanques' => isset($v->tanques) ? $v->tanques->map(fn($t) => [
+                                                'id'                   => $t->id,
+                                                'numero_tanque'        => $t->numero_tanque,
+                                                'tipo_combustible'     => $t->tipo_combustible,
+                                                'capacidad_litros'     => $t->capacidad_litros,
+                                                'rendimiento_estimado' => $t->rendimiento_estimado,
+                                                'km_recorre'           => $t->km_recorre,
+                                                'costo_tanque_lleno'   => $t->costo_tanque_lleno,
+                                            ])->values() : [],
+                                        ];
+                                    @endphp
+                                    <tr>
+                                        <td class="text-nowrap text-center">{{ $loop->iteration }}</td>
+                                        <td class="text-nowrap">{{ $v->unidad ?? '—' }}</td>
+                                        <td class="text-nowrap">{{ $v->placa ?? '—' }}</td>
+                                        <td class="text-nowrap">{{ $v->serie ?? '—' }}</td>
+                                        <td class="text-nowrap">{{ $v->anio ?? '—' }}</td>
+                                        <td class="text-nowrap">{{ $v->propietario ?? '—' }}</td>
+                                        <td class="text-end">
+                                            <div class="d-inline-flex gap-1">
+                                                <button type="button"
+                                                        class="btn btn-outline-secondary btn-sm btn-view-veh"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#vehicleModal"
+                                                        data-veh='@json($vehData, JSON_UNESCAPED_UNICODE)'
+                                                        title="Ver detalles">
+                                                    <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
+                                                </button>
+
+                                                <a href="{{ route('vehiculos.edit', $v) }}"
+                                                   class="btn btn-outline-secondary btn-sm"
+                                                   title="Editar">
+                                                    <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
+                                                </a>
+
+                                                <form action="{{ route('vehiculos.destroy', $v) }}"
+                                                      method="POST"
+                                                      class="d-inline"
+                                                      onsubmit="return confirm('¿Eliminar el vehículo #{{ $v->id }}?');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
+                                                        <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7">
+                                            <div class="empty">
+                                                <div class="empty-icon">
+                                                    <i class="ti ti-database-off" aria-hidden="true"></i>
+                                                </div>
+                                                <p class="empty-title">No hay datos</p>
+                                                <p class="text-secondary empty-subtitle">
+                                                    @if(request()->hasAny(['search','id','unidad','placa','serie','anio_min','anio_max','propietario','marca']))
+                                                        No se encontraron resultados con los filtros aplicados.
+                                                    @else
+                                                        Aún no has registrado vehículos.
+                                                    @endif
+                                                </p>
+                                                <div class="empty-action">
+                                                    @if(request()->hasAny(['search','id','unidad','placa','serie','anio_min','anio_max','propietario','marca']))
+                                                        <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-secondary">
+                                                            Limpiar filtros
+                                                        </a>
+                                                    @endif
+                                                    <a href="{{ route('vehiculos.create') }}" class="btn btn-primary">
+                                                        <i class="ti ti-plus me-2" aria-hidden="true"></i>Agregar Vehículo
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- PAGINACIÓN --}}
+                @if(method_exists($vehiculos, 'links'))
+                    @php
+                        $totalAll    = $vehiculos->total();
+                        $firstAll    = $vehiculos->firstItem();
+                        $lastAll     = $vehiculos->lastItem();
+                        $currentAll  = $vehiculos->currentPage();
+                        $lastPageAll = $vehiculos->lastPage();
+                    @endphp
+                    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
+                        <p class="text-secondary small mb-2 mb-sm-0">
+                            @if($totalAll === 0)
+                                Mostrando 0 resultados
+                            @elseif($totalAll === 1)
+                                Resultado <strong>(1 de 1)</strong>
+                            @else
+                                Página <strong>{{ $currentAll }}</strong> de <strong>{{ $lastPageAll }}</strong> —
+                                Mostrando <strong>{{ $firstAll }}–{{ $lastAll }}</strong> de <strong>{{ $totalAll }}</strong> resultados
+                            @endif
+                        </p>
+                        <div>
+                            {{ $vehiculos->appends(request()->only([
+                                'search','id','unidad','placa','serie','anio_min','anio_max','propietario','marca','sort_by','sort_dir',
+                            ]))->links() }}
+                        </div>
+                    </div>
+                @endif
+
+                {{-- FOOTER --}}
+                <div class="text-center text-secondary small py-4">
+                    © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+                </div>
+            </div>
+        </div>
+
+        {{-- MODAL DETALLE (completo) --}}
+        <div class="modal modal-blur fade" id="vehicleModal" tabindex="-1" aria-labelledby="vehicleModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div>
+                            <p class="text-secondary text-uppercase small mb-1">Detalles del Vehículo</p>
+                            <h3 class="modal-title h4" id="vehicleModalLabel">Vehículo</h3>
+                            <div class="text-secondary small" id="vehicleModalSubtitle"></div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        {{-- Datos generales --}}
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h4 class="card-title mb-0">Datos generales</h4>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">ID</div><div class="fw-semibold" data-v="id">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Unidad</div><div class="fw-semibold" data-v="unidad">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Placa</div><div class="fw-semibold" data-v="placa">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Serie (VIN)</div><div class="fw-semibold" data-v="serie">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Marca</div><div class="fw-semibold" data-v="marca">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Año</div><div class="fw-semibold" data-v="anio">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Propietario</div><div class="fw-semibold" data-v="propietario">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Ubicación</div><div class="fw-semibold" data-v="ubicacion">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Estado</div><div class="fw-semibold" data-v="estado">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Motor</div><div class="fw-semibold" data-v="motor">—</div></div>
+
+                                    {{-- Odómetro --}}
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Kilometraje (km)</div><div class="fw-semibold" data-v="kilometros">—</div></div>
+
+                                    {{-- Tarjeta / documentos --}}
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Tarjeta SiVale</div><div class="fw-semibold" data-v="tarjeta">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">NIP</div><div class="fw-semibold" data-v="nip">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Venc. tarjeta</div><div class="fw-semibold" data-v="fec_vencimiento">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Venc. circ.</div><div class="fw-semibold" data-v="vencimiento_t_circulacion">—</div></div>
+                                    <div class="col-6 col-md-4"><div class="text-secondary small">Cambio de placas</div><div class="fw-semibold" data-v="cambio_placas">—</div></div>
+
+                                    {{-- Pólizas --}}
+                                    <div class="col-12"><div class="text-secondary small">Póliza HDI</div><div class="fw-semibold" data-v="poliza_hdi">—</div></div>
+                                    <div class="col-12"><div class="text-secondary small">Póliza Latino</div><div class="fw-semibold" data-v="poliza_latino">—</div></div>
+                                    <div class="col-12"><div class="text-secondary small">Póliza Qualitas</div><div class="fw-semibold" data-v="poliza_qualitas">—</div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Fotos --}}
+                        <div class="card mb-3">
+                            <div class="card-header d-flex align-items-center justify-content-between">
+                                <h4 class="card-title mb-0">Fotos del vehículo</h4>
+                                <div class="d-flex gap-2">
+                                    <a id="managePhotosLink" href="#" class="btn btn-outline-secondary btn-sm">
+                                        <i class="ti ti-photo-plus me-1" aria-hidden="true"></i>Gestionar fotos
+                                    </a>
+                                    <button id="openGalleryBtn" type="button" class="btn btn-dark btn-sm d-none">
+                                        <i class="ti ti-slideshow me-1" aria-hidden="true"></i>Ver galería
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="photosEmpty" class="text-secondary small">Este vehículo no tiene fotos.</div>
+                                <div id="photosGrid" class="row g-2"></div>
+                            </div>
+                        </div>
+
+                        {{-- Tanques --}}
+                        <div class="card">
+                            <div class="card-header d-flex align-items-center justify-content-between">
+                                <h4 class="card-title mb-0">Tanques de combustible</h4>
+                                <a id="addTankLink" href="#" class="btn btn-success btn-sm">
+                                    <i class="ti ti-square-rounded-plus me-1" aria-hidden="true"></i>Agregar
+                                </a>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-vcenter card-table mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Tipo</th>
+                                                <th>Capacidad (L)</th>
+                                                <th>Rend. (km/L)</th>
+                                                <th>Km recorre</th>
+                                                <th>Costo tanque lleno</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tanksTbody">
+                                            <tr><td colspan="6" class="text-secondary small">Este vehículo no tiene tanques.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="modal-footer">
+                        <a id="editVehicleLink" href="#" class="btn btn-outline-secondary">
+                            <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar vehículo
+                        </a>
+                        <button class="btn btn-primary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- MODAL GALERÍA (estilos en gallery.css) --}}
+        <div class="modal modal-blur fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title h4" id="galleryModalLabel">
+                            <i class="ti ti-photo me-2" aria-hidden="true"></i>Galería de fotos
+                        </h3>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div id="galleryCarousel" class="carousel slide" data-bs-interval="false" data-bs-touch="true">
+                            <div class="carousel-inner" id="galleryInner"></div>
+                            <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Anterior</span>
+                            </button>
+                            <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Siguiente</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="thumbs" id="galleryThumbs"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</x-app-layout>
+
+VehiculosExport:
+
+<?php
+
+namespace App\Exports;
+
+use App\Models\Vehiculo;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithCustomStartCell;
+use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\WithDrawings;
+use Maatwebsite\Excel\Concerns\WithColumnFormatting;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
+use Maatwebsite\Excel\DefaultValueBinder;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+
+class VehiculosExport extends DefaultValueBinder implements
+    FromQuery,
+    WithHeadings,
+    WithMapping,
+    ShouldAutoSize,
+    WithEvents,
+    WithCustomStartCell,
+    WithTitle,
+    WithDrawings,
+    WithColumnFormatting,
+    WithCustomValueBinder
+{
+    protected array $params;
+    protected int $rowNumber = 0;
+
+    /** Última columna usada (A..S) -> 19 columnas incluyendo # */
+    private const LAST_COL = 'S';
+
+    /** Fila donde empiezan los datos (después del header visual) */
+    private const DATA_START_ROW = 6;
+
+    /**
+     * @param  Request|array  $params
+     */
+    public function __construct($params = [])
+    {
+        $this->params = $params instanceof Request ? $params->all() : (array) $params;
+    }
+
+    /**
+     * Exporta TODOS los registros que cumplen filtros/orden actuales (sin paginar).
+     */
+    public function query()
+    {
+        $sortBy  = $this->params['sort_by']  ?? 'unidad';
+        $sortDir = $this->params['sort_dir'] ?? 'asc';
+        $sortDir = $sortDir === 'desc' ? 'desc' : 'asc';
+
+        $q = Vehiculo::query()
+            ->with(['tarjetaSiVale','tanques','fotos'])
+            ->filter($this->params);
+
+        if (method_exists(Vehiculo::query()->getModel(), 'scopeSort')) {
+            $q->sort($sortBy, $sortDir);
+        } else {
+            $q->orderBy($sortBy, $sortDir);
+        }
+
+        return $q;
+    }
+
+    public function title(): string
+    {
+        return 'Vehículos';
+    }
+
+    /**
+     * Columnas: todas (salvo id), más la numeración "#".
+     */
+    public function headings(): array
+    {
+        return [
+            '#',
+            'Ubicación',
+            'Propietario',
+            'Unidad',
+            'Marca',
+            'Año',
+            'Serie',
+            'Motor',
+            'Placa',
+            'Estado',
+            'Tarjeta SiVale',     // número de tarjeta (no ID)
+            'NIP',                // desde tarjetasSiVale.nip
+            'Venc. tarjeta',
+            'Venc. circulación',
+            'Cambio de placas',
+            'Póliza HDI',
+            'Póliza Latino',
+            'Póliza Qualitas',
+            'Kilómetros',
+        ];
+    }
+
+    public function startCell(): string
+    {
+        return 'A5'; // Encabezados en fila 5; datos desde la 6
+    }
+
+    /**
+     * Logo en A1 (igual que en OperadoresExport).
+     */
+    public function drawings()
+    {
+        $logoPath = public_path('images/logoOriginal2.png');
+        if (!file_exists($logoPath)) {
+            return null;
+        }
+
+        $drawing = new Drawing();
+        $drawing->setName('Logo');
+        $drawing->setDescription('Futurama Tires');
+        $drawing->setPath($logoPath);
+        $drawing->setHeight(48);
+        $drawing->setCoordinates('A1');
+        $drawing->setOffsetX(5);
+        $drawing->setOffsetY(2);
+
+        return $drawing;
+    }
+
+    /**
+     * Mapeo de cada fila: numeración + atributos (sin id).
+     * Tarjeta SiVale: número como string (evita 5.2E+15).
+     * NIP: se toma de la relación tarjetasSiVale.nip y se exporta como string.
+     * Venc. tarjeta: usa $v->fec_vencimiento o, si está vacío, la fecha de la relación.
+     */
+    public function map($v): array
+    {
+        $this->rowNumber++;
+
+        // Tarjeta como STRING
+        $numeroTarjeta = optional($v->tarjetaSiVale)->numero_tarjeta;
+        $numeroTarjeta = ($numeroTarjeta !== null && $numeroTarjeta !== '') ? (string) $numeroTarjeta : '—';
+
+        // NIP desde la relación, como STRING
+        $nipRel = optional($v->tarjetaSiVale)->nip;
+        $nip    = ($nipRel !== null && trim((string)$nipRel) !== '') ? (string) $nipRel : '—';
+
+        $vencTarjeta = $v->fec_vencimiento ?: optional($v->tarjetaSiVale)->fecha_vencimiento;
+
+        return [
+            $this->rowNumber,                               // A
+            $v->ubicacion          ?? '—',                  // B
+            $v->propietario        ?? '—',                  // C
+            $v->unidad             ?? '—',                  // D
+            $v->marca              ?? '—',                  // E
+            $v->anio               ?? '—',                  // F
+            $v->serie              ?? '—',                  // G
+            $v->motor              ?? '—',                  // H
+            $v->placa              ?? '—',                  // I
+            $v->estado             ?? '—',                  // J
+            $numeroTarjeta,                                  // K
+            $nip,                                            // L
+            $vencTarjeta           ?: '—',                  // M
+            $v->vencimiento_t_circulacion ?? '—',           // N
+            $v->cambio_placas      ?? '—',                  // O
+            $v->poliza_hdi         ?? '—',                  // P
+            $v->poliza_latino      ?? '—',                  // Q
+            $v->poliza_qualitas    ?? '—',                  // R
+            isset($v->kilometros)  ? (int) $v->kilometros  : '—', // S
+        ];
+    }
+
+    /**
+     * Fuerza formatos de columna.
+     * K (Tarjeta SiVale) y L (NIP) como TEXTO para preservar dígitos.
+     */
+    public function columnFormats(): array
+    {
+        return [
+            'K' => NumberFormat::FORMAT_TEXT, // Tarjeta SiVale
+            'L' => NumberFormat::FORMAT_TEXT, // NIP
+        ];
+    }
+
+    /**
+     * Value Binder: asegura que K y L se escriban como TEXTO (no número).
+     */
+    public function bindValue(Cell $cell, $value)
+    {
+        $col = $cell->getColumn();
+
+        if (in_array($col, ['K', 'L'], true) && $value !== null && $value !== '—' && $value !== '') {
+            $cell->setValueExplicit((string) $value, DataType::TYPE_STRING);
+            return true;
+        }
+
+        return parent::bindValue($cell, $value);
+    }
+
+    /**
+     * Estilos y header visual (idéntico a OperadoresExport; ajustado a LAST_COL).
+     */
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $e) {
+                $sheet   = $e->sheet->getDelegate();
+                $lastCol = self::LAST_COL;
+
+                // Fila 1: Futurama Tires
+                $sheet->mergeCells("B1:{$lastCol}1");
+                $sheet->setCellValue('B1', 'Futurama Tires');
+
+                // Fila 2: Reporte de Vehículos
+                $sheet->mergeCells("B2:{$lastCol}2");
+                $sheet->setCellValue('B2', 'Reporte de Vehículos');
+
+                // Fila 3: Fecha de generación
+                $sheet->mergeCells("B3:{$lastCol}3");
+                $sheet->setCellValue('B3', 'Fecha de generación: ' . now()->format('Y-m-d H:i'));
+
+                // Bandas 1-3
+                $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
+                    'font'      => ['bold' => true, 'size' => 32, 'color' => ['rgb' => 'F6F7EB'], 'name' => 'Arial', 'italic' => true],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => 'E94F37']],
+                ]);
+                $sheet->getRowDimension(1)->setRowHeight(42);
+
+                $sheet->getStyle("A2:{$lastCol}2")->applyFromArray([
+                    'font'      => ['bold' => true, 'size' => 12, 'name' => 'Arial', 'color' => ['rgb' => '393E41']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => 'F6F7EB']],
+                ]);
+                $sheet->getRowDimension(2)->setRowHeight(22);
+
+                $sheet->getStyle("A3:{$lastCol}3")->applyFromArray([
+                    'font'      => ['size' => 10, 'name' => 'Arial', 'color' => ['rgb' => 'f8f8ff']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => '393E41']],
+                ]);
+                $sheet->getRowDimension(3)->setRowHeight(18);
+
+                // Borde grueso alrededor del encabezado
+                $sheet->getStyle("A1:{$lastCol}3")->applyFromArray([
+                    'borders' => [
+                        'outline' => ['borderStyle' => Border::BORDER_THICK, 'color' => ['rgb' => '3d0600']],
+                    ],
+                ]);
+
+                // Encabezados de tabla (fila 5)
+                $sheet->getStyle("A5:{$lastCol}5")->applyFromArray([
+                    'font'      => ['bold' => true],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+                    'fill'      => ['fillType' => Fill::FILL_SOLID, 'color' => ['rgb' => 'EFEFEF']],
+                    'borders'   => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '3d0600']],
+                    ],
+                ]);
+                // Borde grueso envolviendo headers
+                $sheet->getStyle("A5:{$lastCol}5")->applyFromArray([
+                    'borders' => [
+                        'outline' => ['borderStyle' => Border::BORDER_THICK, 'color' => ['rgb' => '3d0600']],
+                    ],
+                ]);
+
+                // Autofiltro
+                $sheet->setAutoFilter("A5:{$lastCol}5");
+
+                // Bordes finos para la tabla de datos
+                $dataLastRow = max(5, self::DATA_START_ROW + $this->rowNumber - 1);
+                if ($dataLastRow >= self::DATA_START_ROW) {
+                    $sheet->getStyle("A".self::DATA_START_ROW.":{$lastCol}{$dataLastRow}")->applyFromArray([
+                        'borders' => [
+                            'allBorders' => ['borderStyle' => Border::BORDER_HAIR, 'color' => ['rgb' => 'DDDDDD']],
+                        ],
+                    ]);
+
+                    // Alineaciones útiles (#, Año, Tarjeta, NIP, Kilómetros)
+                    $sheet->getStyle("A".self::DATA_START_ROW.":A{$dataLastRow}")
+                          ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER); // #
+                    $sheet->getStyle("F".self::DATA_START_ROW.":F{$dataLastRow}")
+                          ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER); // Año
+                    $sheet->getStyle("K".self::DATA_START_ROW.":K{$dataLastRow}")
+                          ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER); // Tarjeta SiVale (texto)
+                    $sheet->getStyle("L".self::DATA_START_ROW.":L{$dataLastRow}")
+                          ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER); // NIP (texto)
+                    $sheet->getStyle("S".self::DATA_START_ROW.":S{$dataLastRow}")
+                          ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER); // Kilómetros
+                }
+
+                // Ancho mínimo para la columna A (logo/numeración)
+                $currentWidth = $sheet->getColumnDimension('A')->getWidth();
+                if ($currentWidth < 12) {
+                    $sheet->getColumnDimension('A')->setWidth(12);
+                }
+            },
+        ];
+    }
+}
+
+VehiculoController:
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Vehiculo;
+use App\Models\TarjetaSiVale;
+use App\Models\VehiculoFoto;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+
+// === Exportación Excel ===
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\VehiculosExport;
+
+class VehiculoController extends Controller
+{
+    public function __construct()
+    {
+        // Listar/crear/editar para admin o capturista
+        $this->middleware(['auth', 'role:administrador|capturista']);
+    }
+
+    /** Listado con filtros y paginación. */
+    public function index(Request $request)
+    {
+        // Si viene ?export=xlsx, exportamos SIN paginar, con los filtros/orden actuales
+        if ($request->get('export') === 'xlsx') {
+            $filename = 'vehiculos_' . now()->format('Ymd_His') . '.xlsx';
+            return Excel::download(new VehiculosExport($request), $filename);
+        }
+
+        $sortBy  = $request->get('sort_by', 'unidad'); // ← default: unidad
+        $sortDir = $request->get('sort_dir', 'asc');   // ← default: asc
+
+        $vehiculos = Vehiculo::with(['tarjetaSiVale','tanques','fotos'])
+            ->filter($request->all())
+            ->sort($sortBy, $sortDir)
+            ->paginate(15)
+            ->withQueryString();
+
+        $marcas = Vehiculo::select('marca')
+            ->whereNotNull('marca')
+            ->where('marca', '!=', '')
+            ->distinct()
+            ->orderBy('marca')
+            ->pluck('marca');
+
+        return view('vehiculos.index', compact('vehiculos', 'marcas'));
+    }
+
+    public function create()
+    {
+        $tarjetas = class_exists(TarjetaSiVale::class) ? TarjetaSiVale::orderBy('id')->get() : collect();
+        return view('vehiculos.create', compact('tarjetas'));
+    }
+
+    public function store(Request $request)
+    {
+        // Validación de campos del vehículo (incluye poliza_latino/qualitas)
+        $data = $this->validateVehiculo($request);
+
+        // Crear vehículo
+        $vehiculo = Vehiculo::create($data);
+
+        // Si vienen fotos en el create, validarlas y guardarlas (opcional)
+        if ($request->hasFile('fotos')) {
+            $request->validate([
+                'fotos'   => ['array'],
+                'fotos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            ], [
+                'fotos.*.image' => 'Cada archivo debe ser una imagen.',
+                'fotos.*.mimes' => 'Formatos permitidos: jpg, jpeg, png, webp.',
+                'fotos.*.max'   => 'Cada imagen no debe superar los 8 MB.',
+            ]);
+
+            foreach ($request->file('fotos', []) as $file) {
+                $dir = "vehiculos/{$vehiculo->id}";
+                $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+
+                // Guarda en disco local (privado)
+                $relativePath = $file->storeAs($dir, $filename, 'local');
+
+                VehiculoFoto::create([
+                    'vehiculo_id' => $vehiculo->id,
+                    'ruta'        => $relativePath,
+                    'orden'       => 0,
+                ]);
+            }
+        }
+
+        return redirect()->route('vehiculos.index')
+            ->with('success', 'Vehículo creado correctamente.');
+    }
+
+    public function show(Vehiculo $vehiculo)
+    {
+        $vehiculo->load(['tarjetaSiVale','fotos','tanques']);
+        return view('vehiculos.show', compact('vehiculo'));
+    }
+
+    public function edit(Vehiculo $vehiculo)
+    {
+        $tarjetas = class_exists(TarjetaSiVale::class) ? TarjetaSiVale::orderBy('id')->get() : collect();
+        return view('vehiculos.edit', compact('vehiculo', 'tarjetas'));
+    }
+
+    public function update(Request $request, Vehiculo $vehiculo)
+    {
+        // Validación de campos del vehículo (incluye poliza_latino/qualitas)
+        $data = $this->validateVehiculo($request, $vehiculo->id);
+
+        // Actualizar vehículo
+        $vehiculo->update($data);
+
+        // Si se agregan nuevas fotos desde el formulario de edición
+        if ($request->hasFile('fotos')) {
+            $request->validate([
+                'fotos'   => ['array'],
+                'fotos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            ], [
+                'fotos.*.image' => 'Cada archivo debe ser una imagen.',
+                'fotos.*.mimes' => 'Formatos permitidos: jpg, jpeg, png, webp.',
+                'fotos.*.max'   => 'Cada imagen no debe superar los 8 MB.',
+            ]);
+
+            foreach ($request->file('fotos', []) as $file) {
+                $dir = "vehiculos/{$vehiculo->id}";
+                $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+
+                // Guarda en disco local (privado)
+                $relativePath = $file->storeAs($dir, $filename, 'local');
+
+                VehiculoFoto::create([
+                    'vehiculo_id' => $vehiculo->id,
+                    'ruta'        => $relativePath,
+                    'orden'       => 0,
+                ]);
+            }
+        }
+
+        return redirect()->route('vehiculos.index')
+            ->with('success', 'Vehículo actualizado correctamente.');
+    }
+
+    public function destroy(Vehiculo $vehiculo)
+    {
+        $vehiculo->delete();
+
+        return redirect()->route('vehiculos.index')
+            ->with('success', 'Vehículo eliminado correctamente.');
+    }
+
+    private function validateVehiculo(Request $request, $vehiculoId = null): array
+    {
+        return $request->validate([
+            'ubicacion'                 => ['required', Rule::in(['CVC', 'IXT', 'QRO', 'VALL', 'GDL'])],
+            'propietario'               => ['required', 'string', 'max:255'],
+            'unidad'                    => ['required', 'string', 'max:255'],
+            'marca'                     => ['nullable', 'string', 'max:255'],
+            'anio'                      => ['nullable', 'integer', 'min:1900', 'max:'.date('Y')],
+            'serie'                     => [
+                'required', 'string', 'max:255',
+                Rule::unique('vehiculos', 'serie')->ignore($vehiculoId),
+            ],
+            'motor'                     => ['nullable', 'string', 'max:255'],
+            'placa'                     => [
+                'nullable', 'string', 'max:255',
+                Rule::unique('vehiculos', 'placa')->ignore($vehiculoId),
+            ],
+            'estado'                    => ['nullable', 'string', 'max:255'],
+            // Tabla real en tu BD (según dump): tarjetassivale
+            'tarjeta_si_vale_id'        => ['nullable', 'exists:tarjetassivale,id'],
+            'nip'                       => ['nullable', 'string', 'max:255'],
+            'fec_vencimiento'           => ['nullable', 'string', 'max:255'],
+            'vencimiento_t_circulacion' => ['nullable', 'string', 'max:255'],
+            'cambio_placas'             => ['nullable', 'string', 'max:255'],
+            'poliza_hdi'                => ['nullable', 'string', 'max:255'],
+            // Nuevos campos
+            'poliza_latino'             => ['nullable', 'string', 'max:255'],
+            'poliza_qualitas'           => ['nullable', 'string', 'max:255'],
+        ], [
+            'serie.unique' => 'La serie ya está registrada.',
+            'placa.unique' => 'La placa ya está registrada.',
+            'tarjeta_si_vale_id.exists' => 'La tarjeta seleccionada no es válida.',
+        ]);
+    }
+}
+
+
+Ahora la información de las cargas:
+
+CargaCombustible.php:
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class CargaCombustible extends Model
+{
+    use HasFactory;
+
+    protected $table = 'cargas_combustible';
+
+    protected $fillable = [
+        'fecha',
+        'precio',
+        'tipo_combustible',
+        'litros',
+        'custodio',
+        'operador_id',
+        'vehiculo_id',
+        'km_inicial',
+        'km_final',
+        'recorrido',
+        'rendimiento',
+        'diferencia',
+        'total',
+        'destino',
+        'observaciones',
+        // 'mes' se calcula en el controlador
+    ];
+
+    protected $casts = [
+        'fecha'       => 'date:Y-m-d',
+        'litros'      => 'decimal:3',
+        'precio'      => 'decimal:2',
+        'total'       => 'decimal:2',
+        'rendimiento' => 'decimal:2',
+        'diferencia'  => 'decimal:2',
+        'km_inicial'  => 'integer',
+        'km_final'    => 'integer',
+        'recorrido'   => 'integer',
+    ];
+
+    public const TIPOS_COMBUSTIBLE = ['Magna', 'Diesel', 'Premium'];
+
+    public function operador()
+    {
+        return $this->belongsTo(Operador::class);
+    }
+
+    public function vehiculo()
+    {
+        return $this->belongsTo(Vehiculo::class);
+    }
+
+    public function fotos()
+    {
+        return $this->hasMany(CargaFoto::class, 'carga_id');
+    }
+
+    public function fotosTicket()
+    {
+        return $this->fotos()->where('tipo', CargaFoto::TICKET);
+    }
+
+    public function fotosVoucher()
+    {
+        return $this->fotos()->where('tipo', CargaFoto::VOUCHER);
+    }
+
+    public function fotosOdometro()
+    {
+        return $this->fotos()->where('tipo', CargaFoto::ODOMETRO);
+    }
+
+    public function scopeFilter($query, array $filters)
+    {
+        $query->leftJoin('vehiculos', 'vehiculos.id', '=', 'cargas_combustible.vehiculo_id')
+              ->leftJoin('operadores', 'operadores.id', '=', 'cargas_combustible.operador_id')
+              ->select('cargas_combustible.*');
+
+        // Búsqueda global
+        $query->when($filters['search'] ?? null, function ($q, $term) {
+            $term = trim($term);
+            $like = '%' . $term . '%';
+
+            $q->where(function ($qq) use ($like) {
+                $qq->orWhere('cargas_combustible.destino', 'like', $like)
+                   ->orWhere('cargas_combustible.observaciones', 'like', $like)
+                   ->orWhere('cargas_combustible.custodio', 'like', $like)
+                   ->orWhere('cargas_combustible.tipo_combustible', 'like', $like)
+                   ->orWhereRaw("CAST(cargas_combustible.id AS CHAR) LIKE ?", [$like])
+                   ->orWhereRaw("DATE_FORMAT(cargas_combustible.fecha, '%Y-%m-%d') LIKE ?", [$like])
+                   ->orWhereRaw("CAST(cargas_combustible.litros AS CHAR) LIKE ?", [$like])
+                   ->orWhereRaw("CAST(cargas_combustible.precio AS CHAR) LIKE ?", [$like])
+                   ->orWhereRaw("CAST(cargas_combustible.total  AS CHAR) LIKE ?", [$like])
+                   ->orWhereRaw("CAST(cargas_combustible.rendimiento AS CHAR) LIKE ?", [$like])
+                   ->orWhere('vehiculos.unidad', 'like', $like)
+                   ->orWhere('vehiculos.placa',  'like', $like)
+                   ->orWhereRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) LIKE ?", [$like]);
+            });
+        });
+
+        // Filtros
+        $query->when($filters['vehiculo_id'] ?? null, fn($q, $id) => $q->where('cargas_combustible.vehiculo_id', $id));
+        $query->when($filters['operador_id'] ?? null, fn($q, $id) => $q->where('cargas_combustible.operador_id', $id));
+
+        $query->when($filters['tipo_combustible'] ?? null, function ($q, $t) {
+            if ($t !== '') $q->where('cargas_combustible.tipo_combustible', $t);
+        });
+
+        if (!empty($filters['from'])) $query->whereDate('cargas_combustible.fecha', '>=', $filters['from']);
+        if (!empty($filters['to']))   $query->whereDate('cargas_combustible.fecha', '<=', $filters['to']);
+
+        $ranges = [
+            ['litros', 'litros_min', '>='], ['litros', 'litros_max', '<='],
+            ['precio', 'precio_min', '>='], ['precio', 'precio_max', '<='],
+            ['total',  'total_min',  '>='], ['total',  'total_max',  '<='],
+            ['rendimiento', 'rend_min', '>='], ['rendimiento', 'rend_max', '<='],
+            ['km_inicial',  'km_ini_min', '>='], ['km_inicial',  'km_ini_max', '<='],
+            ['km_final',    'km_fin_min', '>='], ['km_final',    'km_fin_max', '<='],
+            ['recorrido',   'rec_min', '>='],   ['recorrido',    'rec_max', '<='],
+        ];
+        foreach ($ranges as [$col, $key, $op]) {
+            if (isset($filters[$key]) && $filters[$key] !== '') {
+                $query->where("cargas_combustible.$col", $op, $filters[$key]);
+            }
+        }
+
+        $query->when($filters['destino']  ?? null, fn($q, $v) => $q->where('cargas_combustible.destino', 'like', '%'.$v.'%'));
+        $query->when($filters['custodio'] ?? null, fn($q, $v) => $q->where('cargas_combustible.custodio','like', '%'.$v.'%'));
+
+        // Ordenamiento
+        $map = [
+            'id'               => 'cargas_combustible.id',
+            'fecha'            => 'cargas_combustible.fecha',
+            'tipo_combustible' => 'cargas_combustible.tipo_combustible',
+            'litros'           => 'cargas_combustible.litros',
+            'precio'           => 'cargas_combustible.precio',
+            'total'            => 'cargas_combustible.total',
+            'rendimiento'      => 'cargas_combustible.rendimiento',
+            'km_inicial'       => 'cargas_combustible.km_inicial',
+            'km_final'         => 'cargas_combustible.km_final',
+            'recorrido'        => 'cargas_combustible.recorrido',
+            'vehiculo'         => 'vehiculos.unidad',
+            'placa'            => 'vehiculos.placa',
+            'operador'         => null,
+        ];
+
+        $by  = $filters['sort_by'] ?? 'fecha';
+        $dir = strtolower($filters['sort_dir'] ?? 'desc');
+        $dir = in_array($dir, ['asc','desc'], true) ? $dir : 'desc';
+
+        if ($by === 'operador') {
+            $query->orderByRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) {$dir}");
+        } else {
+            $col = $map[$by] ?? $map['fecha'];
+            $query->orderBy($col, $dir);
+        }
+
+        return $query;
+    }
+}
+
+CargaCombustibleController:
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\CargaCombustible;
+use App\Models\CargaFoto;
+use App\Models\Operador;
+use App\Models\Vehiculo;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
+use Illuminate\Support\Str;
+use App\Notifications\NuevaCarga;
+use Illuminate\Support\Facades\Notification;
+
+class CargaCombustibleController extends Controller
+{
+    public function index(Request $request)
+    {
+        $filters = $request->only([
+            'search',
+            'vehiculo_id', 'operador_id',
+            'tipo_combustible',
+            'from', 'to',
+            'litros_min','litros_max',
+            'precio_min','precio_max',
+            'total_min','total_max',
+            'rend_min','rend_max',
+            'km_ini_min','km_ini_max',
+            'km_fin_min','km_fin_max',
+            'destino','custodio',
+            'sort_by','sort_dir',
+        ]);
+
+        $vehiculos  = Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']);
+        $operadores = Operador::select('id','nombre','apellido_paterno','apellido_materno')
+            ->orderBy('nombre')->orderBy('apellido_paterno')->get();
+
+        $tipos = CargaCombustible::TIPOS_COMBUSTIBLE;
+
+        $cargas = CargaCombustible::query()
+            ->with(['vehiculo','operador'])
+            ->filter($filters)
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('cargas.index', compact('cargas','vehiculos','operadores','tipos'));
+    }
+
+    public function create()
+    {
+        return view('cargas.create', [
+            'carga'      => new CargaCombustible(),
+            'operadores' => Operador::orderBy('nombre')->get(),
+            'vehiculos'  => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
+            'tipos'      => CargaCombustible::TIPOS_COMBUSTIBLE,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'fecha'            => ['required', 'date'],
+            'precio'           => ['required', 'numeric', 'min:0'],
+            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
+            'litros'           => ['required', 'numeric', 'min:0.001'],
+            'custodio'         => ['nullable', 'string', 'max:255'],
+            'operador_id'      => ['required', 'exists:operadores,id'],
+            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
+            'km_final'         => ['required', 'integer', 'min:0'],
+            'destino'          => ['nullable', 'string', 'max:255'],
+            'observaciones'    => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        return DB::transaction(function () use ($data) {
+            $vehiculo  = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+            $kmInicial = $vehiculo->kilometros;
+
+            if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
+                throw ValidationException::withMessages([
+                    'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial}).",
+                ]);
+            }
+
+            $this->applyDerived($data, $kmInicial);
+
+            $carga = new CargaCombustible();
+            $carga->forceFill($data)->save();
+
+            $vehiculo->update(['kilometros' => $data['km_final']]);
+
+            // 🔔 Notificar después del commit
+            $carga->loadMissing('vehiculo','operador');
+            DB::afterCommit(function () use ($carga) {
+                $destinatarios = User::role(['administrador','capturista'], 'web')->get();
+                Notification::send($destinatarios, new NuevaCarga($carga));
+            });
+
+            return redirect()->route('cargas.index')
+                ->with('success', 'Carga registrada y odómetro del vehículo actualizado.');
+        });
+    }
+
+    public function edit(CargaCombustible $carga)
+    {
+        $carga->load(['fotos', 'vehiculo', 'operador']);
+
+        return view('cargas.edit', [
+            'carga'      => $carga,
+            'operadores' => Operador::orderBy('nombre')->get(),
+            'vehiculos'  => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
+            'tipos'      => CargaCombustible::TIPOS_COMBUSTIBLE,
+        ]);
+    }
+
+    public function update(Request $request, CargaCombustible $carga)
+    {
+        $data = $request->validate([
+            'fecha'            => ['required', 'date'],
+            'precio'           => ['required', 'numeric', 'min:0'],
+            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
+            'litros'           => ['required', 'numeric', 'min:0.001'],
+            'custodio'         => ['nullable', 'string', 'max:255'],
+            'operador_id'      => ['required', 'exists:operadores,id'],
+            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
+            'km_final'         => ['required', 'integer', 'min:0'],
+            'destino'          => ['nullable', 'string', 'max:255'],
+            'observaciones'    => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        return DB::transaction(function () use ($carga, $data) {
+            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+
+            $previa = CargaCombustible::where('vehiculo_id', $vehiculo->id)
+                ->where(function($q) use ($carga, $data){
+                    $fechaNueva = $data['fecha'];
+                    $q->where('fecha','<', $fechaNueva)
+                    ->orWhere(function($q2) use ($fechaNueva, $carga){
+                        $q2->where('fecha', $fechaNueva)->where('id','<', $carga->id);
+                    });
+                })
+                ->orderBy('fecha','desc')->orderBy('id','desc')
+                ->first();
+
+            $kmInicial = $previa?->km_final ?? $vehiculo->kilometros;
+
+            if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
+                throw ValidationException::withMessages([
+                    'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el KM inicial calculado ({$kmInicial}).",
+                ]);
+            }
+
+            $this->applyDerived($data, $kmInicial);
+
+            $carga->forceFill($data)->save();
+
+            $ultima = CargaCombustible::where('vehiculo_id', $vehiculo->id)
+                ->orderBy('fecha','desc')->orderBy('id','desc')
+                ->first();
+
+            if ($ultima && $ultima->id === $carga->id) {
+                $vehiculo->update(['kilometros' => $data['km_final']]);
+            }
+
+            return redirect()->route('cargas.index')
+                ->with('success', 'Carga actualizada correctamente.');
+        });
+    }
+
+    public function destroy(CargaCombustible $carga)
+    {
+        return DB::transaction(function () use ($carga) {
+            $vehiculoId = $carga->vehiculo_id;
+
+            $esUltima = CargaCombustible::where('vehiculo_id', $vehiculoId)
+                ->orderBy('fecha','desc')->orderBy('id','desc')->value('id') === $carga->id;
+
+            $deleted = $carga->delete();
+
+            if ($deleted && $esUltima) {
+                $vehiculo = Vehiculo::lockForUpdate()->find($vehiculoId);
+                if ($vehiculo) {
+                    $nuevaUltima = CargaCombustible::where('vehiculo_id', $vehiculoId)
+                        ->orderBy('fecha','desc')->orderBy('id','desc')->first();
+                    $vehiculo->update(['kilometros' => $nuevaUltima?->km_final]);
+                }
+            }
+
+            return redirect()->route('cargas.index')
+                ->with('success', $deleted ? 'Carga eliminada correctamente.' : 'No se pudo eliminar la carga.');
+        });
+    }
+
+    // ===================== Helpers =====================
+
+    protected function applyDerived(array &$data, ?int $kmInicial): void
+    {
+        $data['mes']   = ucfirst(Carbon::parse($data['fecha'])->locale('es')->translatedFormat('F'));
+        $data['total'] = round(((float)$data['precio']) * ((float)$data['litros']), 2);
+
+        $data['km_inicial'] = $kmInicial;
+
+        $recorrido = (!is_null($kmInicial) && isset($data['km_final']))
+            ? max(0, (int)$data['km_final'] - (int)$kmInicial)
+            : null;
+
+        $data['recorrido'] = is_null($recorrido) ? null : (int)$recorrido;
+
+        $data['rendimiento'] = (!is_null($recorrido) && (float)$data['litros'] > 0)
+            ? round($recorrido / (float)$data['litros'], 2)
+            : null;
+
+        if (!is_null($recorrido) && isset($data['litros'], $data['precio'])) {
+            $data['diferencia'] = round(-(((float)$data['litros'] - ($recorrido / 14)) * (float)$data['precio']), 2);
+        } else {
+            $data['diferencia'] = null;
+        }
+    }
+
+    // ===================== API MÓVIL =====================
+
+    /**
+     * API móvil: crea carga y, si vienen imágenes temporales, las anexa (tabla carga_fotos).
+     * Entrada opcional:
+     *   - imagenes: [{tipo: 'ticket|voucher|odometro|extra', tmp_path: 'tmp/ocr/...'}]
+     */
+    public function storeApi(Request $request)
+    {
+        $data = $request->validate([
+            'fecha'            => ['required', 'date'],
+            'precio'           => ['required', 'numeric', 'min:0'],
+            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
+            'litros'           => ['required', 'numeric', 'min:0.001'],
+            'custodio'         => ['nullable', 'string', 'max:255'],
+            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
+            'km_final'         => ['required', 'integer', 'min:0'],
+            'destino'          => ['nullable', 'string', 'max:255'],
+            'observaciones'    => ['nullable', 'string', 'max:2000'],
+            'imagenes'             => ['nullable', 'array'],
+            'imagenes.*.tipo'      => ['nullable', 'in:ticket,voucher,odometro,extra'],
+            'imagenes.*.tmp_path'  => ['required_with:imagenes', 'string'],
+        ]);
+
+        $imagenes = $data['imagenes'] ?? [];
+        unset($data['imagenes']);
+
+        $user = $request->user();
+        $operador = Operador::where('user_id', $user->id)->first();
+
+        if (!$operador) {
+            return response()->json([
+                'message' => 'El usuario autenticado no tiene un operador asociado.'
+            ], 422);
+        }
+
+        return DB::transaction(function () use ($data, $operador, $imagenes) {
+            $vehiculo  = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+            $kmInicial = $vehiculo->kilometros;
+
+            if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
+                return response()->json([
+                    'errors' => ['km_final' => ["El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial})."]]
+                ], 422);
+            }
+
+            $payload = $data;
+            $payload['operador_id'] = $operador->id;
+
+            $this->applyDerived($payload, $kmInicial);
+
+            $carga = new CargaCombustible();
+            $carga->forceFill($payload)->save();
+
+            $vehiculo->update(['kilometros' => $payload['km_final']]);
+
+            if (!empty($imagenes)) {
+                $this->attachTmpImagesToCarga($carga, $imagenes);
+            }
+
+            // 🔔 Notificar después del commit
+            $carga->loadMissing('vehiculo','operador');
+            DB::afterCommit(function () use ($carga) {
+                $destinatarios = User::role(['administrador','capturista'], 'web')->get();
+                Notification::send($destinatarios, new NuevaCarga($carga));
+            });
+
+            return response()->json(
+                $carga->load([
+                    'vehiculo:id,unidad,placa',
+                    'operador:id,nombre,apellido_paterno,apellido_materno',
+                    'fotos:id,carga_id,tipo,path,mime,size,original_name'
+                ]),
+                201
+            );
+        });
+    }
+
+    /**
+     * Mueve archivos temporales a PRIVADO.
+     * Acepta ambos orígenes durante la transición:
+     *   - PRIVADO: storage/app/tmp/ocr/...
+     *   - LEGADO (público): storage/app/public/tmp/ocr/...
+     * Los deja en: storage/app/cargas/{carga_id}/...
+     */
+    protected function attachTmpImagesToCarga(CargaCombustible $carga, array $imagenes): void
+    {
+        $private = Storage::disk('local');  // destino privado
+        $public  = Storage::disk('public'); // legado (origen posible)
+
+        $baseDir = "cargas/{$carga->id}";
+        if (!$private->exists($baseDir)) {
+            $private->makeDirectory($baseDir);
+        }
+
+        foreach ($imagenes as $img) {
+            $tmp  = $img['tmp_path'] ?? null;
+            $tipo = $img['tipo'] ?? CargaFoto::EXTRA;
+
+            if (!$tmp || !is_string($tmp)) continue;
+            if (!str_starts_with($tmp, 'tmp/ocr/')) continue;
+
+            // Detecta en qué disco está la temporal
+            $sourceDisk = null;
+            if ($private->exists($tmp)) {
+                $sourceDisk = 'local';
+            } elseif ($public->exists($tmp)) {
+                $sourceDisk = 'public';
+            } else {
+                continue; // no existe en ninguno
+            }
+
+            $ext  = pathinfo($tmp, PATHINFO_EXTENSION) ?: 'jpg';
+            $name = ($tipo ?: 'extra') . '-' . now()->format('Ymd-His') . '-' . Str::random(6) . '.' . $ext;
+            $dest = $baseDir . '/' . $name;
+
+            // Mueve en-local o copia de public->local y borra origen
+            if ($sourceDisk === 'local') {
+                if (!$private->move($tmp, $dest)) {
+                    throw ValidationException::withMessages(['imagenes' => "No se pudo mover la imagen temporal {$tmp}."]);
+                }
+            } else {
+                try {
+                    $bytes = $public->get($tmp);
+                    $private->put($dest, $bytes);
+                    $public->delete($tmp);
+                } catch (\Throwable $e) {
+                    throw ValidationException::withMessages(['imagenes' => "No se pudo transferir la imagen temporal {$tmp} al almacenamiento privado."]);
+                }
+            }
+
+            $mime = $private->mimeType($dest);
+            $size = $private->size($dest);
+
+            CargaFoto::create([
+                'carga_id'      => $carga->id,
+                'tipo'          => $tipo,
+                'path'          => $dest,
+                'mime'          => $mime,
+                'size'          => $size,
+                'original_name' => null,
+            ]);
+        }
+    }
+}
+
+Carga index:
+
+{{-- resources/views/cargas_combustible/index.blade.php
+     Vista Index (Tabler + Bootstrap) para Cargas de Combustible
+     - Offcanvas de filtros usando <x-filters-offcanvas> (sin backdrop)
+     - Toolbar con búsqueda y exportación
+     - Tabla con numeración por página
+     - Formularios DELETE fuera de la tabla (evita anidación)
+--}}
+
+<x-app-layout>
+    {{-- Si tu layout ya incluye Vite y app.js, puedes quitar esta línea --}}
+    @vite(['resources/js/app.js'])
+
+    @php
+        /**
+         * Cómputo de filtros activos (excluye búsqueda, orden y paginación).
+         * Se usa para mostrar el badge con el número de filtros aplicados.
+         */
+        $ignored = ['search','page','sort_by','sort_dir'];
+
+        $activeFilters = collect(request()->query())
+            ->reject(fn($v, $k) => in_array($k, $ignored, true))
+            ->filter(function ($v) {
+                return is_array($v)
+                    ? collect($v)->filter(fn($x) => $x !== null && $x !== '')->isNotEmpty()
+                    : $v !== null && $v !== '';
+            });
+
+        $activeCount = $activeFilters->count();
+    @endphp
+
+    {{-- ================= HEADER ================= --}}
+    <x-slot name="header">
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <h2 class="page-title mb-0">Cargas de Combustible</h2>
+                        <div class="text-secondary small mt-1">Consulta y analiza rendimientos.</div>
+                    </div>
+
+                    {{-- CTA principal --}}
+                    <div class="col-auto ms-auto">
+                        <a href="{{ route('cargas.create') }}" class="btn btn-primary">
+                            <i class="ti ti-plus me-1" aria-hidden="true"></i>
+                            <span>Agregar Nueva Carga</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </x-slot>
+
+    <div class="page-body">
+        <div class="container-xl">
+
+            {{-- ============== FLASH DE ÉXITO ============== --}}
+            @if(session('success'))
+                <div class="alert alert-success" role="alert">
+                    <i class="ti ti-check me-2" aria-hidden="true"></i>{{ session('success') }}
+                </div>
+            @endif
+
+            {{-- =====================================================
+                 FORM (GET) GLOBAL: Búsqueda + Filtros + Ordenamiento
+                 Nota: El formulario se cierra ANTES de la tabla para evitar nesting.
+               ===================================================== --}}
+            <form method="GET" action="{{ route('cargas.index') }}" aria-label="Búsqueda y filtros de cargas">
+                {{-- ===== Toolbar: búsqueda + acciones rápidas ===== --}}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row g-2 align-items-center">
+
+                            {{-- Búsqueda global --}}
+                            <div class="col-12 col-xl">
+                                <div class="input-group" role="search" aria-label="Buscar en cargas">
+                                    <span class="input-group-text" id="icon-search">
+                                        <i class="ti ti-search" aria-hidden="true"></i>
+                                    </span>
+                                    <input
+                                        type="text"
+                                        name="search"
+                                        value="{{ request('search') }}"
+                                        class="form-control"
+                                        placeholder="Buscar…"
+                                        aria-label="Término de búsqueda"
+                                        aria-describedby="icon-search">
+                                    <button class="btn btn-primary" type="submit">
+                                        <i class="ti ti-search me-1" aria-hidden="true"></i>Buscar
+                                    </button>
+                                </div>
+                            </div>
+
+                            {{-- Acciones rápidas --}}
+                            <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
+
+                                {{-- Dropdown: Exportar --}}
+                                <div class="dropdown">
+                                    <button id="btnExportar"
+                                            type="button"
+                                            class="btn btn-outline-secondary dropdown-toggle"
+                                            data-bs-toggle="dropdown"
+                                            aria-expanded="false"
+                                            aria-haspopup="true"
+                                            aria-controls="menuExportar">
+                                        <i class="ti ti-download me-1" aria-hidden="true"></i>Exportar
+                                    </button>
+                                    <ul id="menuExportar" class="dropdown-menu dropdown-menu-end" aria-labelledby="btnExportar">
+                                        {{-- Reemplaza # por tu ruta real de exportación --}}
+                                        <li>
+                                            <a class="dropdown-item" href="#">
+                                                <i class="ti ti-file-spreadsheet me-2" aria-hidden="true"></i>Excel (.xlsx)
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                {{-- Botón: Filtros (Offcanvas SIN overlay) --}}
+                                <button type="button"
+                                        class="btn btn-outline-secondary position-relative"
+                                        data-bs-toggle="offcanvas"
+                                        data-bs-target="#filtersOffcanvas"
+                                        aria-controls="filtersOffcanvas"
+                                        aria-label="Abrir filtros">
+                                    <i class="ti ti-adjustments" aria-hidden="true"></i>
+                                    <span class="ms-2">Filtros</span>
+                                    @if($activeCount > 0)
+                                        <span class="badge bg-primary ms-2" aria-label="Filtros activos">{{ $activeCount }}</span>
+                                    @endif
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- Resumen de resultados (cuando hay búsqueda) --}}
+                        @if(request('search'))
+                            @php
+                                $total    = $cargas->total();
+                                $first    = $cargas->firstItem();
+                                $last     = $cargas->lastItem();
+                                $current  = $cargas->currentPage();
+                                $lastPage = $cargas->lastPage();
+                            @endphp
+
+                            <div class="mt-3 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between" role="status">
+                                <div class="small">
+                                    <span class="badge bg-secondary text-uppercase">Filtro</span>
+                                    <span class="ms-2">“{{ request('search') }}”</span>
+                                </div>
+                                <div class="text-secondary small mt-2 mt-sm-0">
+                                    @if($total === 1)
+                                        Resultado <strong>(1 de 1)</strong>
+                                    @elseif($total > 1)
+                                        Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> —
+                                        Mostrando <strong>{{ $first }}–{{ $last }}</strong> de <strong>{{ $total }}</strong>
+                                    @else
+                                        Sin resultados para la búsqueda.
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- ================== Offcanvas Filtros (componente) ================== --}}
+                <x-filters-offcanvas
+                    id="filtersOffcanvas"
+                    title="Filtros"
+                    :backdrop="false"
+                    :scroll="true"
+                >
+                    {{-- ====== Slot: filtros específicos de Cargas ====== --}}
+                    <x-slot name="filters">
+                        {{-- Grupo: Principales --}}
+                        <div class="mb-4">
+                            <div class="text-secondary text-uppercase fw-semibold small mb-2">Principales</div>
+                            <div class="row g-2">
+                                {{-- Vehículo --}}
+                                <div class="col-12">
+                                    <label class="form-label" for="vehiculo_id">Vehículo</label>
+                                    <select id="vehiculo_id" name="vehiculo_id" class="form-select">
+                                        <option value="">Todos</option>
+                                        @foreach($vehiculos as $v)
+                                            <option value="{{ $v->id }}" @selected((string)$v->id === request('vehiculo_id'))>
+                                                {{ $v->unidad }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                {{-- Operador --}}
+                                <div class="col-12">
+                                    <label class="form-label" for="operador_id">Operador</label>
+                                    <select id="operador_id" name="operador_id" class="form-select">
+                                        <option value="">Todos</option>
+                                        @foreach($operadores as $o)
+                                            @php
+                                                $nombreCompleto = trim(
+                                                    collect([$o->nombre ?? '', $o->apellido_paterno ?? '', $o->apellido_materno ?? ''])
+                                                        ->filter(fn($x) => $x !== '')
+                                                        ->implode(' ')
+                                                );
+                                            @endphp
+                                            <option value="{{ $o->id }}" @selected((string)$o->id === request('operador_id'))>
+                                                {{ $nombreCompleto !== '' ? $nombreCompleto : 'Operador' }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                {{-- Tipo de combustible --}}
+                                <div class="col-12">
+                                    <label class="form-label" for="tipo_combustible">Tipo de combustible</label>
+                                    <select id="tipo_combustible" name="tipo_combustible" class="form-select">
+                                        <option value="">Todos</option>
+                                        @foreach($tipos as $t)
+                                            <option value="{{ $t }}" @selected($t === request('tipo_combustible'))>{{ $t }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Grupo: Fecha y orden --}}
+                        <div class="mb-4">
+                            <div class="text-secondary text-uppercase fw-semibold small mb-2">Fecha y orden</div>
+                            <div class="row g-2">
+                                {{-- Rango de fechas --}}
+                                <div class="col-12 col-sm-6">
+                                    <label class="form-label" for="from">Desde</label>
+                                    <input id="from" type="date" name="from" value="{{ request('from') }}" class="form-control">
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <label class="form-label" for="to">Hasta</label>
+                                    <input id="to" type="date" name="to" value="{{ request('to') }}" class="form-control">
+                                </div>
+
+                                {{-- Ordenamiento --}}
+                                <div class="col-12 col-sm-6">
+                                    @php
+                                        $sortOptions = [
+                                            'fecha'            => 'Fecha',
+                                            'vehiculo'         => 'Vehículo',
+                                            'placa'            => 'Placa',
+                                            'operador'         => 'Operador',
+                                            'tipo_combustible' => 'Tipo',
+                                            'litros'           => 'Litros',
+                                            'precio'           => 'Precio',
+                                            'total'            => 'Total',
+                                            'rendimiento'      => 'Rendimiento',
+                                            'km_inicial'       => 'KM Inicial',
+                                            'km_final'         => 'KM Final',
+                                            'recorrido'        => 'KM Recorridos',
+                                            'id'               => 'ID',
+                                        ];
+                                    @endphp
+                                    <label class="form-label" for="sort_by">Ordenar por</label>
+                                    <select id="sort_by" name="sort_by" class="form-select">
+                                        @foreach($sortOptions as $val => $label)
+                                            <option value="{{ $val }}" @selected(request('sort_by','fecha') === $val)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div class="col-12 col-sm-6">
+                                    <label class="form-label" for="sort_dir">Dirección</label>
+                                    <select id="sort_dir" name="sort_dir" class="form-select">
+                                        <option value="asc"  @selected(request('sort_dir','desc') === 'asc')>Ascendente</option>
+                                        <option value="desc" @selected(request('sort_dir','desc') === 'desc')>Descendente</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Grupo: Métricas numéricas --}}
+                        <div>
+                            <div class="text-secondary text-uppercase fw-semibold small mb-2">Métricas</div>
+                            <div class="row g-2">
+                                {{-- Rangos de litros --}}
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="0.001" name="litros_min" value="{{ request('litros_min') }}" class="form-control" placeholder="Litros mín">
+                                </div>
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="0.001" name="litros_max" value="{{ request('litros_max') }}" class="form-control" placeholder="Litros máx">
+                                </div>
+
+                                {{-- Rangos de precio --}}
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="0.01" name="precio_min" value="{{ request('precio_min') }}" class="form-control" placeholder="Precio mín">
+                                </div>
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="0.01" name="precio_max" value="{{ request('precio_max') }}" class="form-control" placeholder="Precio máx">
+                                </div>
+
+                                {{-- Rangos de total --}}
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="0.01" name="total_min" value="{{ request('total_min') }}" class="form-control" placeholder="Total mín">
+                                </div>
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="0.01" name="total_max" value="{{ request('total_max') }}" class="form-control" placeholder="Total máx">
+                                </div>
+
+                                {{-- Rangos de rendimiento --}}
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="0.01" name="rend_min" value="{{ request('rend_min') }}" class="form-control" placeholder="Rend mín">
+                                </div>
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="0.01" name="rend_max" value="{{ request('rend_max') }}" class="form-control" placeholder="Rend máx">
+                                </div>
+
+                                {{-- Rangos de KM --}}
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="1" name="km_ini_min" value="{{ request('km_ini_min') }}" class="form-control" placeholder="KM inicial mín">
+                                </div>
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="1" name="km_ini_max" value="{{ request('km_ini_max') }}" class="form-control" placeholder="KM inicial máx">
+                                </div>
+
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="1" name="km_fin_min" value="{{ request('km_fin_min') }}" class="form-control" placeholder="KM final mín">
+                                </div>
+                                <div class="col-6 col-lg-4">
+                                    <input type="number" step="1" name="km_fin_max" value="{{ request('km_fin_max') }}" class="form-control" placeholder="KM final máx">
+                                </div>
+                            </div>
+                        </div>
+                    </x-slot>
+
+                    {{-- ====== Slot: footer con acciones ====== --}}
+                    <x-slot name="footer">
+                        <a href="{{ route('cargas.index') }}" class="btn btn-link">Limpiar filtros</a>
+                        <div class="d-flex">
+                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="offcanvas">Cerrar</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ti ti-filter me-1" aria-hidden="true"></i>Aplicar filtros
+                            </button>
+                        </div>
+                    </x-slot>
+                </x-filters-offcanvas>
+                {{-- /Offcanvas (componente) --}}
+            </form>
+            {{-- /FORM GET --}}
+
+            {{-- ================== TABLA (sin columna ID) ================== --}}
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-vcenter table-striped table-hover">
+                        <thead>
+                            <tr class="text-uppercase text-secondary small">
+                                <th class="text-center text-nowrap">#</th>
+                                <th>Fecha</th>
+                                <th>Vehículo</th>
+                                <th>Operador</th>
+                                <th>Tipo</th>
+                                <th class="text-end">Litros</th>
+                                <th class="text-end">Precio</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-end">Rendimiento</th>
+                                <th class="text-end">KM Inicial</th>
+                                <th class="text-end">KM Final</th>
+                                <th class="text-end">KM Recorridos</th>
+                                <th style="min-width:12rem;">Destino</th>
+                                <th style="min-width:10rem;">Custodio</th>
+                                <th style="min-width:16rem;">Observaciones</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($cargas as $c)
+                                @php
+                                    $veh = $c->vehiculo;
+                                    $ope = $c->operador;
+
+                                    $nombreOperador = $ope
+                                        ? trim(collect([$ope->nombre ?? '', $ope->apellido_paterno ?? '', $ope->apellido_materno ?? ''])
+                                            ->filter(fn($x) => $x !== '')
+                                            ->implode(' '))
+                                        : '—';
+
+                                    $kmRec = (is_numeric($c->km_final ?? null) && is_numeric($c->km_inicial ?? null))
+                                        ? ((int)$c->km_final - (int)$c->km_inicial)
+                                        : null;
+
+                                    $obs = $c->observaciones ?? $c->comentarios ?? null;
+
+                                    $fechaStr = $c->fecha
+                                        ? \Illuminate\Support\Carbon::parse($c->fecha)->format('Y-m-d')
+                                        : '—';
+
+                                    $rowId = is_numeric($c->id ?? null) ? (int)$c->id : 0;
+                                @endphp
+
+                                <tr>
+                                    {{-- Numeración por página --}}
+                                    <td class="text-center text-nowrap">{{ $loop->iteration }}</td>
+
+                                    {{-- Fecha --}}
+                                    <td class="text-nowrap">{{ $fechaStr }}</td>
+
+                                    {{-- Vehículo (sin placa) --}}
+                                    <td class="text-nowrap">
+                                        {{ $veh->unidad ?? '—' }}
+                                    </td>
+
+                                    {{-- Operador --}}
+                                    <td class="text-nowrap">{{ $nombreOperador }}</td>
+
+                                    {{-- Tipo combustible --}}
+                                    <td class="text-nowrap">{{ $c->tipo_combustible ?? '—' }}</td>
+
+                                    {{-- Métricas numéricas --}}
+                                    <td class="text-end text-nowrap">{{ number_format((float)($c->litros ?? 0), 3) }}</td>
+                                    <td class="text-end text-nowrap">${{ number_format((float)($c->precio ?? 0), 2) }}</td>
+                                    <td class="text-end text-nowrap">${{ number_format((float)($c->total ?? 0), 2) }}</td>
+                                    <td class="text-end text-nowrap">
+                                        {{ !is_null($c->rendimiento) ? number_format((float)$c->rendimiento, 2) : '—' }}
+                                    </td>
+
+                                    {{-- KMs --}}
+                                    <td class="text-end text-nowrap">{{ $c->km_inicial ?? '—' }}</td>
+                                    <td class="text-end text-nowrap">{{ $c->km_final ?? '—' }}</td>
+                                    <td class="text-end text-nowrap">{{ !is_null($kmRec) ? $kmRec : '—' }}</td>
+
+                                    {{-- Campos largos con truncado --}}
+                                    <td>
+                                        <div class="text-truncate" title="{{ $c->destino }}">{{ $c->destino ?? '—' }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="text-truncate" title="{{ $c->custodio }}">{{ $c->custodio ?? '—' }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="text-truncate" title="{{ $obs }}">{{ $obs ?? '—' }}</div>
+                                    </td>
+
+                                    {{-- Acciones --}}
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1">
+                                            {{-- Ajusta a show si existe --}}
+                                            <a href="{{ route('cargas.edit', $c->id) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Ver">
+                                                <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
+                                            </a>
+
+                                            <a href="{{ route('cargas.edit', $c->id) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Editar">
+                                                <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
+                                            </a>
+
+                                            @if($rowId > 0)
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-danger btn-sm"
+                                                    form="del-{{ $rowId }}"
+                                                    onclick="event.stopPropagation(); return confirm('¿Seguro que quieres eliminar?');"
+                                                    title="Eliminar">
+                                                    <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
+                                                </button>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                {{-- Estado vacío --}}
+                                <tr>
+                                    <td colspan="16" class="py-6">
+                                        <div class="empty">
+                                            <div class="empty-icon">
+                                                <i class="ti ti-database-off" aria-hidden="true"></i>
+                                            </div>
+                                            <p class="empty-title">No hay datos</p>
+                                            <p class="empty-subtitle text-secondary">
+                                                @if(request()->hasAny([
+                                                    'search','vehiculo_id','operador_id','tipo_combustible','from','to',
+                                                    'litros_min','litros_max','precio_min','precio_max','total_min','total_max',
+                                                    'rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max',
+                                                    'destino','custodio'
+                                                ]))
+                                                    No se encontraron resultados con los filtros aplicados.
+                                                @else
+                                                    Aún no has registrado cargas de combustible.
+                                                @endif
+                                            </p>
+                                            <div class="empty-action">
+                                                @if(request()->hasAny([
+                                                    'search','vehiculo_id','operador_id','tipo_combustible','from','to',
+                                                    'litros_min','litros_max','precio_min','precio_max','total_min','total_max',
+                                                    'rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max',
+                                                    'destino','custodio'
+                                                ]))
+                                                    <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">
+                                                        Limpiar filtros
+                                                    </a>
+                                                @endif
+                                                <a href="{{ route('cargas.create') }}" class="btn btn-primary">
+                                                    <i class="ti ti-plus me-2" aria-hidden="true"></i>Agregar Nueva Carga
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {{-- =============== PAGINACIÓN + CONTADOR =============== --}}
+            @if(method_exists($cargas, 'links'))
+                @php
+                    $totalAll    = $cargas->total();
+                    $firstAll    = $cargas->firstItem();
+                    $lastAll     = $cargas->lastItem();
+                    $currentAll  = $cargas->currentPage();
+                    $lastPageAll = $cargas->lastPage();
+                @endphp
+
+                <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
+                    <p class="text-secondary small mb-2 mb-sm-0">
+                        @if($totalAll === 0)
+                            Mostrando 0 resultados
+                        @elseif($totalAll === 1)
+                            Resultado <strong>(1 de 1)</strong>
+                        @else
+                            Página <strong>{{ $currentAll }}</strong> de <strong>{{ $lastPageAll }}</strong> —
+                            Mostrando <strong>{{ $firstAll }}–{{ $lastAll }}</strong> de <strong>{{ $totalAll }}</strong> resultados
+                        @endif
+                    </p>
+
+                    {{-- Conserva querystring al paginar --}}
+                    <div>
+                        {{ $cargas->appends(request()->only([
+                            'search','vehiculo_id','operador_id','tipo_combustible',
+                            'from','to','litros_min','litros_max','precio_min','precio_max',
+                            'total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max',
+                            'km_fin_min','km_fin_max','destino','custodio','sort_by','sort_dir',
+                        ]))->links() }}
+                    </div>
+                </div>
+            @endif
+
+            {{-- ====== Formularios DELETE ocultos (fuera de la tabla) ====== --}}
+            @foreach($cargas as $cc)
+                @php $rid = is_numeric($cc->id ?? null) ? (int)$cc->id : 0; @endphp
+                @if($rid > 0)
+                    <form id="del-{{ $rid }}"
+                          action="{{ url('/cargas/'.$rid) }}"  {{-- fuerza ruta WEB (evita /api) --}}
+                          method="POST"
+                          class="d-none">
+                        @csrf
+                        @method('DELETE')
+                    </form>
+                @endif
+            @endforeach
+
+            {{-- ====== Footer ====== --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
+        </div>
+    </div>
+
+    {{-- ================= CSS/JS propio mínimo ================= --}}
+    @once
+        <style>
+            /* Si en tu proyecto requieres desactivar backdrops globalmente */
+            .offcanvas-backdrop,
+            .modal-backdrop {
+                display: none !important;
+                opacity: 0 !important;
+            }
+            /* Eleva dropdown por si hay stacking contexts inesperados */
+            .dropdown-menu { z-index: 1080; }
+        </style>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                // Inicialización defensiva de Dropdown (por si no hay auto-init)
+                if (window.bootstrap && window.bootstrap.Dropdown) {
+                    document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(function (el) {
+                        new window.bootstrap.Dropdown(el);
+                    });
+                }
+            });
+        </script>
+    @endonce
+</x-app-layout>
+
+

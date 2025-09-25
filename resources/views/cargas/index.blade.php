@@ -26,6 +26,7 @@
             });
 
         $activeCount = $activeFilters->count();
+        $exportHref = route('cargas.index', array_merge(request()->except('page'), ['export' => 'xlsx']));
     @endphp
 
     {{-- ================= HEADER ================= --}}
@@ -92,42 +93,29 @@
 
                             {{-- Acciones rápidas --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
+                            {{-- Botón único: Exportar Excel --}}
+                            <a href="{{ $exportHref }}"
+                            class="btn btn-success"
+                            title="Exportar a Excel">
+                                <i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
+                                Exportar
+                            </a>
 
-                                {{-- Dropdown: Exportar --}}
-                                <div class="dropdown">
-                                    <button id="btnExportar"
-                                            type="button"
-                                            class="btn btn-outline-secondary dropdown-toggle"
-                                            data-bs-toggle="dropdown"
-                                            aria-expanded="false"
-                                            aria-haspopup="true"
-                                            aria-controls="menuExportar">
-                                        <i class="ti ti-download me-1" aria-hidden="true"></i>Exportar
-                                    </button>
-                                    <ul id="menuExportar" class="dropdown-menu dropdown-menu-end" aria-labelledby="btnExportar">
-                                        {{-- Reemplaza # por tu ruta real de exportación --}}
-                                        <li>
-                                            <a class="dropdown-item" href="#">
-                                                <i class="ti ti-file-spreadsheet me-2" aria-hidden="true"></i>Excel (.xlsx)
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </div>
+                            {{-- Botón: Filtros --}}
+                            <button type="button"
+                                    class="btn btn-outline-secondary position-relative"
+                                    data-bs-toggle="offcanvas"
+                                    data-bs-target="#filtersOffcanvas"
+                                    aria-controls="filtersOffcanvas"
+                                    aria-label="Abrir filtros">
+                                <i class="ti ti-adjustments" aria-hidden="true"></i>
+                                <span class="ms-2">Filtros</span>
+                                @if($activeCount > 0)
+                                    <span class="badge bg-primary ms-2" aria-label="Filtros activos">{{ $activeCount }}</span>
+                                @endif
+                            </button>
+                        </div>
 
-                                {{-- Botón: Filtros (Offcanvas SIN overlay) --}}
-                                <button type="button"
-                                        class="btn btn-outline-secondary position-relative"
-                                        data-bs-toggle="offcanvas"
-                                        data-bs-target="#filtersOffcanvas"
-                                        aria-controls="filtersOffcanvas"
-                                        aria-label="Abrir filtros">
-                                    <i class="ti ti-adjustments" aria-hidden="true"></i>
-                                    <span class="ms-2">Filtros</span>
-                                    @if($activeCount > 0)
-                                        <span class="badge bg-primary ms-2" aria-label="Filtros activos">{{ $activeCount }}</span>
-                                    @endif
-                                </button>
-                            </div>
                         </div>
 
                         {{-- Resumen de resultados (cuando hay búsqueda) --}}
@@ -390,7 +378,7 @@
 
                                 <tr>
                                     {{-- Numeración por página --}}
-                                    <td class="text-center text-nowrap">{{ $loop->iteration }}</td>
+                                    <td class="text-center text-nowrap">{{ ($cargas->firstItem() ?? 0) + $loop->index }}</td>
 
                                     {{-- Fecha --}}
                                     <td class="text-nowrap">{{ $fechaStr }}</td>

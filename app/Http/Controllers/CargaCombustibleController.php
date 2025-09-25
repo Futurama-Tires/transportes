@@ -15,11 +15,19 @@ use Carbon\Carbon;
 use Illuminate\Support\Str;
 use App\Notifications\NuevaCarga;
 use Illuminate\Support\Facades\Notification;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CargasExport;
 
 class CargaCombustibleController extends Controller
 {
     public function index(Request $request)
     {
+        // 👉 Exportar a Excel con filtros/orden actuales (sin paginar)
+        if ($request->get('export') === 'xlsx') {
+            $filename = 'cargas_' . now()->format('Ymd_His') . '.xlsx';
+            return Excel::download(new CargasExport($request), $filename);
+        }
+
         $filters = $request->only([
             'search',
             'vehiculo_id', 'operador_id',
