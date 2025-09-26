@@ -105,9 +105,14 @@ class Vehiculo extends Model
     /**
      * Un vehículo puede tener varios tanques (si manejas ese módulo).
      */
+    public function tanque()
+    {
+        return $this->hasOne(\App\Models\Tanque::class);
+    }
+
     public function tanques()
     {
-        return $this->hasMany('App\Models\Tanque');
+        return $this->hasMany(\App\Models\Tanque::class, 'vehiculo_id');
     }
 
     /**

@@ -1,4 +1,4 @@
-{{-- resources/views/vehiculos/tanques/edit.blade.php — Versión Tabler ejecutiva --}}
+{{-- resources/views/vehiculos/tanques/edit.blade.php — Versión Tabler ejecutiva (1 tanque por vehículo) --}}
 <x-app-layout>
     {{-- Quita esta línea si tu layout ya inyecta app.js --}}
     @vite(['resources/js/app.js'])
@@ -10,11 +10,11 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <div class="page-pretitle">
-                            <i class="ti ti-gas-station me-1"></i> Tanques
+                            <i class="ti ti-gas-station me-1"></i> Tanques de combustible
                         </div>
                         <h2 class="page-title d-flex align-items-center gap-2 mb-0">
                             <i class="ti ti-edit"></i>
-                            Editar tanque — Vehículo {{ $vehiculo->unidad ?? '#'.$vehiculo->id }}
+                            Editar tanque de combustible
                         </h2>
 
                         {{-- Breadcrumbs --}}
@@ -24,7 +24,7 @@
                                     <a href="{{ route('vehiculos.index') }}"><i class="ti ti-steering-wheel me-1"></i> Vehículos</a>
                                 </li>
                                 <li class="breadcrumb-item">
-                                    <a href="{{ route('vehiculos.tanques.index', $vehiculo) }}"><i class="ti ti-gas-station me-1"></i> Tanques</a>
+                                    <a href="{{ route('vehiculos.tanques.index', $vehiculo) }}"><i class="ti ti-gas-station me-1"></i> Tanque</a>
                                 </li>
                                 <li class="breadcrumb-item active" aria-current="page">Editar</li>
                             </ol>
@@ -106,20 +106,19 @@
                             <div class="card-body">
                                 <div class="row g-3">
 
-                                    {{-- Número de tanque --}}
+                                    {{-- Cantidad de tanques físicos --}}
                                     <div class="col-md-4">
-                                        <label for="numero_tanque" class="form-label">
-                                            Número de tanques
-                                            <i class="ti ti-info-circle text-secondary ms-1" data-bs-toggle="tooltip" title="Cantidad de tanques de la unidad."></i>
+                                        <label for="cantidad_tanques" class="form-label">
+                                            Cantidad de tanques <span class="text-danger">*</span>
                                         </label>
                                         <div class="input-icon">
                                             <span class="input-icon-addon"><i class="ti ti-hash"></i></span>
-                                            <input id="numero_tanque" type="number" name="numero_tanque" min="1" max="255"
-                                                   value="{{ old('numero_tanque', $tanque->numero_tanque) }}"
-                                                   class="form-control @error('numero_tanque') is-invalid @enderror"
-                                                   placeholder="1">
+                                            <input id="cantidad_tanques" type="number" name="cantidad_tanques" min="1" max="255"
+                                                   value="{{ old('cantidad_tanques', $tanque->cantidad_tanques) }}"
+                                                   class="form-control @error('cantidad_tanques') is-invalid @enderror"
+                                                   placeholder="1" required>
                                         </div>
-                                        @error('numero_tanque') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                        @error('cantidad_tanques') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                                     </div>
 
                                     {{-- Tipo de combustible (selectgroup) --}}
@@ -151,14 +150,14 @@
                                             @endforeach
                                         </div>
                                         @error('tipo_combustible') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                        <div class="form-hint">Selecciona el combustible que carga este tanque.</div>
+                                        <div class="form-hint">Selecciona el combustible que carga este vehículo.</div>
                                     </div>
 
-                                    {{-- Capacidad (L) --}}
+                                    {{-- Capacidad total (L) --}}
                                     <div class="col-md-6">
-                                        <label for="capacidad_litros" class="form-label">Capacidad (L) <span class="text-danger">*</span></label>
+                                        <label for="capacidad_litros" class="form-label">Capacidad total (L) <span class="text-danger">*</span></label>
                                         <div class="input-group">
-                                            <span class="input-group-text"><i class="ti ti-tank"></i></span>
+                                            <span class="input-group-text"><i class="ti ti-droplet"></i></span>
                                             <input id="capacidad_litros" type="number" step="0.01" min="0"
                                                    name="capacidad_litros" required
                                                    value="{{ old('capacidad_litros', $tanque->capacidad_litros) }}"
@@ -167,13 +166,13 @@
                                             <span class="input-group-text">L</span>
                                         </div>
                                         @error('capacidad_litros') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                        <div class="form-hint">Es la suma manual de los N tanques del vehículo.</div>
                                     </div>
 
                                     {{-- Rendimiento (km/L) --}}
                                     <div class="col-md-6">
                                         <label for="rendimiento_estimado" class="form-label">
                                             Rendimiento estimado (km/L)
-                                            <i class="ti ti-info-circle text-secondary ms-1" data-bs-toggle="tooltip" title="Promedio histórico o estimado de la unidad."></i>
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="ti ti-road"></i></span>
@@ -208,7 +207,9 @@
                                         <label class="form-label">Km que recorre (capacidad × rendimiento)</label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="ti ti-ruler-measure"></i></span>
-                                            <input id="km_calculados" type="text" class="form-control" value="{{ number_format((float) (old('capacidad_litros',$tanque->capacidad_litros ?? 0) * old('rendimiento_estimado',$tanque->rendimiento_estimado ?? 0)), 2) }}" readonly>
+                                            <input id="km_calculados" type="text" class="form-control"
+                                                   value="{{ number_format((float) (old('capacidad_litros', $tanque->capacidad_litros ?? 0) * old('rendimiento_estimado', $tanque->rendimiento_estimado ?? 0)), 2) }}"
+                                                   readonly>
                                             <span class="input-group-text">km</span>
                                         </div>
                                         <div class="form-hint">Se recalcula automáticamente al editar capacidad o rendimiento.</div>
@@ -253,36 +254,9 @@
                                 </ul>
                             </div>
                         </div>
-
-                        {{-- Estado rápido --}}
-                        <div class="card mt-3">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center">
-                                    <span class="avatar me-3">
-                                        <i class="ti ti-truck"></i>
-                                    </span>
-                                    <div>
-                                        <div class="strong">Vehículo</div>
-                                        <div class="text-secondary">
-                                            {{ $vehiculo->marca ?? '—' }} {{ $vehiculo->anio ?? '' }}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="mt-3 d-flex flex-wrap gap-2">
-                                    <span class="badge bg-green-lt"><i class="ti ti-circle-check me-1"></i> Activo</span>
-                                    <span class="badge bg-gray-lt"><i class="ti ti-id me-1"></i> ID: {{ $vehiculo->id }}</span>
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
                 </div>
             </form>
-
-            <div class="text-secondary small mt-3">
-                <i class="ti ti-info-circle me-1"></i>
-                Los valores se guardan en la base de datos tal como se muestran. El campo de “Km que recorre” es informativo.
-            </div>
 
             {{-- Footer --}}
             <div class="text-center text-secondary small py-4">
@@ -300,12 +274,12 @@
             });
 
             // Cálculo en vivo de km (capacidad * rendimiento)
-            const cap = document.getElementById('capacidad_litros');
+            const cap  = document.getElementById('capacidad_litros');
             const rend = document.getElementById('rendimiento_estimado');
-            const out = document.getElementById('km_calculados');
+            const out  = document.getElementById('km_calculados');
 
             function recalc() {
-                const c = parseFloat(cap?.value || '0') || 0;
+                const c = parseFloat(cap?.value || '0')  || 0;
                 const r = parseFloat(rend?.value || '0') || 0;
                 const km = c * r;
                 if (out) out.value = km.toFixed(2);

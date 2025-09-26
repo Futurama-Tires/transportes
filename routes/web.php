@@ -20,6 +20,9 @@ use App\Http\Controllers\CalendarioVerificacionController;
 use App\Services\TelegramNotifier;
 use App\Http\Controllers\VerificacionReglaController;
 use App\Http\Controllers\ProgramaVerificacionController;
+use App\Http\Controllers\AdminBackupController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+
 
 
 /*
@@ -55,6 +58,15 @@ Route::pattern('verificacion_regla', '\d+'); // id de regla de verificación
 /* Rutas públicas                                                     */
 /* ------------------------------------------------------------------ */
 Route::view('/', 'welcome')->name('welcome');
+
+Route::middleware('guest')->group(function () {
+    Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])
+        ->name('password.request');
+
+    Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->name('password.email');
+});
+
 
 /* ------------------------------------------------------------------ */
 /* Rutas autenticadas                                                 */
@@ -119,6 +131,16 @@ Route::middleware('auth')->group(function () {
     /* -------------------------------------------------------------- */
     Route::middleware('role:administrador')->group(function () {
         Route::resource('capturistas', CapturistaController::class);
+
+        Route::get('/admin/backup', [AdminBackupController::class, 'index'])
+        ->name('admin.backup.index');
+
+        // Usamos POST para evitar que bots o prefetch ejecuten descargas/restores sin intención
+        Route::post('/admin/backup/download', [AdminBackupController::class, 'download'])
+            ->name('admin.backup.download');
+
+        Route::post('/admin/backup/restore', [AdminBackupController::class, 'restore'])
+            ->name('admin.backup.restore');
     });
 
     /* -------------------------------------------------------------- */
