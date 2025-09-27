@@ -3,23 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * Cada fila representa una "ventana" de verificación para un estado y una terminación.
  *
- * Campos esperados en la tabla:
- * - id (bigint)
- * - regla_id (bigint, nullable)  => FK a verificacion_reglas.id
- * - estado (string)              => nombre del estado (ej. "CDMX", "México")
- * - terminacion (tinyint)        => 0..9
- * - mes_inicio (tinyint)         => 1..12
- * - mes_fin (tinyint)            => 1..12
- * - semestre (tinyint|null)
- * - frecuencia (enum)            => 'Semestral'|'Anual'
- * - anio (smallint|null)
- * - vigente_desde (date|null)
- * - vigente_hasta (date|null)
- * - timestamps
+ * Tabla: calendario_verificacion
+ * Campos: id, regla_id, estado, terminacion, mes_inicio, mes_fin, semestre, frecuencia,
+ *         anio, vigente_desde, vigente_hasta, timestamps
  */
 class CalendarioVerificacion extends Model
 {
@@ -48,13 +39,21 @@ class CalendarioVerificacion extends Model
         'vigente_hasta' => 'date',
     ];
 
-    // Relaciones
+    /* ===================== Relaciones ===================== */
     public function regla()
     {
-        return $this->belongsTo(VerificacionRegla::class, 'regla_id');
+        // Si no usas el modelo, no pasará nada.
+        return $this->belongsTo(\App\Models\VerificacionRegla::class, 'regla_id');
     }
 
-    // Helpers para UI
+    public function verificaciones()
+    {
+        return $this->hasMany(\App\Models\Verificacion::class, 'calendario_id');
+    }
+
+    /* ===================== Accessors/Helpers ===================== */
+
+    /** Etiqueta tipo "May-Jun". */
     public function getEtiquetaBimestreAttribute(): string
     {
         $meses = [null,'Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -63,8 +62,57 @@ class CalendarioVerificacion extends Model
         return "{$ini}-{$fin}";
     }
 
+    /** "1er semestre" | "2º semestre" | null */
     public function getEtiquetaSemestreAttribute(): ?string
     {
         return $this->semestre ? ($this->semestre === 1 ? '1er semestre' : '2º semestre') : null;
+    }
+
+    /** Alias legible para mostrar la ventana. */
+    public function getVentanaAttribute(): string
+    {
+        return $this->etiqueta_bimestre;
+    }
+
+    /** ¿La fecha dada cae dentro de la ventana vigente? */
+    public function contieneFecha(null|string|\DateTimeInterface $fecha): bool
+    {
+        if (!$this->vigente_desde || !$this->vigente_hasta) return false;
+        $f = $fecha ? Carbon::parse($fecha) : Carbon::now();
+        return $f->between($this->vigente_desde, $this->vigente_hasta);
+    }
+
+    /** ¿La ventana ya venció respecto a la fecha dada (o hoy)? */
+    public function estaVencida(null|string|\DateTimeInterface $ref = null): bool
+    {
+        if (!$this->vigente_hasta) return false;
+        $f = $ref ? Carbon::parse($ref) : Carbon::now();
+        return $f->gt($this->vigente_hasta);
+    }
+
+    /** Último dígito de una placa. */
+    public static function terminacionDePlaca(?string $placa): ?int
+    {
+        if (!$placa) return null;
+        if (preg_match('/(\d)\s*$/', $placa, $m)) return (int)$m[1];
+        return null;
+    }
+
+    /* ===================== Scopes ===================== */
+
+    public function scopeAnio($q, ?int $anio)
+    {
+        return $anio ? $q->where('anio', $anio) : $q;
+    }
+
+    public function scopeEstadoTerminacion($q, ?string $estado, ?int $terminacion)
+    {
+        if ($estado !== null && $estado !== '') {
+            $q->whereRaw('UPPER(estado) = ?', [mb_strtoupper($estado)]);
+        }
+        if ($terminacion !== null) {
+            $q->where('terminacion', (int)$terminacion);
+        }
+        return $q;
     }
 }

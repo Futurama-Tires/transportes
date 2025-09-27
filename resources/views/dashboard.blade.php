@@ -229,13 +229,13 @@
 
                 @hasanyrole('administrador|capturista')
                 <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="https://www.google.com" class="card card-link bg-orange-lt" aria-label="Reportes y estadísticas" target="_blank" rel="noopener">
+                    <a href="{{ route('reportes.index') }}" class="card card-link bg-orange-lt" aria-label="Reportes" >
                         <div class="card-body d-flex align-items-center">
                             <span class="avatar bg-orange text-white me-3">
                                 <i class="ti ti-chart-bar"></i>
                             </span>
                             <div class="flex-fill">
-                                <div class="card-title mb-1">Estadísticas</div>
+                                <div class="card-title mb-1">Reportes</div>
                                 <div class="text-secondary small">Consulta estadísticas del sistema.</div>
                             </div>
                             <i class="ti ti-chevron-right text-secondary"></i>

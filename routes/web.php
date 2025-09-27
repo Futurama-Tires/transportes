@@ -22,7 +22,7 @@ use App\Http\Controllers\VerificacionReglaController;
 use App\Http\Controllers\ProgramaVerificacionController;
 use App\Http\Controllers\AdminBackupController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
-
+use App\Http\Controllers\ReporteController;
 
 
 /*
@@ -241,6 +241,29 @@ Route::middleware('auth')->group(function () {
             Route::get('/',         [ProgramaVerificacionController::class, 'index'])->name('index');
             Route::post('/marcar',  [ProgramaVerificacionController::class, 'marcar'])->name('marcar');
         });
+
+        Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
+
+        // Vista dashboard
+Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
+
+// (Paso 2) Endpoints JSON
+    Route::get('/api/reportes/rendimiento', [ReporteController::class, 'rendimientoJson']);
+    Route::get('/api/reportes/costo-km',   [ReporteController::class, 'costoKmJson']);
+    Route::get('/api/reportes/auditoria',  [ReporteController::class, 'auditoriaJson']);
+    Route::get('/api/reportes/verificacion',[ReporteController::class, 'verificacionJson']);
+
+// Exportación SOLO PDF por tab
+Route::get('/reportes/rendimiento/export.pdf',  [ReporteController::class, 'exportRendimientoPdf']);
+Route::post('/reportes/rendimiento/export.pdf', [ReporteController::class, 'exportRendimientoPdf']); // ← nuevo
+
+Route::get('/reportes/costo-km/export.pdf',     [ReporteController::class, 'exportCostoKmPdf']);
+Route::get('/reportes/auditoria/export.pdf',    [ReporteController::class, 'exportAuditoriaPdf']);
+Route::get('/reportes/verificacion/export.pdf', [ReporteController::class, 'exportVerificacionPdf']);
+Route::post('/reportes/costo-km/export.pdf',     [ReporteController::class, 'exportCostoKmPdf']);
+Route::post('/reportes/auditoria/export.pdf',    [ReporteController::class, 'exportAuditoriaPdf']);
+Route::post('/reportes/verificacion/export.pdf', [ReporteController::class, 'exportVerificacionPdf']);
+
     });
 });
 
