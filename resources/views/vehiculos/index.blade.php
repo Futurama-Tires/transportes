@@ -95,8 +95,8 @@
                                 <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
                                     {{-- Botón único: Exportar Excel --}}
                                     <a href="{{ $exportHref }}"
-                                    class="btn btn-success"
-                                    title="Exportar a Excel">
+                                       class="btn btn-success"
+                                       title="Exportar a Excel">
                                         <i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
                                         Exportar
                                     </a>
@@ -226,6 +226,9 @@
                                         $tarjetaNumero = optional($v->tarjetaSiVale)->numero_tarjeta;
                                         $tarjetaLabel  = $tarjetaNumero ?: ($v->tarjeta_si_vale_id ? ('ID '.$v->tarjeta_si_vale_id) : null);
 
+                                        // Tanque 1–1
+                                        $t = optional($v->tanque);
+
                                         $vehData = [
                                             'id'          => $v->id,
                                             'unidad'      => $v->unidad,
@@ -252,15 +255,35 @@
                                             'poliza_latino'   => $v->poliza_latino ?? null,
                                             'poliza_qualitas' => $v->poliza_qualitas ?? null,
                                             'fotos'   => isset($v->fotos) ? $v->fotos->map(fn($f) => ['id' => $f->id])->values() : [],
-                                            'tanques' => isset($v->tanques) ? $v->tanques->map(fn($t) => [
+
+                                            // Tanque 1–1 (objeto)
+                                            'tanque' => $t->id ? [
                                                 'id'                   => $t->id,
-                                                'numero_tanque'        => $t->numero_tanque,
+                                                'cantidad_tanques'     => $t->cantidad_tanques,
                                                 'tipo_combustible'     => $t->tipo_combustible,
                                                 'capacidad_litros'     => $t->capacidad_litros,
                                                 'rendimiento_estimado' => $t->rendimiento_estimado,
                                                 'km_recorre'           => $t->km_recorre,
                                                 'costo_tanque_lleno'   => $t->costo_tanque_lleno,
-                                            ])->values() : [],
+                                            ] : null,
+
+                                            // Back-compat: arreglo con 0/1 elemento por si el JS aún espera "tanques"
+                                            'tanques' => $t->id ? [[
+                                                'id'                   => $t->id,
+                                                'cantidad_tanques'     => $t->cantidad_tanques,
+                                                'tipo_combustible'     => $t->tipo_combustible,
+                                                'capacidad_litros'     => $t->capacidad_litros,
+                                                'rendimiento_estimado' => $t->rendimiento_estimado,
+                                                'km_recorre'           => $t->km_recorre,
+                                                'costo_tanque_lleno'   => $t->costo_tanque_lleno,
+                                            ]] : [],
+
+                                            // URLs útiles para el modal
+                                            'urls' => [
+                                                'create_tanque' => route('vehiculos.tanques.create', $v),
+                                                'edit_tanque'   => $t->id ? route('vehiculos.tanques.edit', [$v, $t->id]) : null,
+                                                'edit_vehicle'  => route('vehiculos.edit', $v),
+                                            ],
                                         ];
                                     @endphp
                                     <tr>
@@ -438,12 +461,12 @@
                             </div>
                         </div>
 
-                        {{-- Tanques --}}
+                        {{-- Tanque --}}
                         <div class="card">
                             <div class="card-header d-flex align-items-center justify-content-between">
-                                <h4 class="card-title mb-0">Tanques de combustible</h4>
+                                <h4 class="card-title mb-0">Tanque de combustible</h4>
                                 <a id="addTankLink" href="#" class="btn btn-success btn-sm">
-                                    <i class="ti ti-square-rounded-plus me-1" aria-hidden="true"></i>Agregar
+                                    <i class="ti ti-square-rounded-plus me-1" aria-hidden="true"></i><span id="addTankText">Agregar</span>
                                 </a>
                             </div>
                             <div class="card-body p-0">
@@ -451,7 +474,7 @@
                                     <table class="table table-vcenter card-table mb-0">
                                         <thead>
                                             <tr>
-                                                <th>#</th>
+                                                <th>Cantidad</th>
                                                 <th>Tipo</th>
                                                 <th>Capacidad (L)</th>
                                                 <th>Rend. (km/L)</th>
@@ -460,7 +483,7 @@
                                             </tr>
                                         </thead>
                                         <tbody id="tanksTbody">
-                                            <tr><td colspan="6" class="text-secondary small">Este vehículo no tiene tanques.</td></tr>
+                                            <tr><td colspan="6" class="text-secondary small">Este vehículo no tiene tanque.</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -510,4 +533,68 @@
         </div>
 
     </div>
+
+    {{-- ====== SCRIPT para pintar el tanque en el modal ====== --}}
+    <script>
+    (() => {
+      const appEl = document.getElementById('vehiculos-app');
+      const baseVeh = appEl?.getAttribute('data-base-veh') || '/vehiculos';
+
+      function nf(n) {
+        if (n === null || n === undefined || n === '') return '—';
+        const num = Number(n);
+        return isNaN(num) ? '—' : num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      document.querySelectorAll('.btn-view-veh').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const veh = JSON.parse(btn.getAttribute('data-veh') || '{}');
+
+          // Links generales
+          const editVehicleLink   = document.getElementById('editVehicleLink');
+          const managePhotosLink  = document.getElementById('managePhotosLink');
+          if (editVehicleLink && veh?.urls?.edit_vehicle)  editVehicleLink.href  = veh.urls.edit_vehicle;
+          if (managePhotosLink && veh?.urls?.edit_vehicle) managePhotosLink.href = veh.urls.edit_vehicle + '#fotos';
+
+          // Render tanque 1–1
+          const tbody        = document.getElementById('tanksTbody');
+          const addTankLink  = document.getElementById('addTankLink');
+          const addTankText  = document.getElementById('addTankText');
+          const t = veh?.tanque || (veh?.tanques && veh.tanques[0]) || null;
+
+          if (tbody) {
+            if (t) {
+              tbody.innerHTML = `
+                <tr>
+                  <td>${t.cantidad_tanques ?? '—'}</td>
+                  <td>${t.tipo_combustible ?? '—'}</td>
+                  <td>${nf(t.capacidad_litros)}</td>
+                  <td>${nf(t.rendimiento_estimado)}</td>
+                  <td>${nf(t.km_recorre)}</td>
+                  <td>${t.costo_tanque_lleno != null ? '$' + nf(t.costo_tanque_lleno) : '—'}</td>
+                </tr>
+              `;
+            } else {
+              tbody.innerHTML = `<tr><td colspan="6" class="text-secondary small">Este vehículo no tiene tanque.</td></tr>`;
+            }
+          }
+
+          // Botón Agregar/Editar
+          if (addTankLink && addTankText) {
+            if (t) {
+              addTankText.textContent = 'Editar';
+              addTankLink.classList.remove('btn-success');
+              addTankLink.classList.add('btn-warning');
+              addTankLink.href = veh?.urls?.edit_tanque || `${baseVeh}/${veh.id}/tanques/${t.id}/edit`;
+            } else {
+              addTankText.textContent = 'Agregar';
+              addTankLink.classList.remove('btn-warning');
+              addTankLink.classList.add('btn-success');
+              addTankLink.href = veh?.urls?.create_tanque || `${baseVeh}/${veh.id}/tanques/create`;
+            }
+          }
+        });
+      });
+    })();
+    </script>
 </x-app-layout>
