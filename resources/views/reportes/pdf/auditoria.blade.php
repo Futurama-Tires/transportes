@@ -13,48 +13,47 @@
 
   <div class="small muted">
     <strong>Filtros:</strong>
-    @if(!empty($filtros['desde'])) Desde {{ $filtros['desde'] }} @endif
+    @if(!empty($filtros['anio'])) Año {{ $filtros['anio'] }} @endif
+    @if(!empty($filtros['desde'])) &nbsp;Desde {{ $filtros['desde'] }} @endif
     @if(!empty($filtros['hasta'])) &nbsp;Hasta {{ $filtros['hasta'] }} @endif
-    @if(!empty($filtros['tipo_comb'])) &nbsp;Tipo: {{ $filtros['tipo_comb'] }} @endif
-    @if(!empty($filtros['destino'])) &nbsp;Destino: “{{ $filtros['destino'] }}” @endif
   </div>
+
+  {{-- KPIs --}}
+  @if(!empty($kpis))
+  <div class="mb-2">
+    <span class="kpi">Total: <strong>{{ nf($kpis['total'] ?? null, 0) }}</strong></span>
+    <span class="kpi">Verificados: <strong>{{ nf($kpis['verificados'] ?? null, 0) }}</strong></span>
+    <span class="kpi">Sin verificar: <strong>{{ nf($kpis['sin_verificar'] ?? null, 0) }}</strong></span>
+  </div>
+  @endif
 
   @if(!empty($chart_uri))
   <div class="mb-2">
-    <img src="{{ $chart_uri }}" alt="Gráfica Auditoría" style="width:100%; max-height:340px; object-fit:contain; border:1px solid #ddd; padding:4px;">
+    <img src="{{ $chart_uri }}" alt="Gráfica Verificación" style="width:100%; max-height:340px; object-fit:contain; border:1px solid #ddd; padding:4px;">
   </div>
-@endif
-
+  @endif
 
   <table>
     <thead>
       <tr>
-        <th>Fecha</th>
-        <th>Placa</th>
-        <th class="right">Litros</th>
-        <th class="right">Precio</th>
-        <th class="right">Total $</th>
-        <th class="right">Cap. (L)</th>
-        <th class="right">KM ini</th>
-        <th class="right">KM fin</th>
-        <th>Flags</th>
+        <th>Vehículo</th>
+        <th>Estado</th>
+        <th>Año</th>
+        <th>Estatus</th>
+        <th>Fecha verificación</th>
       </tr>
     </thead>
     <tbody>
-      @forelse($rows as $r)
+      @forelse(($rows ?? []) as $r)
         <tr>
-          <td>{{ $r['fecha'] }}</td>
-          <td>{{ $r['placa'] }}</td>
-          <td class="right">{{ nf($r['litros']) }}</td>
-          <td class="right">{{ nf($r['precio'], 3) }}</td>
-          <td class="right">{{ nf($r['total']) }}</td>
-          <td class="right">{{ nf($r['cap_litros'], 1) }}</td>
-          <td class="right">{{ $r['km_inicial'] ?? '—' }}</td>
-          <td class="right">{{ $r['km_final'] ?? '—' }}</td>
-          <td>{{ !empty($r['flags']) ? implode(', ', $r['flags']) : '—' }}</td>
+          <td>{{ $r['vehiculo_label'] ?? ($r['placa'] ?? '—') }}</td>
+          <td>{{ $r['estado'] ?? '—' }}</td>
+          <td>{{ $r['anio'] ?? '—' }}</td>
+          <td>{{ $r['estatus'] ?? '—' }}</td>
+          <td>{{ $r['fecha_verificacion'] ?? '—' }}</td>
         </tr>
       @empty
-        <tr><td colspan="9" class="muted">Sin datos.</td></tr>
+        <tr><td colspan="5" class="muted">Sin datos.</td></tr>
       @endforelse
     </tbody>
   </table>

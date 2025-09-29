@@ -23,7 +23,7 @@
     <span class="kpi">Litros: <strong>{{ nf($kpis['litros'] ?? null) }}</strong></span>
     <span class="kpi">Gasto $: <strong>{{ nf($kpis['gasto'] ?? null) }}</strong></span>
     <span class="kpi">Km: <strong>{{ nf($kpis['km'] ?? null) }}</strong></span>
-    <span class="kpi">$ / km: 
+    <span class="kpi">$ / km:
       <strong>
         @if(($kpis['km'] ?? 0) > 0) {{ nf(($kpis['gasto']/$kpis['km']), 4) }}
         @else — @endif
@@ -35,13 +35,12 @@
   <div class="mb-2">
     <img src="{{ $chart_uri }}" alt="Gráfica Costo por km" style="width:100%; max-height:340px; object-fit:contain; border:1px solid #ddd; padding:4px;">
   </div>
-@endif
-
+  @endif
 
   <table>
     <thead>
       <tr>
-        <th>Vehículo (placa)</th>
+        <th>Vehículo</th>
         <th>Operador</th>
         <th class="right">Litros</th>
         <th class="right">Gasto $</th>
@@ -54,8 +53,8 @@
     <tbody>
       @forelse($rows as $r)
         <tr>
-          <td>{{ $r['placa'] }}</td>
-          <td>{{ $r['operador'] }}</td>
+          <td>{{ $r['vehiculo_label'] ?? ($r['placa'] ?? '—') }}</td>
+          <td>{{ $r['operador'] ?? '—' }}</td>
           <td class="right">{{ nf($r['litros']) }}</td>
           <td class="right">{{ nf($r['gasto']) }}</td>
           <td class="right">{{ nf($r['km']) }}</td>

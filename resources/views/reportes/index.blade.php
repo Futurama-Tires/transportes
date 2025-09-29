@@ -360,6 +360,27 @@
         return params;
       }
       function filtrosObj() { return Object.fromEntries(qsParams().entries()); }
+
+      // NUEVO: arma payload manteniendo arrays reales (para exportación PDF)
+      function getFilterPayload() {
+        const form = document.getElementById('filtrosForm');
+        const payload = {};
+        const fd = new FormData(form);
+        // simples
+        ['desde','hasta','destino','tipo_comb','anio'].forEach(k=>{
+          const v = fd.get(k);
+          if (v !== null && v !== '') payload[k] = v;
+        });
+        // múltiples
+        ['vehiculos[]','operadores[]'].forEach(name=>{
+          const opts = form.querySelectorAll(`select[name="${name}"] option:checked`);
+          const arr = Array.from(opts).map(o=>o.value);
+          const base = name.replace('[]','');
+          if (arr.length) payload[base] = arr;
+        });
+        return payload;
+      }
+
       function showPanel(key) { panels.forEach(p => p.classList.toggle('d-none', p.dataset.panel !== key)); }
       function postWithData(url, data) {
         const form = document.createElement('form');
@@ -619,7 +640,7 @@
         window.history.replaceState({}, '', newUrl);
       }
 
-      // Exportar PDF con imagen del gráfico
+      // Exportar PDF con imagen del gráfico (usa payload con arrays correctos)
       function attachExportWithChart(key, chartRefGetter) {
         const btn = document.getElementById(`exp-${key}-pdf`);
         if (!btn) return;
@@ -634,7 +655,8 @@
               chartUri = imgURI || null;
             }
           } catch(_) { /* noop */ }
-          postWithData(url, Object.assign({}, filtrosObj(), { chart_uri: chartUri }));
+          const filters = getFilterPayload(); // <- arrays “vehiculos” y “operadores” se mantienen
+          postWithData(url, Object.assign({}, filters, { chart_uri: chartUri }));
         });
       }
 
@@ -661,3 +683,4 @@
     })();
     </script>
 </x-app-layout>
+

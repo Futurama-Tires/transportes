@@ -47,3 +47,4 @@ class CargaCombustibleObserver
         app(TelegramNotifier::class)->send($mensaje);
     }
 }
+

@@ -32,7 +32,7 @@
     </span>
   </div>
 
-  {{-- NUEVO: gráfica embebida como imagen --}}
+  {{-- Gráfica embebida como imagen (data URL o remota) --}}
   @if(!empty($chart_uri))
     <div class="mb-2">
       <img src="{{ $chart_uri }}" alt="Gráfica Rendimiento" style="width:100%; max-height:340px; object-fit:contain; border:1px solid #ddd; padding:4px;">
@@ -42,7 +42,7 @@
   <table>
     <thead>
       <tr>
-        <th>Vehículo (placa)</th>
+        <th>Vehículo</th>
         <th>Operador</th>
         <th class="right">Km</th>
         <th class="right">Litros</th>
@@ -55,8 +55,8 @@
     <tbody>
       @forelse($rows as $r)
         <tr>
-          <td>{{ $r['placa'] }}</td>
-          <td>{{ $r['operador'] }}</td>
+          <td>{{ $r['vehiculo_label'] ?? ($r['placa'] ?? '—') }}</td>
+          <td>{{ $r['operador'] ?? '—' }}</td>
           <td class="right">{{ nf($r['km_recorridos']) }}</td>
           <td class="right">{{ nf($r['litros']) }}</td>
           <td class="right">{{ nf($r['rend_real'], 3) }}</td>

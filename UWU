@@ -1,3 +1,7 @@
+Ayudame a corrergir la exportacion de los siguientes reportes a d pdf, (con gráfica), corrige y dame los archivos completos, te paso el controlador tambien.
+
+ReporteController:
+
 <?php
 
 namespace App\Http\Controllers;
@@ -96,20 +100,6 @@ class ReporteController extends Controller
         $p = trim((string)($placa ?? ''));
         if ($u !== '' && $p !== '') return $u.' - '.$p;
         return $u !== '' ? $u : $p;
-    }
-
-    /** Normaliza chart_uri: acepta data URLs o base64 "pelón" y las convierte a data:image/png;base64, */
-    private function normalizeChartUri(?string $raw): ?string
-    {
-        if (!$raw) return null;
-        $raw = trim($raw);
-        if (str_starts_with($raw, 'data:image/')) return $raw; // OK
-        if (preg_match('#^https?://#i', $raw)) return $raw;    // Requiere isRemoteEnabled=true
-        // Si viene solo el base64 (sin encabezado) y es largo…
-        if (preg_match('/^[A-Za-z0-9+\/\=\r\n]+$/', $raw) && strlen($raw) > 200) {
-            return 'data:image/png;base64,' . preg_replace('/\s+/', '', $raw);
-        }
-        return null;
     }
 
     /** ------------------------ 1) Rendimiento vs Índice ------------------------ */
@@ -212,11 +202,11 @@ class ReporteController extends Controller
     {
         $res = $this->queryRendimiento($r);
         $data = [
-            'titulo'    => 'Rendimiento vs Índice Estándar (km/L)',
-            'filtros'   => $this->filtroResumen($r),
-            'kpis'      => $res['kpis'],
-            'rows'      => $res['rows'],
-            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
+            'titulo'   => 'Rendimiento vs Índice Estándar (km/L)',
+            'filtros'  => $this->filtroResumen($r),
+            'kpis'     => $res['kpis'],
+            'rows'     => $res['rows'],
+            'chart_uri'=> $r->input('chart_uri'),
         ];
         return $pdf->streamFromView('reportes.pdf.rendimiento', $data, 'rendimiento-vs-indice.pdf', 'A4', 'portrait');
     }
@@ -299,7 +289,7 @@ class ReporteController extends Controller
             'filtros'   => $this->filtroResumen($r),
             'kpis'      => $res['kpis'],
             'rows'      => $res['rows'],
-            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
+            'chart_uri' => $r->input('chart_uri'),
         ];
         return $pdf->streamFromView('reportes.pdf.costo_km', $data, 'costo-por-km.pdf', 'A4', 'portrait');
     }
@@ -318,11 +308,9 @@ class ReporteController extends Controller
                     cc.km_inicial, cc.km_final,
                     v.placa,
                     v.unidad,
-                    t.capacidad_litros,
-                    TRIM(CONCAT(o.nombre, ' ', o.apellido_paterno, ' ', COALESCE(o.apellido_materno,''))) AS operador_nombre
+                    t.capacidad_litros
                 FROM cargas_combustible cc
                 JOIN vehiculos v ON v.id = cc.vehiculo_id
-                LEFT JOIN operadores o ON o.id = cc.operador_id
                 LEFT JOIN tanques t ON t.vehiculo_id = cc.vehiculo_id
                 $where
             ),
@@ -339,7 +327,6 @@ class ReporteController extends Controller
             )
             SELECT
                 ord.id, ord.fecha, ord.placa, ord.unidad, ord.vehiculo_id, ord.operador_id,
-                ord.operador_nombre,
                 ord.litros, ord.precio, ord.total, ord.capacidad_litros,
                 ord.km_inicial, ord.km_final, ord.dup_count,
                 ord.flag_km_invertido,
@@ -366,10 +353,6 @@ class ReporteController extends Controller
 
             $vehiculo_label = $this->makeVehiculoLabel($r->unidad, $r->placa);
 
-            // Si no hay nombre, dejar null para que el JS haga fallback a operador_id
-            $opName = trim((string)($r->operador_nombre ?? ''));
-            $opName = $opName !== '' ? $opName : null;
-
             return [
                 'id'            => (int)$r->id,
                 'fecha'         => (string)$r->fecha,
@@ -378,7 +361,6 @@ class ReporteController extends Controller
                 'unidad'        => $r->unidad,
                 'vehiculo_label'=> $vehiculo_label,
                 'operador_id'   => $r->operador_id ? (int)$r->operador_id : null,
-                'operador'      => $opName,
                 'litros'        => round((float)$r->litros, 2),
                 'precio'        => $r->precio !== null ? round((float)$r->precio, 3) : null,
                 'total'         => round((float)$r->total, 2),
@@ -410,7 +392,7 @@ class ReporteController extends Controller
             'titulo'    => 'Auditoría de cargas y anomalías',
             'filtros'   => $this->filtroResumen($r),
             'rows'      => $res['rows'],
-            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
+            'chart_uri' => $r->input('chart_uri'),
         ];
         return $pdf->streamFromView('reportes.pdf.auditoria', $data, 'auditoria-cargas.pdf', 'A4', 'portrait');
     }
@@ -468,14 +450,7 @@ class ReporteController extends Controller
             'kpis'   => $res['kpis'],
             'table'  => $res['rows'],
             'rows'   => $res['rows'],
-            'chart'  => [
-                // Tip: puedes hacer un pie chart en el front con estos valores
-                'categories' => ['Verificado', 'Sin verificar'],
-                'series'     => [[
-                    'name' => 'Estatus',
-                    'data' => [ $res['kpis']['verificados'], $res['kpis']['sin_verificar'] ]
-                ]],
-            ],
+            'chart'  => ['categories' => [], 'series' => []],
             'params' => $r->all(),
         ]);
     }
@@ -487,9 +462,330 @@ class ReporteController extends Controller
             'titulo'    => 'Verificaciones por año (Verificado / Sin verificar)',
             'filtros'   => $this->filtroResumen($r),
             'rows'      => $res['rows'],
-            'kpis'      => $res['kpis'],
-            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
+            'chart_uri' => $r->input('chart_uri'),
         ];
         return $pdf->streamFromView('reportes.pdf.verificacion', $data, 'verificacion-vencimientos.pdf', 'A4', 'portrait');
     }
 }
+
+pdf/_styles.blade
+
+<style>
+  * { font-family: DejaVu Sans, Arial, sans-serif; font-size: 12px; }
+  html, body { margin: 18px; }
+  h1 { font-size: 18px; margin: 0 0 8px 0; }
+  h2 { font-size: 14px; margin: 14px 0 6px; }
+  .muted { color: #666; }
+  .small { font-size: 11px; }
+  .right { text-align: right; }
+  .center { text-align: center; }
+  .mb-1 { margin-bottom: 6px; }
+  .mb-2 { margin-bottom: 10px; }
+  .mb-3 { margin-bottom: 14px; }
+  .badge { display:inline-block; padding:2px 6px; border-radius: 4px; background:#eef; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #ddd; padding: 6px; vertical-align: top; }
+  th { background: #f2f2f2; text-align: left; }
+  tfoot td { font-weight: bold; background: #fafafa; }
+  .kpi { display:inline-block; border:1px solid #ddd; padding:6px 10px; border-radius:6px; margin-right:8px; }
+</style>
+
+pdf/rendimiento.blade.php
+
+@php
+    function nf($n, $d=2){ return is_null($n) ? '—' : number_format((float)$n, $d, '.', ','); }
+@endphp
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{{ $titulo }}</title>
+  {!! view()->make('reportes.pdf._styles')->render() !!}
+</head>
+<body>
+  <h1 class="mb-2">{{ $titulo }}</h1>
+
+  <div class="small muted">
+    <strong>Filtros:</strong>
+    @if(!empty($filtros['desde'])) Desde {{ $filtros['desde'] }} @endif
+    @if(!empty($filtros['hasta'])) &nbsp;Hasta {{ $filtros['hasta'] }} @endif
+    @if(!empty($filtros['tipo_comb'])) &nbsp;Tipo: {{ $filtros['tipo_comb'] }} @endif
+    @if(!empty($filtros['destino'])) &nbsp;Destino: “{{ $filtros['destino'] }}” @endif
+  </div>
+
+  <div class="mb-2">
+    <span class="kpi">Litros: <strong>{{ nf($kpis['litros'] ?? null) }}</strong></span>
+    <span class="kpi">Gasto $: <strong>{{ nf($kpis['gasto'] ?? null) }}</strong></span>
+    <span class="kpi">Km: <strong>{{ nf($kpis['km'] ?? null) }}</strong></span>
+    <span class="kpi">Rend. global:
+      <strong>
+        @if(($kpis['km'] ?? 0) > 0 && ($kpis['litros'] ?? 0) > 0)
+          {{ nf(($kpis['km']/$kpis['litros']), 3) }} km/L
+        @else — @endif
+      </strong>
+    </span>
+  </div>
+
+  {{-- NUEVO: gráfica embebida como imagen --}}
+  @if(!empty($chart_uri))
+    <div class="mb-2">
+      <img src="{{ $chart_uri }}" alt="Gráfica Rendimiento" style="width:100%; max-height:340px; object-fit:contain; border:1px solid #ddd; padding:4px;">
+    </div>
+  @endif
+
+  <table>
+    <thead>
+      <tr>
+        <th>Vehículo (placa)</th>
+        <th>Operador</th>
+        <th class="right">Km</th>
+        <th class="right">Litros</th>
+        <th class="right">Rend. real</th>
+        <th class="right">Índice</th>
+        <th class="right">Desv. %</th>
+        <th class="right"># Cargas</th>
+      </tr>
+    </thead>
+    <tbody>
+      @forelse($rows as $r)
+        <tr>
+          <td>{{ $r['placa'] }}</td>
+          <td>{{ $r['operador'] }}</td>
+          <td class="right">{{ nf($r['km_recorridos']) }}</td>
+          <td class="right">{{ nf($r['litros']) }}</td>
+          <td class="right">{{ nf($r['rend_real'], 3) }}</td>
+          <td class="right">{{ nf($r['indice'], 2) }}</td>
+          <td class="right">{{ is_null($r['desviacion_pct']) ? '—' : nf($r['desviacion_pct'], 2) }}</td>
+          <td class="right">{{ $r['num_cargas'] }}</td>
+        </tr>
+      @empty
+        <tr><td colspan="8" class="muted">Sin datos.</td></tr>
+      @endforelse
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2">Totales / Global</td>
+        <td class="right">{{ nf($kpis['km'] ?? null) }}</td>
+        <td class="right">{{ nf($kpis['litros'] ?? null) }}</td>
+        <td class="right">
+          @if(($kpis['km'] ?? 0) > 0 && ($kpis['litros'] ?? 0) > 0)
+            {{ nf(($kpis['km']/$kpis['litros']), 3) }}
+          @else — @endif
+        </td>
+        <td class="right">—</td>
+        <td class="right">—</td>
+        <td class="right">—</td>
+      </tr>
+    </tfoot>
+  </table>
+</body>
+</html>
+ 
+pdf/costo_km.blade 
+
+@php
+    function nf($n, $d=2){ return is_null($n) ? '—' : number_format((float)$n, $d, '.', ','); }
+@endphp
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{{ $titulo }}</title>
+  {!! view()->make('reportes.pdf._styles')->render() !!}
+</head>
+<body>
+  <h1 class="mb-2">{{ $titulo }}</h1>
+
+  <div class="small muted">
+    <strong>Filtros:</strong>
+    @if(!empty($filtros['desde'])) Desde {{ $filtros['desde'] }} @endif
+    @if(!empty($filtros['hasta'])) &nbsp;Hasta {{ $filtros['hasta'] }} @endif
+    @if(!empty($filtros['tipo_comb'])) &nbsp;Tipo: {{ $filtros['tipo_comb'] }} @endif
+    @if(!empty($filtros['destino'])) &nbsp;Destino: “{{ $filtros['destino'] }}” @endif
+  </div>
+
+  <div class="mb-2">
+    <span class="kpi">Litros: <strong>{{ nf($kpis['litros'] ?? null) }}</strong></span>
+    <span class="kpi">Gasto $: <strong>{{ nf($kpis['gasto'] ?? null) }}</strong></span>
+    <span class="kpi">Km: <strong>{{ nf($kpis['km'] ?? null) }}</strong></span>
+    <span class="kpi">$ / km: 
+      <strong>
+        @if(($kpis['km'] ?? 0) > 0) {{ nf(($kpis['gasto']/$kpis['km']), 4) }}
+        @else — @endif
+      </strong>
+    </span>
+  </div>
+
+  @if(!empty($chart_uri))
+  <div class="mb-2">
+    <img src="{{ $chart_uri }}" alt="Gráfica Costo por km" style="width:100%; max-height:340px; object-fit:contain; border:1px solid #ddd; padding:4px;">
+  </div>
+@endif
+
+
+  <table>
+    <thead>
+      <tr>
+        <th>Vehículo (placa)</th>
+        <th>Operador</th>
+        <th class="right">Litros</th>
+        <th class="right">Gasto $</th>
+        <th class="right">Km</th>
+        <th class="right">$ / km</th>
+        <th class="right">$ / L prom.</th>
+        <th class="right"># Cargas</th>
+      </tr>
+    </thead>
+    <tbody>
+      @forelse($rows as $r)
+        <tr>
+          <td>{{ $r['placa'] }}</td>
+          <td>{{ $r['operador'] }}</td>
+          <td class="right">{{ nf($r['litros']) }}</td>
+          <td class="right">{{ nf($r['gasto']) }}</td>
+          <td class="right">{{ nf($r['km']) }}</td>
+          <td class="right">{{ nf($r['costo_km'], 4) }}</td>
+          <td class="right">{{ nf($r['precio_prom'], 3) }}</td>
+          <td class="right">{{ $r['num_cargas'] }}</td>
+        </tr>
+      @empty
+        <tr><td colspan="8" class="muted">Sin datos.</td></tr>
+      @endforelse
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2">Totales / Global</td>
+        <td class="right">{{ nf($kpis['litros'] ?? null) }}</td>
+        <td class="right">{{ nf($kpis['gasto'] ?? null) }}</td>
+        <td class="right">{{ nf($kpis['km'] ?? null) }}</td>
+        <td class="right">
+          @if(($kpis['km'] ?? 0) > 0) {{ nf(($kpis['gasto']/$kpis['km']), 4) }} @else — @endif
+        </td>
+        <td class="right">
+          @if(($kpis['litros'] ?? 0) > 0) {{ nf(($kpis['gasto']/$kpis['litros']), 3) }} @else — @endif
+        </td>
+        <td class="right">—</td>
+      </tr>
+    </tfoot>
+  </table>
+</body>
+</html>
+
+pdf/auditoria.blade 
+
+@php
+    function nf($n, $d=2){ return is_null($n) ? '—' : number_format((float)$n, $d, '.', ','); }
+@endphp
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{{ $titulo }}</title>
+  {!! view()->make('reportes.pdf._styles')->render() !!}
+</head>
+<body>
+  <h1 class="mb-2">{{ $titulo }}</h1>
+
+  <div class="small muted">
+    <strong>Filtros:</strong>
+    @if(!empty($filtros['desde'])) Desde {{ $filtros['desde'] }} @endif
+    @if(!empty($filtros['hasta'])) &nbsp;Hasta {{ $filtros['hasta'] }} @endif
+    @if(!empty($filtros['tipo_comb'])) &nbsp;Tipo: {{ $filtros['tipo_comb'] }} @endif
+    @if(!empty($filtros['destino'])) &nbsp;Destino: “{{ $filtros['destino'] }}” @endif
+  </div>
+
+  @if(!empty($chart_uri))
+  <div class="mb-2">
+    <img src="{{ $chart_uri }}" alt="Gráfica Auditoría" style="width:100%; max-height:340px; object-fit:contain; border:1px solid #ddd; padding:4px;">
+  </div>
+@endif
+
+
+  <table>
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Placa</th>
+        <th class="right">Litros</th>
+        <th class="right">Precio</th>
+        <th class="right">Total $</th>
+        <th class="right">Cap. (L)</th>
+        <th class="right">KM ini</th>
+        <th class="right">KM fin</th>
+        <th>Flags</th>
+      </tr>
+    </thead>
+    <tbody>
+      @forelse($rows as $r)
+        <tr>
+          <td>{{ $r['fecha'] }}</td>
+          <td>{{ $r['placa'] }}</td>
+          <td class="right">{{ nf($r['litros']) }}</td>
+          <td class="right">{{ nf($r['precio'], 3) }}</td>
+          <td class="right">{{ nf($r['total']) }}</td>
+          <td class="right">{{ nf($r['cap_litros'], 1) }}</td>
+          <td class="right">{{ $r['km_inicial'] ?? '—' }}</td>
+          <td class="right">{{ $r['km_final'] ?? '—' }}</td>
+          <td>{{ !empty($r['flags']) ? implode(', ', $r['flags']) : '—' }}</td>
+        </tr>
+      @empty
+        <tr><td colspan="9" class="muted">Sin datos.</td></tr>
+      @endforelse
+    </tbody>
+  </table>
+</body>
+</html>
+
+verificacion.blade.php
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{{ $titulo }}</title>
+  {!! view()->make('reportes.pdf._styles')->render() !!}
+</head>
+<body>
+  <h1 class="mb-2">{{ $titulo }}</h1>
+
+  <div class="small muted">
+    <strong>Filtros:</strong>
+    @if(!empty($filtros['desde'])) Desde {{ $filtros['desde'] }} @endif
+    @if(!empty($filtros['hasta'])) &nbsp;Hasta {{ $filtros['hasta'] }} @endif
+  </div>
+
+  @if(!empty($chart_uri))
+  <div class="mb-2">
+    <img src="{{ $chart_uri }}" alt="Gráfica Verificación" style="width:100%; max-height:340px; object-fit:contain; border:1px solid #ddd; padding:4px;">
+  </div>
+@endif
+
+
+  <table>
+    <thead>
+      <tr>
+        <th>Vehículo</th>
+        <th>Estado</th>
+        <th>Terminación</th>
+        <th>Ventana</th>
+        <th>Semestre</th>
+        <th>Estatus</th>
+      </tr>
+    </thead>
+    <tbody>
+      @forelse(($rows ?? []) as $r)
+        <tr>
+          <td>{{ $r['placa'] ?? '—' }}</td>
+          <td>{{ $r['estado'] ?? '—' }}</td>
+          <td>{{ $r['terminacion'] ?? '—' }}</td>
+          <td>{{ $r['ventana'] ?? '—' }}</td>
+          <td>{{ $r['semestre'] ?? '—' }}</td>
+          <td>{{ $r['estatus'] ?? '—' }}</td>
+        </tr>
+      @empty
+        <tr><td colspan="6" class="muted">Sin datos.</td></tr>
+      @endforelse
+    </tbody>
+  </table>
+</body>
+</html>
