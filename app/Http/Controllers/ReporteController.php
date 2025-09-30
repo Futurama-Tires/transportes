@@ -59,6 +59,32 @@ class ReporteController extends Controller
         return count($w) ? ('WHERE ' . implode(' AND ', $w)) : '';
     }
 
+    /** Paginación en memoria para arreglos resultantes (por defecto 25) */
+    private function paginate(array $rows, Request $r, int $defaultPerPage = 25): array
+    {
+        $page    = max(1, (int)$r->input('page', 1));
+        $perPage = min(200, max(1, (int)$r->input('per_page', $defaultPerPage)));
+
+        $total    = count($rows);
+        $lastPage = (int) max(1, ceil($total / $perPage));
+        $page     = min($page, $lastPage);
+        $offset   = ($page - 1) * $perPage;
+
+        $data = array_slice($rows, $offset, $perPage);
+
+        return [
+            'data' => array_values($data),
+            'meta' => [
+                'total'        => $total,
+                'per_page'     => $perPage,
+                'current_page' => $page,
+                'last_page'    => $lastPage,
+                'from'         => $total ? ($offset + 1) : 0,
+                'to'           => $total ? min($offset + $perPage, $total) : 0,
+            ],
+        ];
+    }
+
     private function numbers(array $rows): array
     {
         $litros = 0; $gasto = 0; $km = 0;
@@ -105,7 +131,6 @@ class ReporteController extends Controller
         $raw = trim($raw);
         if (str_starts_with($raw, 'data:image/')) return $raw; // OK
         if (preg_match('#^https?://#i', $raw)) return $raw;    // Requiere isRemoteEnabled=true
-        // Si viene solo el base64 (sin encabezado) y es largo…
         if (preg_match('/^[A-Za-z0-9+\/\=\r\n]+$/', $raw) && strlen($raw) > 200) {
             return 'data:image/png;base64,' . preg_replace('/\s+/', '', $raw);
         }
@@ -118,7 +143,6 @@ class ReporteController extends Controller
         $params = [];
         $where  = $this->buildWhere($r, $params);
 
-        // Índice estándar por vehículo (no duplicar por tanques)
         $sql = "
             SELECT
                 cc.vehiculo_id,
@@ -200,11 +224,14 @@ class ReporteController extends Controller
     public function rendimientoJson(Request $r)
     {
         $res = $this->queryRendimiento($r);
+        $pag = $this->paginate($res['rows'], $r, 25);
+
         return response()->json([
-            'kpis'   => $res['kpis'],
-            'table'  => $res['rows'],
-            'chart'  => $res['chart'],
-            'params' => $r->all(),
+            'kpis'       => $res['kpis'],
+            'table'      => $pag['data'],        // <-- sólo esta página
+            'pagination' => $pag['meta'],        // <-- metadatos de paginación
+            'chart'      => $res['chart'],       // <-- gráfica con dataset completo (filtrado)
+            'params'     => $r->all(),
         ]);
     }
 
@@ -215,7 +242,7 @@ class ReporteController extends Controller
             'titulo'    => 'Rendimiento vs Índice Estándar (km/L)',
             'filtros'   => $this->filtroResumen($r),
             'kpis'      => $res['kpis'],
-            'rows'      => $res['rows'],
+            'rows'      => $res['rows'], // exporta todo (sin paginar)
             'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
         ];
         return $pdf->streamFromView('reportes.pdf.rendimiento', $data, 'rendimiento-vs-indice.pdf', 'A4', 'portrait');
@@ -277,10 +304,13 @@ class ReporteController extends Controller
     public function costoKmJson(Request $r)
     {
         $res = $this->queryCostoKm($r);
+        $pag = $this->paginate($res['rows'], $r, 25);
+
         return response()->json([
-            'kpis'   => $res['kpis'],
-            'table'  => $res['rows'],
-            'chart'  => [
+            'kpis'       => $res['kpis'],
+            'table'      => $pag['data'],
+            'pagination' => $pag['meta'],
+            'chart'      => [
                 'categories' => collect($res['rows'])->pluck('vehiculo_label')->all(),
                 'series'     => [
                     ['name' => '$ / km',     'data' => collect($res['rows'])->pluck('costo_km')->all()],
@@ -298,7 +328,7 @@ class ReporteController extends Controller
             'titulo'    => 'Costo por km & Gasto de combustible',
             'filtros'   => $this->filtroResumen($r),
             'kpis'      => $res['kpis'],
-            'rows'      => $res['rows'],
+            'rows'      => $res['rows'], // exporta todo (sin paginar)
             'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
         ];
         return $pdf->streamFromView('reportes.pdf.costo_km', $data, 'costo-por-km.pdf', 'A4', 'portrait');
@@ -366,7 +396,6 @@ class ReporteController extends Controller
 
             $vehiculo_label = $this->makeVehiculoLabel($r->unidad, $r->placa);
 
-            // Si no hay nombre, dejar null para que el JS haga fallback a operador_id
             $opName = trim((string)($r->operador_nombre ?? ''));
             $opName = $opName !== '' ? $opName : null;
 
@@ -395,11 +424,14 @@ class ReporteController extends Controller
     public function auditoriaJson(Request $r)
     {
         $res = $this->queryAuditoria($r);
+        $pag = $this->paginate($res['rows'], $r, 25);
+
         return response()->json([
-            'kpis'   => ['litros' => null, 'gasto' => null, 'km' => null, 'costo_km' => null],
-            'table'  => $res['rows'],
-            'chart'  => ['categories' => [], 'series' => []],
-            'params' => $r->all(),
+            'kpis'       => ['litros' => null, 'gasto' => null, 'km' => null, 'costo_km' => null],
+            'table'      => $pag['data'],
+            'pagination' => $pag['meta'],
+            'chart'      => ['categories' => [], 'series' => []],
+            'params'     => $r->all(),
         ]);
     }
 
@@ -409,7 +441,7 @@ class ReporteController extends Controller
         $data = [
             'titulo'    => 'Auditoría de cargas y anomalías',
             'filtros'   => $this->filtroResumen($r),
-            'rows'      => $res['rows'],
+            'rows'      => $res['rows'], // exporta todo (hasta 500 por límite de consulta)
             'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
         ];
         return $pdf->streamFromView('reportes.pdf.auditoria', $data, 'auditoria-cargas.pdf', 'A4', 'portrait');
@@ -420,7 +452,6 @@ class ReporteController extends Controller
     {
         $anio = (int)($r->input('anio') ?: date('Y'));
 
-        // Restringir vehículos por filtro (si hay)
         $vehiculoIds = (array)$r->input('vehiculos', []);
         $vehiculos = Vehiculo::query()
             ->select('id','placa','unidad','estado')
@@ -428,7 +459,6 @@ class ReporteController extends Controller
             ->orderBy('placa')
             ->get();
 
-        // Verificaciones aprobadas por año (APROBADO/EXENTO/NO_APLICA) con fecha asentada
         $verifAprobadas = Verificacion::query()
             ->anio($anio)
             ->aprobada()
@@ -464,12 +494,14 @@ class ReporteController extends Controller
     public function verificacionJson(Request $r)
     {
         $res = $this->queryVerificacion($r);
+        $pag = $this->paginate($res['rows'], $r, 25);
+
         return response()->json([
-            'kpis'   => $res['kpis'],
-            'table'  => $res['rows'],
-            'rows'   => $res['rows'],
-            'chart'  => [
-                // Tip: puedes hacer un pie chart en el front con estos valores
+            'kpis'       => $res['kpis'],
+            'table'      => $pag['data'],
+            'rows'       => $pag['data'],   // si el front usa 'rows', lo mantenemos paginado también
+            'pagination' => $pag['meta'],
+            'chart'      => [
                 'categories' => ['Verificado', 'Sin verificar'],
                 'series'     => [[
                     'name' => 'Estatus',
@@ -486,7 +518,7 @@ class ReporteController extends Controller
         $data = [
             'titulo'    => 'Verificaciones por año (Verificado / Sin verificar)',
             'filtros'   => $this->filtroResumen($r),
-            'rows'      => $res['rows'],
+            'rows'      => $res['rows'], // exporta todo (sin paginar)
             'kpis'      => $res['kpis'],
             'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
         ];

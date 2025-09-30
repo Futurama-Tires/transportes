@@ -212,6 +212,10 @@ Route::middleware('auth')->group(function () {
             // Borrar foto de una carga
             Route::delete('{carga}/fotos/{foto}', [CargaFotoWebController::class, 'destroy'])->name('fotos.destroy');
         });
+       
+        Route::post('/cargas/{carga}/aprobar', [CargaCombustibleController::class, 'approve'])
+            ->name('cargas.approve')
+            ->middleware(['auth']); 
 
         Route::resource('calendarios', CalendarioVerificacionController::class)
             ->parameters(['calendarios' => 'calendario'])

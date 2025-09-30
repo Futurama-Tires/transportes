@@ -68,7 +68,7 @@
                                            name="search"
                                            value="{{ request('search') }}"
                                            class="form-control"
-                                           placeholder="Buscar por número de tarjeta, NIP o fecha de vencimiento…"
+                                           placeholder="Buscar..."
                                            aria-label="Búsqueda global">
                                     <button class="btn btn-primary" type="submit">
                                         <i class="ti ti-search me-1"></i>Buscar
@@ -76,17 +76,8 @@
                                 </div>
                             </div>
 
-                            {{-- Acciones: Exportar + Filtros (offcanvas) --}}
+                            {{--  Filtros (offcanvas) --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                <div class="btn-group">
-                                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="ti ti-download me-1"></i>Exportar
-                                    </button>
-                                    <div class="dropdown-menu dropdown-menu-end">
-                                        <a class="dropdown-item" href="#"><i class="ti ti-file-spreadsheet me-2"></i>Excel</a>
-                                        <a class="dropdown-item" href="#"><i class="ti ti-file-description me-2"></i>PDF</a>
-                                    </div>
-                                </div>
 
                                 {{-- Botón Filtros (abre Offcanvas) --}}
                                 <button type="button"
@@ -131,8 +122,12 @@
                     </div>
                 </div>
 
-                {{-- OFFCANVAS DE FILTROS --}}
-                <div class="offcanvas offcanvas-end" tabindex="-1" id="filtersOffcanvas" aria-labelledby="filtersOffcanvasLabel">
+                {{-- OFFCANVAS DE FILTROS (sin oscurecimiento) --}}
+                <div class="offcanvas offcanvas-end"
+                     tabindex="-1"
+                     id="filtersOffcanvas"
+                     aria-labelledby="filtersOffcanvasLabel"
+                     data-bs-backdrop="false">
                     <div class="offcanvas-header">
                         <h2 class="offcanvas-title h4" id="filtersOffcanvasLabel">
                             <i class="ti ti-adjustments me-2"></i>Filtros

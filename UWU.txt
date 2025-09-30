@@ -1,3 +1,5 @@
+CargaCombustibleController:
+
 <?php
 
 namespace App\Http\Controllers;
@@ -40,7 +42,6 @@ class CargaCombustibleController extends Controller
             'km_ini_min','km_ini_max',
             'km_fin_min','km_fin_max',
             'destino','custodio',
-            'estado',                // 👈 nuevo filtro por estado (Pendiente/Aprobada)
             'sort_by','sort_dir',
         ]);
 
@@ -82,11 +83,7 @@ class CargaCombustibleController extends Controller
             'km_final'         => ['required', 'integer', 'min:0'],
             'destino'          => ['nullable', 'string', 'max:255'],
             'observaciones'    => ['nullable', 'string', 'max:2000'],
-            // (no viene estado desde create web)
         ]);
-
-        // ✅ Todo lo creado en web sale Aprobada
-        $data['estado'] = 'Aprobada';
 
         return DB::transaction(function () use ($data) {
             $vehiculo  = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
@@ -105,6 +102,7 @@ class CargaCombustibleController extends Controller
 
             $vehiculo->update(['kilometros' => $data['km_final']]);
 
+            // 🔔 Notificar después del commit
             $carga->loadMissing('vehiculo','operador');
             DB::afterCommit(function () use ($carga) {
                 $destinatarios = User::role(['administrador','capturista'], 'web')->get();
@@ -141,8 +139,6 @@ class CargaCombustibleController extends Controller
             'km_final'         => ['required', 'integer', 'min:0'],
             'destino'          => ['nullable', 'string', 'max:255'],
             'observaciones'    => ['nullable', 'string', 'max:2000'],
-            // ✅ AQUÍ ESTÁ LA CLAVE:
-            'estado'           => ['required', 'in:Pendiente,Aprobada'],
         ]);
 
         return DB::transaction(function () use ($carga, $data) {
@@ -169,7 +165,6 @@ class CargaCombustibleController extends Controller
 
             $this->applyDerived($data, $kmInicial);
 
-            // $data incluye 'estado', por lo que se guardará
             $carga->forceFill($data)->save();
 
             $ultima = CargaCombustible::where('vehiculo_id', $vehiculo->id)
@@ -184,7 +179,6 @@ class CargaCombustibleController extends Controller
                 ->with('success', 'Carga actualizada correctamente.');
         });
     }
-
 
     public function destroy(CargaCombustible $carga)
     {
@@ -208,35 +202,6 @@ class CargaCombustibleController extends Controller
             return redirect()->route('cargas.index')
                 ->with('success', $deleted ? 'Carga eliminada correctamente.' : 'No se pudo eliminar la carga.');
         });
-    }
-
-    /** ===================== Revisión: Aprobar ===================== */
-
-    public function approve(Request $request, CargaCombustible $carga)
-    {
-        // Permitir solo a admin/capturista (Spatie)
-        if (!$request->user()->hasAnyRole(['administrador','capturista'])) {
-            abort(403, 'No autorizado.');
-        }
-
-        DB::transaction(function () use ($request, $carga) {
-            // Concurrencia: solo si sigue en Pendiente
-            $updated = CargaCombustible::whereKey($carga->id)
-                ->where('estado', CargaCombustible::ESTADO_PENDIENTE)
-                ->update([
-                    'estado'       => CargaCombustible::ESTADO_APROBADA,
-                    'revisado_por' => $request->user()->id,
-                    'revisado_en'  => now(),
-                ]);
-
-            if (!$updated) {
-                throw ValidationException::withMessages([
-                    'estado' => 'La carga ya fue aprobada o su estado cambió.'
-                ]);
-            }
-        });
-
-        return back()->with('success', "Carga #{$carga->id} aprobada.");
     }
 
     // ===================== Helpers =====================
@@ -296,11 +261,10 @@ class CargaCombustibleController extends Controller
         $operador = Operador::where('user_id', $user->id)->first();
 
         if (!$operador) {
-            return response()->json(['message' => 'El usuario autenticado no tiene un operador asociado.'], 422);
+            return response()->json([
+                'message' => 'El usuario autenticado no tiene un operador asociado.'
+            ], 422);
         }
-
-        // ✅ Todo lo que llega por API inicia como Pendiente
-        $data['estado'] = 'Pendiente';
 
         return DB::transaction(function () use ($data, $operador, $imagenes) {
             $vehiculo  = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
@@ -326,6 +290,7 @@ class CargaCombustibleController extends Controller
                 $this->attachTmpImagesToCarga($carga, $imagenes);
             }
 
+            // 🔔 Notificar después del commit
             $carga->loadMissing('vehiculo','operador');
             DB::afterCommit(function () use ($carga) {
                 $destinatarios = User::role(['administrador','capturista'], 'web')->get();

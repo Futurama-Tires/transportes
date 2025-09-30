@@ -1,11 +1,13 @@
-{{-- resources/views/cargas/edit.blade.php — versión Tabler ejecutiva (con galería/lightbox estilo Vehículos) --}}
+{{-- resources/views/cargas/edit.blade.php — versión Tabler ejecutiva (con estado como desplegable en el formulario principal) --}}
 <x-app-layout>
     @vite(['resources/js/app.js'])
 
     @php
         /** @var \App\Models\CargaCombustible $carga */
         $isEdit = isset($carga) && $carga->exists;
-        $fechaValue = old('fecha', isset($carga->fecha) ? \Illuminate\Support\Carbon::parse($carga->fecha)->format('Y-m-d') : '');
+        $fechaValue   = old('fecha', isset($carga->fecha) ? \Illuminate\Support\Carbon::parse($carga->fecha)->format('Y-m-d') : '');
+        $estadoActual = $carga->estado ?? 'Pendiente';
+        $estadoValue  = old('estado', $estadoActual);
 
         // ✅ Precomputar items de galería (sin arrow functions ni coalesce) para evitar errores de compilación de Blade/PHP
         $galleryItems = [];
@@ -30,7 +32,14 @@
                         <h2 class="page-title mb-0">Editar Carga de Combustible</h2>
                         <div class="text-secondary small mt-1">Actualiza los datos y guarda los cambios.</div>
                     </div>
-                    <div class="col-auto ms-auto">
+                    <div class="col-auto ms-auto d-flex align-items-center gap-2">
+                        {{-- Badge de estado visible en header (se actualizará en vivo cuando cambie el select) --}}
+                        @if($estadoActual === 'Aprobada')
+                            <span id="headerEstadoBadge" class="badge bg-green-lt">Aprobada</span>
+                        @else
+                            <span id="headerEstadoBadge" class="badge bg-yellow-lt">Pendiente</span>
+                        @endif
+
                         <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">
                             <i class="ti ti-arrow-left me-1"></i> Volver a la lista
                         </a>
@@ -69,11 +78,36 @@
                     {{-- Card: Datos de la carga --}}
                     <div class="col-12">
                         <div class="card">
-                            <div class="card-header">
+                            <div class="card-header justify-content-between">
                                 <h3 class="card-title">Datos de la carga #{{ $carga->id }}</h3>
+                                {{-- ❌ Se eliminó el botón/form de "Aprobar" para evitar formularios anidados --}}
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
+                                    {{-- Estado (select dentro del formulario principal, con colores) --}}
+                                    <div class="col-12 col-md-4">
+                                        <label class="form-label d-flex align-items-center gap-2">
+                                            Estado
+                                            <span id="inlineEstadoBadge" class="badge">
+                                                {{ $estadoValue === 'Aprobada' ? 'Aprobada' : 'Pendiente' }}
+                                            </span>
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="ti ti-shield-check"></i></span>
+                                            <select id="estadoSelect"
+                                                    name="estado"
+                                                    class="form-select estado-select @error('estado') is-invalid @enderror"
+                                                    required>
+                                                <option value="Pendiente" @selected($estadoValue === 'Pendiente')>Pendiente</option>
+                                                <option value="Aprobada"  @selected($estadoValue === 'Aprobada')>Aprobada</option>
+                                            </select>
+                                            @error('estado')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                                        </div>
+                                        <div class="form-hint">
+                                            Cambia el estado y presiona <strong>Guardar cambios</strong>.
+                                        </div>
+                                    </div>
+
                                     {{-- Fecha --}}
                                     <div class="col-12 col-md-4">
                                         <label class="form-label">Fecha <span class="text-danger">*</span></label>
@@ -400,6 +434,23 @@
         </div>
     </div>
 
+    {{-- ===== ESTILOS PARA EL SELECT DE ESTADO ===== --}}
+    <style>
+        /* Realza el select según el estado seleccionado */
+        .estado-select.pendiente {
+            background-color: var(--tblr-yellow-lt, #fff7e6) !important;
+            border-color: var(--tblr-yellow, #f59f00) !important;
+            color: #8a6d00 !important;
+            font-weight: 600;
+        }
+        .estado-select.aprobada {
+            background-color: var(--tblr-green-lt, #e6fcf5) !important;
+            border-color: var(--tblr-green, #2fb344) !important;
+            color: #1b6b2b !important;
+            font-weight: 600;
+        }
+    </style>
+
     {{-- ===== MODAL GALERÍA ===== --}}
     <style>
         #galleryModal .modal-dialog { max-width: min(96vw, 1200px); }
@@ -469,10 +520,42 @@
     {{-- ===== SCRIPTS ===== --}}
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+        // ====== Estado UI (select coloreado + badges en tiempo real) ======
+        const estadoSelect = document.getElementById('estadoSelect');
+        const headerBadge  = document.getElementById('headerEstadoBadge');
+        const inlineBadge  = document.getElementById('inlineEstadoBadge');
+
+        function applyEstadoStyles() {
+            if (!estadoSelect) return;
+            const v = estadoSelect.value === 'Aprobada' ? 'Aprobada' : 'Pendiente';
+
+            // Select coloreado
+            estadoSelect.classList.remove('aprobada', 'pendiente');
+            estadoSelect.classList.add(v === 'Aprobada' ? 'aprobada' : 'pendiente');
+
+            // Badges
+            if (headerBadge) {
+                headerBadge.textContent = v;
+                headerBadge.classList.remove('bg-green-lt','bg-yellow-lt');
+                headerBadge.classList.add(v === 'Aprobada' ? 'bg-green-lt' : 'bg-yellow-lt');
+            }
+            if (inlineBadge) {
+                inlineBadge.textContent = v;
+                inlineBadge.classList.remove('bg-green-lt','bg-yellow-lt');
+                inlineBadge.classList.add(v === 'Aprobada' ? 'bg-green-lt' : 'bg-yellow-lt');
+            }
+        }
+
+        if (estadoSelect) {
+            applyEstadoStyles();
+            estadoSelect.addEventListener('change', applyEstadoStyles, { passive: true });
+        }
+
+        // ====== Galería ======
         const getCarouselCtor = () => (window.bootstrap && window.bootstrap.Carousel) ? window.bootstrap.Carousel : (window.Carousel || null);
         const getModalCtor    = () => (window.bootstrap && window.bootstrap.Modal)    ? window.bootstrap.Modal    : (window.Modal || null);
 
-        const openGalleryBtn   = document.getElementById('openGalleryBtn');
+        const openGalleryBtn    = document.getElementById('openGalleryBtn');
         const galleryModalEl    = document.getElementById('galleryModal');
         const galleryCarouselEl = document.getElementById('galleryCarousel');
         const galleryInner      = document.getElementById('galleryInner');

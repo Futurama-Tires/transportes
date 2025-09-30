@@ -19,9 +19,6 @@
                             <i class="ti ti-layout-dashboard fs-2 text-primary"></i>
                             <h2 class="page-title mb-0">Panel de Administración</h2>
                         </div>
-                        <div class="text-secondary mt-1">
-                            Accesos rápidos y métricas clave del sistema.
-                        </div>
                     </div>
                 </div>
             </div>
@@ -63,7 +60,7 @@
                             </span>
                             <div class="flex-fill">
                                 <div class="card-title mb-1">Cargas de combustible</div>
-                                <div class="text-secondary small">Registrar y consultar reportes de carga.</div>
+                                <div class="text-secondary small">Gestionar cargas de combustible.</div>
                             </div>
                             <i class="ti ti-chevron-right text-secondary"></i>
                         </div>
@@ -115,7 +112,7 @@
                             </span>
                             <div class="flex-fill">
                                 <div class="card-title mb-1">Vehículos</div>
-                                <div class="text-secondary small">Control de flota, registros y actualizaciones.</div>
+                                <div class="text-secondary small">Gestionar los vehículos del sistema.</div>
                             </div>
                             <i class="ti ti-chevron-right text-secondary"></i>
                         </div>
@@ -133,7 +130,7 @@
                             </span>
                             <div class="flex-fill">
                                 <div class="card-title mb-1">Programa de verificación</div>
-                                <div class="text-secondary small">Semestres, terminaciones y marcado de verificaciones.</div>
+                                <div class="text-secondary small">Gestionar verificaciones.</div>
                             </div>
                             <i class="ti ti-chevron-right text-secondary"></i>
                         </div>
@@ -161,23 +158,6 @@
 
                 @hasanyrole('administrador|capturista')
                 <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="{{ route('verificaciones.index') }}" class="card card-link bg-red-lt" aria-label="Verificaciones">
-                        <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-red text-white me-3">
-                                <i class="ti ti-clipboard-check"></i>
-                            </span>
-                            <div class="flex-fill">
-                                <div class="card-title mb-1">Verificaciones</div>
-                                <div class="text-secondary small">Registrar y consultar verificaciones.</div>
-                            </div>
-                            <i class="ti ti-chevron-right text-secondary"></i>
-                        </div>
-                    </a>
-                </div>
-                @endhasanyrole
-
-                @hasanyrole('administrador|capturista')
-                <div class="col-12 col-sm-6 col-lg-4">
                     <a href="{{ route('tarjetas.index') }}" class="card card-link bg-cyan-lt" aria-label="Tarjetas SiVale">
                         <div class="card-body d-flex align-items-center">
                             <span class="avatar bg-cyan text-white me-3">
@@ -185,7 +165,7 @@
                             </span>
                             <div class="flex-fill">
                                 <div class="card-title mb-1">Tarjetas SiVale</div>
-                                <div class="text-secondary small">Registrar y consultar tarjetas SiVale.</div>
+                                <div class="text-secondary small">Gestionar las tarjetas SiVale.</div>
                             </div>
                             <i class="ti ti-chevron-right text-secondary"></i>
                         </div>
@@ -201,8 +181,8 @@
                                 <i class="ti ti-credit-card"></i>
                             </span>
                             <div class="flex-fill">
-                                <div class="card-title mb-1">Tarjeta comodín</div>
-                                <div class="text-secondary small">Consultar la tarjeta comodín.</div>
+                                <div class="card-title mb-1">Tarjetas comodín</div>
+                                <div class="text-secondary small">Consultar las tarjetas tipo comodín.</div>
                             </div>
                             <i class="ti ti-chevron-right text-secondary"></i>
                         </div>
@@ -236,7 +216,7 @@
                             </span>
                             <div class="flex-fill">
                                 <div class="card-title mb-1">Reportes</div>
-                                <div class="text-secondary small">Consulta estadísticas del sistema.</div>
+                                <div class="text-secondary small">Consultar y exportar reportes del sistema.</div>
                             </div>
                             <i class="ti ti-chevron-right text-secondary"></i>
                         </div>

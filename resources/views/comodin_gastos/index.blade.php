@@ -3,14 +3,18 @@
     @vite(['resources/js/app.js'])
 
     @php
-        // Cuenta filtros activos (excluye búsqueda, orden y paginación)
-        $ignored = ['search','page','sort_by','sort_dir'];
+        // Cuenta filtros activos (excluye búsqueda, orden, paginación y export)
+        $ignored = ['search','page','sort_by','sort_dir','export'];
         $activeFilters = collect(request()->query())->filter(function($v,$k) use ($ignored){
             if (in_array($k,$ignored)) return false;
             if (is_array($v)) return collect($v)->filter(fn($x)=>$x!==null && $x!=='')->isNotEmpty();
             return $v !== null && $v !== '';
         });
         $activeCount = $activeFilters->count();
+
+        // URL de exportación (xlsx) preservando filtros/orden (sin paginación)
+        $exportQuery = array_merge(request()->except(['page','export']), ['export' => 'xlsx']);
+        $exportUrl   = route('comodin-gastos.index', $exportQuery);
     @endphp
 
     {{-- ===== HEADER ===== --}}
@@ -55,7 +59,7 @@
                 <div class="card mb-3">
                     <div class="card-body">
                         <div class="row g-2 align-items-center">
-                            {{-- Búsqueda global por concepto --}}
+                            {{-- Búsqueda por concepto --}}
                             <div class="col-12 col-xl">
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="ti ti-search"></i></span>
@@ -71,17 +75,13 @@
                                 </div>
                             </div>
 
-                            {{-- Acciones: Exportar + Filtros (offcanvas) --}}
+                            {{-- Acciones: Exportar Excel + Filtros --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                <div class="btn-group">
-                                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="ti ti-download me-1"></i>Exportar
-                                    </button>
-                                    <div class="dropdown-menu dropdown-menu-end">
-                                        <a class="dropdown-item" href="#"><i class="ti ti-file-spreadsheet me-2"></i>Excel</a>
-                                        <a class="dropdown-item" href="#"><i class="ti ti-file-description me-2"></i>PDF</a>
-                                    </div>
-                                </div>
+                                {{-- Único botón: Exportar Excel (VERDE) --}}
+                                <a href="{{ $exportUrl }}" class="btn btn-success">
+                                    <i class="ti ti-file-spreadsheet me-1"></i>
+                                    Exportar Excel
+                                </a>
 
                                 {{-- Botón Filtros (abre Offcanvas) --}}
                                 <button type="button"
@@ -200,7 +200,7 @@
                             </div>
                         </div>
 
-                        {{-- Métricas (opcional) --}}
+                        {{-- Métricas --}}
                         <div>
                             <div class="text-secondary text-uppercase fw-semibold small mb-2">Métricas</div>
                             <div class="row g-2">
@@ -248,24 +248,13 @@
                                     $tar   = $g->tarjeta ?? null;
                                 @endphp
                                 <tr>
-                                    {{-- Numeración (reinicia por página) --}}
                                     <td class="text-center text-nowrap">{{ $loop->iteration }}</td>
-
                                     <td class="text-nowrap">{{ optional($g->fecha)->format('Y-m-d') ?? '—' }}</td>
-
-                                    {{-- Número de tarjeta (visible completo) --}}
-                                    <td class="font-monospace text-nowrap">
-                                        {{ $tar->numero_tarjeta ?? '—' }}
-                                    </td>
-
+                                    <td class="font-monospace text-nowrap">{{ $tar->numero_tarjeta ?? '—' }}</td>
                                     <td class="text-nowrap">{{ $g->concepto ?? '—' }}</td>
-
                                     <td class="text-end text-nowrap">$ {{ number_format((float)($g->monto ?? 0), 2) }}</td>
-
                                     <td class="text-end">
-                                        {{-- Acciones separadas: Ver (opcional), Editar, Eliminar --}}
                                         <div class="d-inline-flex gap-1">
-                                            {{-- Editar --}}
                                             <a href="{{ route('gastos.edit', $g) }}"
                                                class="btn btn-outline-secondary btn-sm"
                                                title="Editar">
@@ -273,7 +262,6 @@
                                             </a>
 
                                             @if($rowId > 0)
-                                                {{-- Eliminar: botón que dispara un form oculto (evita anidar formularios) --}}
                                                 <button
                                                     type="submit"
                                                     class="btn btn-danger btn-sm"
@@ -343,7 +331,6 @@
                         @endif
                     </p>
                     <div>
-                        {{-- Para Bootstrap/Tabler: en AppServiceProvider -> Paginator::useBootstrapFive(); --}}
                         {{ $gastos->appends(request()->only([
                             'search','tarjeta','desde','hasta','monto_min','monto_max','sort_by','sort_dir',
                         ]))->links() }}
@@ -351,16 +338,11 @@
                 </div>
             @endif
 
-            {{-- =========================
-                 FORMULARIOS OCULTOS DELETE (fuera de la tabla y de cualquier <form GET>)
-               ========================= --}}
+            {{-- FORMULARIOS OCULTOS DELETE --}}
             @foreach($gastos as $gg)
                 @php $rid = is_numeric($gg->id ?? null) ? (int)$gg->id : 0; @endphp
                 @if($rid > 0)
-                    <form id="del-{{ $rid }}"
-                          action="{{ route('gastos.destroy', $gg) }}"
-                          method="POST"
-                          class="d-none">
+                    <form id="del-{{ $rid }}" action="{{ route('gastos.destroy', $gg) }}" method="POST" class="d-none">
                         @csrf
                         @method('DELETE')
                     </form>

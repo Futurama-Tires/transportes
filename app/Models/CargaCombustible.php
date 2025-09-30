@@ -11,6 +11,11 @@ class CargaCombustible extends Model
 
     protected $table = 'cargas_combustible';
 
+    /** Estados permitidos */
+    public const ESTADO_PENDIENTE = 'Pendiente';
+    public const ESTADO_APROBADA  = 'Aprobada';
+    public const ESTADOS = [self::ESTADO_PENDIENTE, self::ESTADO_APROBADA];
+
     protected $fillable = [
         'fecha',
         'precio',
@@ -27,6 +32,10 @@ class CargaCombustible extends Model
         'total',
         'destino',
         'observaciones',
+        // nuevos para revisión
+        'estado',
+        'revisado_por',
+        'revisado_en',
         // 'mes' se calcula en el controlador
     ];
 
@@ -40,9 +49,13 @@ class CargaCombustible extends Model
         'km_inicial'  => 'integer',
         'km_final'    => 'integer',
         'recorrido'   => 'integer',
+        'revisado_en' => 'datetime',
+        // 'estado' es string; el default lo define la BD
     ];
 
     public const TIPOS_COMBUSTIBLE = ['Magna', 'Diesel', 'Premium'];
+
+    /* ===================== Relaciones ===================== */
 
     public function operador()
     {
@@ -74,6 +87,34 @@ class CargaCombustible extends Model
         return $this->fotos()->where('tipo', CargaFoto::ODOMETRO);
     }
 
+    /** Usuario que revisó/aprobó la carga */
+    public function revisadoPor()
+    {
+        return $this->belongsTo(User::class, 'revisado_por');
+    }
+
+    /* ===================== Scopes útiles ===================== */
+
+    public function scopePendiente($query)
+    {
+        return $query->where('cargas_combustible.estado', self::ESTADO_PENDIENTE);
+    }
+
+    public function scopeAprobada($query)
+    {
+        return $query->where('cargas_combustible.estado', self::ESTADO_APROBADA);
+    }
+
+    public function scopeEstado($query, ?string $estado)
+    {
+        if ($estado && in_array($estado, self::ESTADOS, true)) {
+            $query->where('cargas_combustible.estado', $estado);
+        }
+        return $query;
+    }
+
+    /* ===================== Filtro listado ===================== */
+
     public function scopeFilter($query, array $filters)
     {
         $query->leftJoin('vehiculos', 'vehiculos.id', '=', 'cargas_combustible.vehiculo_id')
@@ -90,6 +131,7 @@ class CargaCombustible extends Model
                    ->orWhere('cargas_combustible.observaciones', 'like', $like)
                    ->orWhere('cargas_combustible.custodio', 'like', $like)
                    ->orWhere('cargas_combustible.tipo_combustible', 'like', $like)
+                   ->orWhere('cargas_combustible.estado', 'like', $like)
                    ->orWhereRaw("CAST(cargas_combustible.id AS CHAR) LIKE ?", [$like])
                    ->orWhereRaw("DATE_FORMAT(cargas_combustible.fecha, '%Y-%m-%d') LIKE ?", [$like])
                    ->orWhereRaw("CAST(cargas_combustible.litros AS CHAR) LIKE ?", [$like])
@@ -102,9 +144,16 @@ class CargaCombustible extends Model
             });
         });
 
-        // Filtros
+        // Filtros directos
         $query->when($filters['vehiculo_id'] ?? null, fn($q, $id) => $q->where('cargas_combustible.vehiculo_id', $id));
         $query->when($filters['operador_id'] ?? null, fn($q, $id) => $q->where('cargas_combustible.operador_id', $id));
+
+        // Estado (Pendiente/Aprobada)
+        $query->when($filters['estado'] ?? null, function ($q, $estado) {
+            if (in_array($estado, self::ESTADOS, true)) {
+                $q->where('cargas_combustible.estado', $estado);
+            }
+        });
 
         $query->when($filters['tipo_combustible'] ?? null, function ($q, $t) {
             if ($t !== '') $q->where('cargas_combustible.tipo_combustible', $t);
@@ -146,6 +195,7 @@ class CargaCombustible extends Model
             'vehiculo'         => 'vehiculos.unidad',
             'placa'            => 'vehiculos.placa',
             'operador'         => null,
+            'estado'           => 'cargas_combustible.estado',
         ];
 
         $by  = $filters['sort_by'] ?? 'fecha';

@@ -153,7 +153,7 @@
                         id="filtersOffcanvas"
                         title="Filtros"
                         :clear-url="route('vehiculos.index')"
-                        :backdrop="true"
+                        :backdrop="false"
                         :scroll="false"
                     >
                         <x-slot name="filters">
@@ -596,7 +596,9 @@
         });
       });
 
-      
+
     })();
     </script>
 </x-app-layout>
+
+

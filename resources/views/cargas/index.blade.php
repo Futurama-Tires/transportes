@@ -93,28 +93,28 @@
 
                             {{-- Acciones rápidas --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                            {{-- Botón único: Exportar Excel --}}
-                            <a href="{{ $exportHref }}"
-                            class="btn btn-success"
-                            title="Exportar a Excel">
-                                <i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
-                                Exportar
-                            </a>
+                                {{-- Botón único: Exportar Excel --}}
+                                <a href="{{ $exportHref }}"
+                                   class="btn btn-success"
+                                   title="Exportar a Excel">
+                                    <i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
+                                    Exportar
+                                </a>
 
-                            {{-- Botón: Filtros --}}
-                            <button type="button"
-                                    class="btn btn-outline-secondary position-relative"
-                                    data-bs-toggle="offcanvas"
-                                    data-bs-target="#filtersOffcanvas"
-                                    aria-controls="filtersOffcanvas"
-                                    aria-label="Abrir filtros">
-                                <i class="ti ti-adjustments" aria-hidden="true"></i>
-                                <span class="ms-2">Filtros</span>
-                                @if($activeCount > 0)
-                                    <span class="badge bg-primary ms-2" aria-label="Filtros activos">{{ $activeCount }}</span>
-                                @endif
-                            </button>
-                        </div>
+                                {{-- Botón: Filtros --}}
+                                <button type="button"
+                                        class="btn btn-outline-secondary position-relative"
+                                        data-bs-toggle="offcanvas"
+                                        data-bs-target="#filtersOffcanvas"
+                                        aria-controls="filtersOffcanvas"
+                                        aria-label="Abrir filtros">
+                                    <i class="ti ti-adjustments" aria-hidden="true"></i>
+                                    <span class="ms-2">Filtros</span>
+                                    @if($activeCount > 0)
+                                        <span class="badge bg-primary ms-2" aria-label="Filtros activos">{{ $activeCount }}</span>
+                                    @endif
+                                </button>
+                            </div>
 
                         </div>
 
@@ -157,6 +157,21 @@
                 >
                     {{-- ====== Slot: filtros específicos de Cargas ====== --}}
                     <x-slot name="filters">
+                        {{-- 🔹 Primer filtro: Estado (Aprobada/Pendiente) --}}
+                        <div class="mb-4">
+                            <div class="text-secondary text-uppercase fw-semibold small mb-2">Estado</div>
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <label class="form-label" for="estado">Estado</label>
+                                    <select id="estado" name="estado" class="form-select">
+                                        <option value="">Todos</option>
+                                        <option value="Aprobada" @selected(request('estado') === 'Aprobada')>Aprobada</option>
+                                        <option value="Pendiente" @selected(request('estado') === 'Pendiente')>Pendiente</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
                         {{-- Grupo: Principales --}}
                         <div class="mb-4">
                             <div class="text-secondary text-uppercase fw-semibold small mb-2">Principales</div>
@@ -329,8 +344,16 @@
 
             {{-- ================== TABLA (sin columna ID) ================== --}}
             <div class="card">
-                <div class="table-responsive">
-                    <table class="table table-vcenter table-striped table-hover">
+                {{-- 👇 Barra de scroll horizontal superior sincronizada --}}
+                <div id="cargas-table-scroll-top"
+                     class="table-scroll-top"
+                     role="presentation"
+                     aria-hidden="true">
+                    <div id="cargas-table-scroll-spacer"></div>
+                </div>
+
+                <div class="table-responsive" id="cargas-table-wrap">
+                    <table class="table table-vcenter table-striped table-hover" id="cargas-table">
                         <thead>
                             <tr class="text-uppercase text-secondary small">
                                 <th class="text-center text-nowrap">#</th>
@@ -348,6 +371,7 @@
                                 <th style="min-width:12rem;">Destino</th>
                                 <th style="min-width:10rem;">Custodio</th>
                                 <th style="min-width:16rem;">Observaciones</th>
+                                <th class="text-nowrap">Estado</th>
                                 <th class="text-end">Acciones</th>
                             </tr>
                         </thead>
@@ -374,6 +398,8 @@
                                         : '—';
 
                                     $rowId = is_numeric($c->id ?? null) ? (int)$c->id : 0;
+
+                                    $estado = $c->estado ?? 'Pendiente';
                                 @endphp
 
                                 <tr>
@@ -418,22 +444,33 @@
                                         <div class="text-truncate" title="{{ $obs }}">{{ $obs ?? '—' }}</div>
                                     </td>
 
+                                    {{-- ESTADO --}}
+                                    <td class="text-nowrap">
+                                        @if($estado === 'Aprobada')
+                                            <span class="badge bg-green-lt">Aprobada</span>
+                                        @else
+                                            <span class="badge bg-yellow-lt">Pendiente</span>
+                                        @endif
+                                    </td>
+
                                     {{-- Acciones --}}
-                                    <td class="text-end">
+                                    <td class="text-end text-nowrap" style="min-width:15rem;">
                                         <div class="d-inline-flex gap-1">
-                                            {{-- Ajusta a show si existe --}}
+                                            {{-- Ver --}}
                                             <a href="{{ route('cargas.edit', $c->id) }}"
                                                class="btn btn-outline-secondary btn-sm"
                                                title="Ver">
                                                 <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
                                             </a>
 
+                                            {{-- Editar --}}
                                             <a href="{{ route('cargas.edit', $c->id) }}"
                                                class="btn btn-outline-secondary btn-sm"
                                                title="Editar">
                                                 <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
                                             </a>
 
+                                            {{-- Eliminar --}}
                                             @if($rowId > 0)
                                                 <button
                                                     type="submit"
@@ -450,10 +487,10 @@
                             @empty
                                 {{-- Estado vacío --}}
                                 <tr>
-                                    <td colspan="16" class="py-6">
+                                    <td colspan="17" class="py-6">
                                         <div class="empty">
                                             <div class="empty-icon">
-                                                <i class="ti ti-database-off" aria-hidden="true"></i>
+                                            <i class="ti ti-database-off" aria-hidden="true"></i>
                                             </div>
                                             <p class="empty-title">No hay datos</p>
                                             <p class="empty-subtitle text-secondary">
@@ -461,7 +498,7 @@
                                                     'search','vehiculo_id','operador_id','tipo_combustible','from','to',
                                                     'litros_min','litros_max','precio_min','precio_max','total_min','total_max',
                                                     'rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max',
-                                                    'destino','custodio'
+                                                    'destino','custodio','estado'
                                                 ]))
                                                     No se encontraron resultados con los filtros aplicados.
                                                 @else
@@ -473,7 +510,7 @@
                                                     'search','vehiculo_id','operador_id','tipo_combustible','from','to',
                                                     'litros_min','litros_max','precio_min','precio_max','total_min','total_max',
                                                     'rend_min','rend_max','km_ini_min','km_ini_max','km_fin_min','km_fin_max',
-                                                    'destino','custodio'
+                                                    'destino','custodio','estado'
                                                 ]))
                                                     <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">
                                                         Limpiar filtros
@@ -520,7 +557,7 @@
                             'search','vehiculo_id','operador_id','tipo_combustible',
                             'from','to','litros_min','litros_max','precio_min','precio_max',
                             'total_min','total_max','rend_min','rend_max','km_ini_min','km_ini_max',
-                            'km_fin_min','km_fin_max','destino','custodio','sort_by','sort_dir',
+                            'km_fin_min','km_fin_max','destino','custodio','sort_by','sort_dir','estado',
                         ]))->links() }}
                     </div>
                 </div>
@@ -558,6 +595,27 @@
             }
             /* Eleva dropdown por si hay stacking contexts inesperados */
             .dropdown-menu { z-index: 1080; }
+
+            /* ===== Barra de scroll horizontal superior (espejo) ===== */
+            .table-scroll-top{
+                overflow-x: auto;
+                overflow-y: hidden;
+                height: 14px;             /* sólo el scrollbar */
+                margin: .25rem 0;
+                background: transparent;
+            }
+            .table-scroll-top > #cargas-table-scroll-spacer{
+                height: 1px;              /* elemento “fantasma” para generar ancho */
+            }
+            /* Ajuste opcional de scrollbar WebKit */
+            .table-scroll-top::-webkit-scrollbar{ height: 12px; }
+            .table-scroll-top::-webkit-scrollbar-thumb{ border-radius: 8px; }
+
+            /* Dark theme friendly (opcional; hereda estilos globales) */
+            .theme-dark .table-scroll-top,
+            [data-bs-theme="dark"] .table-scroll-top{
+                background: transparent;
+            }
         </style>
 
         <script>
@@ -567,6 +625,45 @@
                     document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(function (el) {
                         new window.bootstrap.Dropdown(el);
                     });
+                }
+
+                // ====== Scroll superior sincronizado con el de la tabla ======
+                const topScroll   = document.getElementById('cargas-table-scroll-top');
+                const spacer      = document.getElementById('cargas-table-scroll-spacer');
+                const tableWrap   = document.getElementById('cargas-table-wrap');
+
+                if (topScroll && spacer && tableWrap) {
+                    const updateWidths = () => {
+                        // ancho del contenido real desplazable
+                        const sw = tableWrap.scrollWidth;
+                        spacer.style.width = sw + 'px';
+                        // mostrar u ocultar el scroll top según necesidad
+                        const need = sw > (tableWrap.clientWidth + 2);
+                        topScroll.style.display = need ? 'block' : 'none';
+                    };
+
+                    // Evitar bucle de eventos al sincronizar
+                    let syncingTop = false, syncingBottom = false;
+
+                    topScroll.addEventListener('scroll', () => {
+                        if (syncingTop) { syncingTop = false; return; }
+                        syncingBottom = true;
+                        tableWrap.scrollLeft = topScroll.scrollLeft;
+                    }, { passive: true });
+
+                    tableWrap.addEventListener('scroll', () => {
+                        if (syncingBottom) { syncingBottom = false; return; }
+                        syncingTop = true;
+                        topScroll.scrollLeft = tableWrap.scrollLeft;
+                    }, { passive: true });
+
+                    // Recalcular en resize y al cargar
+                    updateWidths();
+                    window.addEventListener('resize', updateWidths);
+
+                    // Por si las fuentes/íconos refluye (pequeño delay)
+                    setTimeout(updateWidths, 150);
+                    setTimeout(updateWidths, 500);
                 }
             });
         </script>

@@ -18,7 +18,6 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
 class CargasExport implements
     FromQuery,
@@ -34,8 +33,8 @@ class CargasExport implements
     protected array $params;
     protected int $rowNumber = 0;
 
-    /** 16 columnas (# + 15 campos) => A..P */
-    private const LAST_COL = 'P';
+    /** 17 columnas (# + 16 campos) => A..Q */
+    private const LAST_COL = 'Q';
     private const DATA_START_ROW = 6;
 
     /**
@@ -95,7 +94,7 @@ class CargasExport implements
     }
 
     /**
-     * Columnas (alineadas con tu tabla del index + placa).
+     * Columnas (alineadas con tu tabla del index + placa) e incluyendo Estado.
      */
     public function headings(): array
     {
@@ -116,6 +115,7 @@ class CargasExport implements
             'Destino',         // N
             'Custodio',        // O
             'Observaciones',   // P
+            'Estado',          // Q  ⬅️ nuevo
         ];
     }
 
@@ -154,6 +154,7 @@ class CargasExport implements
             $c->destino       ?? '—',                          // Destino
             $c->custodio      ?? '—',                          // Custodio
             ($c->observaciones ?? $c->comentarios ?? '—'),     // Observaciones
+            $c->estado        ?? 'Pendiente',                  // Estado
         ];
     }
 
@@ -258,6 +259,10 @@ class CargasExport implements
 
                     // Fecha centrada
                     $sheet->getStyle("B".self::DATA_START_ROW.":B{$dataLastRow}")
+                          ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+                    // Estado centrado
+                    $sheet->getStyle("Q".self::DATA_START_ROW.":Q{$dataLastRow}")
                           ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 }
 

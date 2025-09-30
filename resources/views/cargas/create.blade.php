@@ -15,7 +15,14 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <h2 class="page-title mb-0">{{ $title }}</h2>
-                        <div class="text-secondary small mt-1">Completa los campos y guarda los cambios.</div>
+                        <div class="text-secondary small mt-1">
+                            Completa los campos y guarda los cambios.
+                            @unless($isEdit)
+                                <span class="ms-2 badge bg-green-lt" title="Las cargas creadas en web por capturista se marcarán como Aprobadas al guardar">
+                                    Se guardará como Aprobada
+                                </span>
+                            @endunless
+                        </div>
                     </div>
                     <div class="col-auto ms-auto">
                         <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">
@@ -51,6 +58,13 @@
             <form method="POST" action="{{ $action }}" autocomplete="off">
                 @csrf
                 @if($isEdit) @method('PUT') @endif
+
+                {{-- ⚠️ Para creaciones desde web, se pretende guardar como Aprobada.
+                    Este input oculto solo tendrá efecto si el controlador permite el campo 'estado'
+                    o si el controlador lo establece server-side. --}}
+                @unless($isEdit)
+                    <input type="hidden" name="estado" value="Aprobada">
+                @endunless
 
                 <div class="row row-cards">
                     {{-- Card: Datos principales --}}
@@ -154,7 +168,7 @@
                                             @endforeach
                                         </select>
                                         @error('vehiculo_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                        <div class="form-hint">El KM Inicial se tomará del odómetro actual del vehículo seleccionado.</div>
+                                        <div class="form-hint">El KM Inicial se tomará del odómetro del vehículo seleccionado.</div>
                                     </div>
 
                                     {{-- KM Inicial (solo lectura) --}}
@@ -171,7 +185,7 @@
                                         <div class="form-hint">Se calcula desde el odómetro del vehículo o de la carga previa.</div>
                                     </div>
 
-                                    {{-- KM Final (requerido en servidor) --}}
+                                    {{-- KM Final --}}
                                     <div class="col-12 col-md-4">
                                         <label class="form-label">KM Final</label>
                                         <div class="input-group">

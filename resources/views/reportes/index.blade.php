@@ -29,12 +29,11 @@
     @endphp
 
     <div class="page-header d-print-none">
+      <br>
         <div class="container-xl">
             <div class="row g-2 align-items-center">
                 <div class="col">
-                    <p class="text-secondary text-uppercase small mb-1">Reportes</p>
                     <h2 class="page-title mb-0">Dashboard de Reportes</h2>
-                    <div class="text-secondary small mt-1">Filtros globales + 4 pestañas (carga bajo demanda).</div>
                 </div>
             </div>
         </div>
@@ -61,7 +60,6 @@
                             <select name="vehiculos[]" class="form-select" multiple size="4">
                                 @foreach($vehiculosOptions as $v)
                                     <option value="{{ $v->id }}" @selected($vehiculosQ->contains($v->id))>
-                                        {{-- "unidad - placa" con fallback decente --}}
                                         {{ ($v->unidad && $v->placa) ? ($v->unidad.' - '.$v->placa) : ($v->unidad ?? ($v->placa ?? '#'.$v->id)) }}
                                     </option>
                                 @endforeach
@@ -187,6 +185,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div id="pager-rendimiento" class="mt-2"></div>
                     </div>
 
                     {{-- Tab 2: Costo por km --}}
@@ -221,6 +220,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div id="pager-costokm" class="mt-2"></div>
                     </div>
 
                     {{-- Tab 3: Auditoría --}}
@@ -267,6 +267,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div id="pager-auditoria" class="mt-2"></div>
                     </div>
 
                     {{-- Tab 4: Verificación (simple) --}}
@@ -297,6 +298,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div id="pager-verificacion" class="mt-2"></div>
                     </div>
 
                 </div> {{-- /card-body --}}
@@ -321,6 +323,97 @@
       const VEH_BY_ID    = @json($vehById, JSON_UNESCAPED_UNICODE);
       const VEH_BY_PLACA = @json($vehByPlaca, JSON_UNESCAPED_UNICODE);
 
+      // ====== Paginación (estado por tab) ======
+      const PER_PAGE = 25;
+      const pageState = {
+        rendimiento:  { page: 1, last: 1, total: 0, per_page: PER_PAGE },
+        costokm:      { page: 1, last: 1, total: 0, per_page: PER_PAGE },
+        auditoria:    { page: 1, last: 1, total: 0, per_page: PER_PAGE },
+        verificacion: { page: 1, last: 1, total: 0, per_page: PER_PAGE },
+      };
+
+      function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
+
+      function renderPager(key, meta) {
+        const host = document.getElementById(`pager-${key}`);
+        if (!host) return;
+
+        if (!meta || !meta.total || meta.last_page <= 1) {
+          host.innerHTML = '';
+          return;
+        }
+
+        // Actualiza estado
+        pageState[key].page     = meta.current_page || 1;
+        pageState[key].last     = meta.last_page || 1;
+        pageState[key].total    = meta.total || 0;
+        pageState[key].per_page = meta.per_page || PER_PAGE;
+
+        const cur = pageState[key].page;
+        const last = pageState[key].last;
+
+        const windowSize = 5; // páginas visibles en la ventana
+        const start = Math.max(1, cur - Math.floor(windowSize/2));
+        const end   = Math.min(last, start + windowSize - 1);
+        const realStart = Math.max(1, end - windowSize + 1);
+
+        const pageLink = (p, label = null, disabled = false, active = false) => {
+          const cls = ['page-item'];
+          if (disabled) cls.push('disabled');
+          if (active)   cls.push('active');
+          const lab = label ?? p;
+          return `
+            <li class="${cls.join(' ')}">
+              <a class="page-link" href="#" data-page="${p}">${lab}</a>
+            </li>`;
+        };
+
+        let nums = '';
+        if (realStart > 1) {
+          nums += pageLink(1, '1');
+          if (realStart > 2) nums += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+        }
+        for (let p = realStart; p <= end; p++) {
+          nums += pageLink(p, String(p), false, p === cur);
+        }
+        if (end < last) {
+          if (end < last - 1) nums += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+          nums += pageLink(last, String(last));
+        }
+
+        host.innerHTML = `
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <nav>
+              <ul class="pagination mb-0">
+                ${pageLink(1, '&laquo;', cur === 1)}
+                ${pageLink(cur - 1, '&lsaquo;', cur === 1)}
+                ${nums}
+                ${pageLink(cur + 1, '&rsaquo;', cur === last)}
+                ${pageLink(last, '&raquo;', cur === last)}
+              </ul>
+            </nav>
+            <div class="text-secondary small">
+              Página <strong>${cur}</strong> de <strong>${last}</strong> — ${meta.from}-${meta.to} de ${meta.total} registros
+            </div>
+          </div>
+        `;
+
+        // Handlers
+        host.querySelectorAll('a.page-link[data-page]').forEach(a=>{
+          a.addEventListener('click', (e)=>{
+            e.preventDefault();
+            const p = parseInt(a.dataset.page, 10);
+            if (isNaN(p)) return;
+            gotoPage(key, clamp(p, 1, pageState[key].last));
+          });
+        });
+      }
+
+      function gotoPage(key, page) {
+        pageState[key].page = clamp(page, 1, pageState[key].last || 1);
+        loadTab(key); // recarga con el nuevo page
+      }
+
       // ===== util: etiqueta "unidad - placa" (con fallback) =====
       function vehLabelFrom(unidad, placa) {
         const u = (unidad ?? '').toString().trim();
@@ -328,22 +421,14 @@
         return (u && p) ? `${u} - ${p}` : (u || p || '');
       }
       function vehLabel(row) {
-        // 1) Si la API ya manda unidad y placa
         if (row && (row.unidad || row.placa)) {
           const lbl = vehLabelFrom(row.unidad, row.placa);
           if (lbl) return lbl;
         }
-        // 2) Buscar por vehiculo_id
         const vid = row?.vehiculo_id;
-        if (vid && VEH_BY_ID[vid]) {
-          return vehLabelFrom(VEH_BY_ID[vid].unidad, VEH_BY_ID[vid].placa);
-        }
-        // 3) Buscar por placa
+        if (vid && VEH_BY_ID[vid]) return vehLabelFrom(VEH_BY_ID[vid].unidad, VEH_BY_ID[vid].placa);
         const p = row?.placa;
-        if (p && VEH_BY_PLACA[p]) {
-          return vehLabelFrom(VEH_BY_PLACA[p].unidad, VEH_BY_PLACA[p].placa);
-        }
-        // 4) Fallback
+        if (p && VEH_BY_PLACA[p]) return vehLabelFrom(VEH_BY_PLACA[p].unidad, VEH_BY_PLACA[p].placa);
         return row?.placa ?? '';
       }
 
@@ -366,12 +451,10 @@
         const form = document.getElementById('filtrosForm');
         const payload = {};
         const fd = new FormData(form);
-        // simples
         ['desde','hasta','destino','tipo_comb','anio'].forEach(k=>{
           const v = fd.get(k);
           if (v !== null && v !== '') payload[k] = v;
         });
-        // múltiples
         ['vehiculos[]','operadores[]'].forEach(name=>{
           const opts = form.querySelectorAll(`select[name="${name}"] option:checked`);
           const arr = Array.from(opts).map(o=>o.value);
@@ -534,16 +617,28 @@
         }
       }
 
-      // ========= CHART: Verificación (Verificados vs Sin verificar) =========
+      // ========= CHART: Verificación (usa totales del payload si vienen) =========
       window.chartVer = window.chartVer || null;
-      function renderVerificacionChart(rows) {
+      function renderVerificacionChartFromPayload(payload) {
         const el = document.querySelector('#chart-verificacion'); if (!el) return;
 
+        if (payload?.chart?.series?.length) {
+          const opts = {
+            chart: { type: 'pie', height: 320, toolbar: { show: false } },
+            series: payload.chart.series[0].data,
+            labels: payload.chart.categories,
+            legend: { position: 'bottom' },
+            dataLabels: { enabled: true }
+          };
+          if (window.chartVer) window.chartVer.destroy();
+          window.chartVer = new ApexCharts(el, opts); window.chartVer.render();
+          return;
+        }
+
+        // Fallback: contar filas actuales (página)
+        const rows = payload?.table || payload?.rows || [];
         const counts = { 'Verificado': 0, 'Sin verificar': 0 };
-        (rows || []).forEach(r => {
-          const k = (r.estatus === 'Verificado') ? 'Verificado' : 'Sin verificar';
-          counts[k] = (counts[k] || 0) + 1;
-        });
+        (rows || []).forEach(r => { const k = (r.estatus === 'Verificado') ? 'Verificado' : 'Sin verificar'; counts[k]++; });
         const labels = Object.keys(counts);
         const data   = labels.map(k => counts[k]);
         const total  = data.reduce((a,b)=>a+b,0);
@@ -566,7 +661,6 @@
             dataLabels: { enabled: true }
           };
         }
-
         if (window.chartVer) window.chartVer.destroy();
         window.chartVer = new ApexCharts(el, opts); window.chartVer.render();
       }
@@ -575,7 +669,12 @@
         showPanel(key);
         const panel = document.querySelector(`[data-panel="${key}"]`);
         panel.querySelectorAll('tbody').forEach(t => t.innerHTML = `<tr><td colspan="99" class="text-secondary">Cargando…</td></tr>`);
-        const url = endpoints[key] + '?' + qsParams().toString();
+
+        const params = qsParams();
+        params.set('page', pageState[key].page || 1);
+        params.set('per_page', pageState[key].per_page || PER_PAGE);
+
+        const url = endpoints[key] + '?' + params.toString();
         const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
         const payload = await res.json();
 
@@ -601,6 +700,7 @@
               <td>${r.desviacion_pct ?? ''}</td><td>${r.num_cargas}</td>
             </tr>`).join('');
           renderRendChart(payload);
+          renderPager('rendimiento', payload.pagination);
         }
 
         else if (key === 'costokm') {
@@ -614,11 +714,13 @@
               <td>${r.costo_km}</td><td>${r.precio_prom}</td><td>${r.num_cargas}</td>
             </tr>`).join('');
           renderCostokmChart(payload);
+          renderPager('costokm', payload.pagination);
         }
 
         else if (key === 'auditoria') {
           const rows = payload.table || payload.rows || [];
-          renderAuditoriaChart(rows); // la tabla se llena con vehLabel(r)
+          renderAuditoriaChart(rows); // tabla se llena con vehLabel(r)
+          renderPager('auditoria', payload.pagination);
         }
 
         else if (key === 'verificacion') {
@@ -631,16 +733,17 @@
               <td>${r.estatus ?? ''}</td>
               <td>${r.fecha_verificacion ?? ''}</td>
             </tr>`).join('');
-          renderVerificacionChart(rows);
+          renderVerificacionChartFromPayload(payload);
+          renderPager('verificacion', payload.pagination);
         }
 
-        // Actualiza URL (sin recargar)
-        const params = qsParams().toString();
-        const newUrl = `{{ route('reportes.index') }}?${params}#${key}`;
+        // Actualiza URL (sin recargar) sólo con filtros y hash
+        const paramsForUrl = qsParams().toString();
+        const newUrl = `{{ route('reportes.index') }}?${paramsForUrl}#${key}`;
         window.history.replaceState({}, '', newUrl);
       }
 
-      // Exportar PDF con imagen del gráfico (usa payload con arrays correctos)
+      // Exportar PDF con imagen del gráfico
       function attachExportWithChart(key, chartRefGetter) {
         const btn = document.getElementById(`exp-${key}-pdf`);
         if (!btn) return;
@@ -655,7 +758,7 @@
               chartUri = imgURI || null;
             }
           } catch(_) { /* noop */ }
-          const filters = getFilterPayload(); // <- arrays “vehiculos” y “operadores” se mantienen
+          const filters = getFilterPayload();
           postWithData(url, Object.assign({}, filters, { chart_uri: chartUri }));
         });
       }
@@ -683,4 +786,3 @@
     })();
     </script>
 </x-app-layout>
-
