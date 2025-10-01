@@ -85,7 +85,7 @@
                                         name="search"
                                         value="{{ $search }}"
                                         class="form-control"
-                                        placeholder="Buscar por nombre, apellidos, correo, teléfono…"
+                                        placeholder="Buscar por nombre, apellidos, correo, teléfono, RFC, CURP…"
                                         aria-label="Búsqueda global"
                                     >
                                     <button class="btn btn-primary" type="submit">
@@ -214,18 +214,22 @@
                                 <th>Correo electrónico</th>
                                 <th>Teléfono</th>
                                 <th class="text-nowrap">Tipo sangre</th>
+                                <th class="text-nowrap">Estado civil</th>
+                                <th class="text-nowrap">CURP</th>
+                                <th class="text-nowrap">RFC</th>
                                 <th class="text-end">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($p as $op)
                                 @php
-                                    $nombre = $op->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
-                                    $correo = data_get($op, 'user.email', '—');
+                                    $nombre   = $op->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
+                                    $correo   = data_get($op, 'user.email', '—');
                                     $telefono = $op->telefono ?: '—';
-                                    $tsangre = $op->tipo_sangre ?: '—';
-                                    $emNombre = $op->contacto_emergencia_nombre ?: null;
-                                    $emTel    = $op->contacto_emergencia_tel ?: null;
+                                    $tsangre  = $op->tipo_sangre ?: '—';
+                                    $ecivil   = $op->estado_civil ?: '—';
+                                    $curp     = $op->curp ?: '—';
+                                    $rfc      = $op->rfc ?: '—';
                                 @endphp
                                 <tr>
                                     {{-- Numeración continua por página --}}
@@ -254,6 +258,16 @@
 
                                     <td class="text-nowrap">
                                         <span class="badge bg-red-lt"><i class="ti ti-droplet me-1"></i>{{ $tsangre }}</span>
+                                    </td>
+
+                                    <td class="text-nowrap text-capitalize">{{ $ecivil }}</td>
+
+                                    <td class="text-nowrap">
+                                        <div class="text-truncate" style="max-width: 180px" title="{{ $curp }}">{{ $curp }}</div>
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        <div class="text-truncate" style="max-width: 140px" title="{{ $rfc }}">{{ $rfc }}</div>
                                     </td>
 
                                     <td class="text-end">
@@ -290,7 +304,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="py-6">
+                                    <td colspan="9" class="py-6">
                                         <div class="empty">
                                             <div class="empty-icon">
                                                 <i class="ti ti-database-off" aria-hidden="true"></i>

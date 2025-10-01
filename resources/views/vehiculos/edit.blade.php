@@ -1,4 +1,4 @@
-{{-- resources/views/vehiculos/edit.blade.php — Versión Tabler (estilo ejecutivo + galería con modal) --}}
+{{-- resources/views/vehiculos/edit.blade.php}}
 <x-app-layout>
     @vite(['resources/js/app.js'])
 
@@ -9,7 +9,6 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <h2 class="page-title mb-0 d-flex align-items-center gap-2">
-                            <i class="ti ti-steering-wheel"></i>
                             Editar Vehículo
                         </h2>
                         <div class="text-secondary small mt-1">Actualiza la información general del vehículo.</div>
@@ -62,7 +61,6 @@
                             <div class="col-12 col-md-6">
                                 <label for="ubicacion" class="form-label">Ubicación <span class="text-danger">*</span></label>
                                 <div class="input-icon">
-                                    <span class="input-icon-addon"><i class="ti ti-map-pin"></i></span>
                                     <select id="ubicacion" name="ubicacion" class="form-select @error('ubicacion') is-invalid @enderror" required>
                                         <option value="">-- Selecciona ubicación --</option>
                                         <option value="CVC" @selected(old('ubicacion', $vehiculo->ubicacion ?? '')=='CVC')>Cuernavaca</option>

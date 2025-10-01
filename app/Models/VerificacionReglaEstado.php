@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 
 class VerificacionReglaEstado extends Model
 {
@@ -18,24 +17,24 @@ class VerificacionReglaEstado extends Model
         'estado',
     ];
 
+    protected $casts = [
+        'anio' => 'integer',
+    ];
+
     public function regla()
     {
         return $this->belongsTo(VerificacionRegla::class, 'regla_id');
     }
 
     /* Normalización automática del estado al guardar */
-    public function setEstadoAttribute($value)
+    public function setEstadoAttribute($value): void
     {
-        $norm = Str::of($value ?? '')
-            ->ascii()
-            ->upper()
-            ->replaceMatches('/\s+/', ' ')
-            ->trim()
-            ->toString();
+        $this->attributes['estado'] = VerificacionRegla::normalizeEstado($value);
+    }
 
-        if (in_array($norm, ['ESTADO DE MEXICO','MEXICO','EDO MEXICO','EDO. MEX','E DOMEX'], true)) {
-            $norm = 'EDO MEX';
-        }
-        $this->attributes['estado'] = $norm;
+    /* Scopes útiles */
+    public function scopePorAnio($q, ?int $anio)
+    {
+        return $anio ? $q->where('anio', $anio) : $q;
     }
 }

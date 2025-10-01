@@ -8,10 +8,15 @@
                     <h2 class="page-title text-dark">Nueva regla de verificación</h2>
                     <div class="page-subtitle text-dark">Define el año, estados y el calendario por terminación.</div>
                 </div>
+                <div class="col-auto ms-auto">
+                    <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-outline-secondary">
+                        <i class="ti ti-arrow-left"></i> Volver
+                    </a>
+                </div>
             </div>
         </div>
 
-        {{-- Errores / success --}}
+        {{-- Errores --}}
         @if ($errors->any())
             <div class="alert alert-danger">
                 <ul class="mb-0">
@@ -20,7 +25,7 @@
                     @endforeach
                 </ul>
             </div>
-        @endif>
+        @endif
 
         {{-- Form --}}
         <form method="post" action="{{ route('verificacion-reglas.store') }}" class="card">
@@ -30,7 +35,7 @@
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label">Nombre de la regla</label>
-                        <input type="text" name="nombre" class="form-control" required placeholder="Ej. Megalópolis 2025" value="{{ old('nombre') }}">
+                        <input type="text" name="nombre" class="form-control" required placeholder="Ej. Megalópolis {{ date('Y') }}" value="{{ old('nombre') }}">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Versión (opcional)</label>
@@ -50,7 +55,7 @@
                                min="2000" max="2999" value="{{ old('anio', $anioDefault ?? now()->year) }}" required>
                     </div>
 
-                    {{-- ===== Estados con checkboxes ===== --}}
+                    {{-- ===== Estados con checkboxes dinámicos ===== --}}
                     <div class="col-md-9">
                         <div class="d-flex align-items-center justify-content-between">
                             <label class="form-label mb-0">Estados (disponibles para el año)</label>
@@ -86,9 +91,6 @@
                 <hr class="my-4">
 
                 {{-- =================== SEMESTRAL =================== --}}
-                {{-- Preselección EXACTA solicitada por pares de terminación --}}
-                {{-- S1: 5-6 Ene-Feb | 7-8 Feb-Mar | 3-4 Mar-Abr | 1-2 Abr-May | 9-0 May-Jun --}}
-                {{-- S2: 5-6 Jul-Ago | 7-8 Ago-Sep | 3-4 Sep-Oct | 1-2 Oct-Nov | 9-0 Nov-Dic --}}
                 <div id="tabla-semestral">
                     <h3 class="h4 text-dark mb-2">Calendario por terminación — Semestral</h3>
                     <div class="table-responsive">
@@ -215,7 +217,9 @@
 
             <div class="card-footer d-flex justify-content-end gap-2">
                 <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-link">Cancelar</a>
-                <button class="btn btn-primary"><i class="ti ti-device-floppy"></i> Guardar regla</button>
+                <button id="btn-guardar" class="btn btn-primary" disabled>
+                    <i class="ti ti-device-floppy"></i> Guardar regla
+                </button>
             </div>
         </form>
     </div>
@@ -229,6 +233,7 @@
                 wrap.innerHTML = '<div class="text-secondary">No hay estados disponibles para este año.</div>';
                 document.getElementById('estados-ocupados').style.display = (ocupados && ocupados.length) ? '' : 'none';
                 renderOcupadosChips(ocupados);
+                updateGuardarEnabled();
                 return;
             }
 
@@ -248,7 +253,7 @@
 
                 col.innerHTML = `
                     <label class="form-check">
-                        <input class="form-check-input" type="checkbox" name="estados[]" value="${it.value}" id="${id}" ${checked}>
+                        <input class="form-check-input estado-cb" type="checkbox" name="estados[]" value="${it.value}" id="${id}" ${checked}>
                         <span class="form-check-label">${it.label}</span>
                     </label>
                 `;
@@ -257,9 +262,13 @@
 
             wrap.appendChild(row);
 
+            // Escucha cambios para habilitar/deshabilitar guardar
+            document.querySelectorAll('.estado-cb').forEach(cb => cb.addEventListener('change', updateGuardarEnabled));
+
             // Ocupados (chips)
             document.getElementById('estados-ocupados').style.display = (ocupados && ocupados.length) ? '' : 'none';
             renderOcupadosChips(ocupados);
+            updateGuardarEnabled();
         }
 
         function renderOcupadosChips(ocupados) {
@@ -268,7 +277,6 @@
             cont.innerHTML = '';
             if (!ocupados || !ocupados.length) return;
 
-            // ocupados vienen normalizados (MAYÚSCULAS). Los mostramos como badges.
             ocupados.forEach(o => {
                 const span = document.createElement('span');
                 span.className = 'badge bg-secondary me-1 mb-1';
@@ -277,11 +285,23 @@
             });
         }
 
+        function anyEstadoChecked() {
+            return Array.from(document.querySelectorAll('#estados-wrap input.estado-cb')).some(cb => cb.checked);
+        }
+
+        function updateGuardarEnabled() {
+            const btn = document.getElementById('btn-guardar');
+            // Habilita si hay al menos 1 checkbox y alguno marcado
+            const hasCheckbox = document.querySelector('#estados-wrap input.estado-cb') !== null;
+            btn.disabled = !(hasCheckbox && anyEstadoChecked());
+        }
+
         // Cargar estados disponibles por año
         async function cargarEstadosDisponibles() {
             const anio = document.getElementById('anio').value;
             const wrap = document.getElementById('estados-wrap');
             wrap.innerHTML = '<div class="text-secondary">Cargando estados…</div>';
+            document.getElementById('btn-guardar').disabled = true;
 
             try {
                 const url = '{{ route('verificacion-reglas.estados-disponibles') }}' + '?anio=' + encodeURIComponent(anio);
@@ -301,6 +321,7 @@
                     }
                     wrap.innerHTML = '<div class="text-danger">'+msg+'</div>';
                     document.getElementById('estados-ocupados').style.display = 'none';
+                    updateGuardarEnabled();
                     return;
                 }
 
@@ -310,6 +331,7 @@
                 wrap.innerHTML = '<div class="text-danger">Error al cargar estados (ver consola)</div>';
                 document.getElementById('estados-ocupados').style.display = 'none';
                 console.error(e);
+                updateGuardarEnabled();
             }
         }
 
@@ -322,10 +344,12 @@
 
         // Select all / clear all
         function selectAllEstados() {
-            document.querySelectorAll('#estados-wrap input[type="checkbox"][name="estados[]"]').forEach(cb => cb.checked = true);
+            document.querySelectorAll('#estados-wrap input.estado-cb').forEach(cb => cb.checked = true);
+            updateGuardarEnabled();
         }
         function clearAllEstados() {
-            document.querySelectorAll('#estados-wrap input[type="checkbox"][name="estados[]"]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('#estados-wrap input.estado-cb').forEach(cb => cb.checked = false);
+            updateGuardarEnabled();
         }
 
         document.getElementById('anio').addEventListener('change', cargarEstadosDisponibles);
@@ -336,5 +360,6 @@
         // Inicial
         cargarEstadosDisponibles();
         toggleFrecuencia();
+        updateGuardarEnabled();
     </script>
 </x-app-layout>

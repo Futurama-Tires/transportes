@@ -1,378 +1,1190 @@
-CargaCombustibleController:
+Vistas.
 
-<?php
+Index:
 
-namespace App\Http\Controllers;
+{{-- resources/views/operadores/index.blade.php — versión Tabler (acciones separadas, filtros en offcanvas y numeración continua) --}}
+<x-app-layout>
+    {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
+    @vite(['resources/js/app.js'])
 
-use App\Models\CargaCombustible;
-use App\Models\CargaFoto;
-use App\Models\Operador;
-use App\Models\Vehiculo;
-use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
-use Carbon\Carbon;
-use Illuminate\Support\Str;
-use App\Notifications\NuevaCarga;
-use Illuminate\Support\Facades\Notification;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\CargasExport;
+    @php
+        // Parámetros y utilidades reutilizables en toda la vista
+        $q        = request();
+        $ignored  = ['search','page','sort_by','sort_dir'];
+        $activeCount = collect($q->except($ignored))->filter(
+            fn($v) => is_array($v)
+                ? collect($v)->filter(fn($x)=>$x!==null && $x!=='')->isNotEmpty()
+                : $v !== null && $v !== ''
+        )->count();
 
-class CargaCombustibleController extends Controller
-{
-    public function index(Request $request)
-    {
-        // 👉 Exportar a Excel con filtros/orden actuales (sin paginar)
-        if ($request->get('export') === 'xlsx') {
-            $filename = 'cargas_' . now()->format('Ymd_His') . '.xlsx';
-            return Excel::download(new CargasExport($request), $filename);
-        }
+        $search  = $q->input('search', '');
+        $sortBy  = $q->input('sort_by', 'nombre_completo');
+        $sortDir = $q->input('sort_dir', 'asc');
 
-        $filters = $request->only([
-            'search',
-            'vehiculo_id', 'operador_id',
-            'tipo_combustible',
-            'from', 'to',
-            'litros_min','litros_max',
-            'precio_min','precio_max',
-            'total_min','total_max',
-            'rend_min','rend_max',
-            'km_ini_min','km_ini_max',
-            'km_fin_min','km_fin_max',
-            'destino','custodio',
-            'sort_by','sort_dir',
-        ]);
+        /** @var \Illuminate\Pagination\LengthAwarePaginator|\Illuminate\Contracts\Pagination\Paginator $p */
+        $p = $operadores;
 
-        $vehiculos  = Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']);
-        $operadores = Operador::select('id','nombre','apellido_paterno','apellido_materno')
-            ->orderBy('nombre')->orderBy('apellido_paterno')->get();
+        // Opciones de ordenamiento (único lugar)
+        $sortOptions = [
+            'nombre_completo' => 'Nombre completo',
+            'email'           => 'Correo electrónico',
+            'id'              => 'ID',
+        ];
 
-        $tipos = CargaCombustible::TIPOS_COMBUSTIBLE;
+        // Datos de paginación (seguros cuando hay resultados)
+        $total     = method_exists($p, 'total') ? $p->total() : ($p->count() ?? 0);
+        $firstItem = method_exists($p, 'firstItem') ? $p->firstItem() : null;
+        $lastItem  = method_exists($p, 'lastItem')  ? $p->lastItem()  : null;
+        $current   = method_exists($p, 'currentPage') ? $p->currentPage() : 1;
+        $lastPage  = method_exists($p, 'lastPage')    ? $p->lastPage()    : 1;
 
-        $cargas = CargaCombustible::query()
-            ->with(['vehiculo','operador'])
-            ->filter($filters)
-            ->paginate(25)
-            ->withQueryString();
+        // Parámetros a mantener en los links de paginación/acciones
+        $keepParams = ['search','sort_by','sort_dir'];
+    @endphp
 
-        return view('cargas.index', compact('cargas','vehiculos','operadores','tipos'));
-    }
+    {{-- HEADER --}}
+    <x-slot name="header">
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <h2 class="page-title mb-0">Gestión de Operadores</h2>
+                        <div class="text-secondary small mt-1">Consulta, filtra y gestiona a tus operadores.</div>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <a href="{{ route('operadores.create') }}" class="btn btn-primary">
+                            <i class="ti ti-plus me-1"></i>
+                            Agregar Nuevo Operador
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </x-slot>
 
-    public function create()
-    {
-        return view('cargas.create', [
-            'carga'      => new CargaCombustible(),
-            'operadores' => Operador::orderBy('nombre')->get(),
-            'vehiculos'  => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
-            'tipos'      => CargaCombustible::TIPOS_COMBUSTIBLE,
-        ]);
-    }
+    <div class="page-body">
+        <div class="container-xl">
 
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'fecha'            => ['required', 'date'],
-            'precio'           => ['required', 'numeric', 'min:0'],
-            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
-            'litros'           => ['required', 'numeric', 'min:0.001'],
-            'custodio'         => ['nullable', 'string', 'max:255'],
-            'operador_id'      => ['required', 'exists:operadores,id'],
-            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
-            'km_final'         => ['required', 'integer', 'min:0'],
-            'destino'          => ['nullable', 'string', 'max:255'],
-            'observaciones'    => ['nullable', 'string', 'max:2000'],
-        ]);
+            {{-- FLASH ÉXITO --}}
+            @if(session('success'))
+                <div class="alert alert-success alert-dismissible" role="alert">
+                    <i class="ti ti-check me-2"></i>{{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+            @endif
 
-        return DB::transaction(function () use ($data) {
-            $vehiculo  = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
-            $kmInicial = $vehiculo->kilometros;
+            {{-- ===== FORM DE BÚSQUEDA/FILTROS (GET) =====
+                 Importante: este formulario NO envuelve la tabla para evitar formularios anidados. --}}
+            <form method="GET" action="{{ route('operadores.index') }}" autocomplete="off" novalidate>
+                {{-- TOOLBAR: búsqueda + acciones rápidas --}}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row g-2 align-items-center">
+                            {{-- Búsqueda global --}}
+                            <div class="col-12 col-xl">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="ti ti-search" aria-hidden="true"></i></span>
+                                    <input
+                                        type="text"
+                                        name="search"
+                                        value="{{ $search }}"
+                                        class="form-control"
+                                        placeholder="Buscar por nombre, apellidos, correo, teléfono…"
+                                        aria-label="Búsqueda global"
+                                    >
+                                    <button class="btn btn-primary" type="submit">
+                                        <i class="ti ti-search me-1" aria-hidden="true"></i>Buscar
+                                    </button>
+                                </div>
+                            </div>
 
-            if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
-                throw ValidationException::withMessages([
-                    'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial}).",
-                ]);
-            }
+                            {{-- Acciones --}}
+                            <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
+                                {{-- Botón único: Exportar Excel --}}
+                                <a
+                                    href="{{ route('operadores.index', array_merge(request()->only($keepParams), ['export'=>'xlsx'])) }}"
+                                    class="btn btn-outline-success"
+                                    role="button"
+                                >
+                                    <i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
+                                    Exportar
+                                </a>
 
-            $this->applyDerived($data, $kmInicial);
+                                {{-- Botón Filtros (abre Offcanvas) --}}
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-secondary position-relative"
+                                    data-bs-toggle="offcanvas"
+                                    data-bs-target="#filtersOffcanvas"
+                                    aria-controls="filtersOffcanvas"
+                                >
+                                    <i class="ti ti-adjustments" aria-hidden="true"></i>
+                                    <span class="ms-2">Filtros</span>
+                                    @if($activeCount>0)
+                                        <span class="badge bg-primary ms-2" aria-label="{{ $activeCount }} filtros activos">{{ $activeCount }}</span>
+                                    @endif
+                                </button>
+                            </div>
+                        </div>
 
-            $carga = new CargaCombustible();
-            $carga->forceFill($data)->save();
+                        {{-- Resumen cuando hay búsqueda --}}
+                        @if($search !== '')
+                            <div class="mt-3 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between">
+                                <div class="small">
+                                    <span class="badge bg-secondary text-uppercase">Filtro</span>
+                                    <span class="ms-2">“{{ $search }}”</span>
+                                </div>
+                                <div class="text-secondary small mt-2 mt-sm-0">
+                                    @if($total === 0)
+                                        Sin resultados para la búsqueda.
+                                    @elseif($total === 1)
+                                        Resultado <strong>(1 de 1)</strong>
+                                    @else
+                                        Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> — Mostrando <strong>{{ $firstItem }}–{{ $lastItem }}</strong> de <strong>{{ $total }}</strong>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                </div>
 
-            $vehiculo->update(['kilometros' => $data['km_final']]);
+                {{-- OFFCANVAS DE FILTROS (incluye ordenación) --}}
+                <div
+                    class="offcanvas offcanvas-end"
+                    tabindex="-1"
+                    id="filtersOffcanvas"
+                    aria-labelledby="filtersOffcanvasLabel"
+                    data-bs-backdrop="false"   {{-- ← sin oscurecimiento --}}
+                    data-bs-scroll="true"      {{-- ← permite scroll del contenido de fondo --}}
+                >
+                    <div class="offcanvas-header">
+                        <h2 class="offcanvas-title h4" id="filtersOffcanvasLabel">
+                            <i class="ti ti-adjustments me-2" aria-hidden="true"></i>Filtros
+                        </h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+                    </div>
 
-            // 🔔 Notificar después del commit
-            $carga->loadMissing('vehiculo','operador');
-            DB::afterCommit(function () use ($carga) {
-                $destinatarios = User::role(['administrador','capturista'], 'web')->get();
-                Notification::send($destinatarios, new NuevaCarga($carga));
-            });
+                    <div class="offcanvas-body">
+                        {{-- Orden y dirección --}}
+                        <div class="mb-4">
+                            <div class="text-secondary text-uppercase fw-semibold small mb-2">Orden y vista</div>
+                            <div class="row g-2">
+                                <div class="col-12 col-sm-6">
+                                    <label class="form-label" for="sort_by">Ordenar por</label>
+                                    <select id="sort_by" name="sort_by" class="form-select">
+                                        @foreach($sortOptions as $value => $label)
+                                            <option value="{{ $value }}" @selected($sortBy === $value)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <label class="form-label" for="sort_dir">Dirección</label>
+                                    <select id="sort_dir" name="sort_dir" class="form-select">
+                                        <option value="asc"  @selected($sortDir === 'asc')>Ascendente</option>
+                                        <option value="desc" @selected($sortDir === 'desc')>Descendente</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
 
-            return redirect()->route('cargas.index')
-                ->with('success', 'Carga registrada y odómetro del vehículo actualizado.');
-        });
-    }
+                        {{-- Espacio para futuros filtros --}}
+                        <div class="mb-2">
+                            <div class="text-secondary small">Puedes añadir más filtros aquí cuando existan en el modelo.</div>
+                        </div>
+                    </div>
 
-    public function edit(CargaCombustible $carga)
-    {
-        $carga->load(['fotos', 'vehiculo', 'operador']);
+                    <div class="offcanvas-footer d-flex justify-content-between align-items-center p-3 border-top">
+                        <a href="{{ route('operadores.index') }}" class="btn btn-link">Limpiar filtros</a>
+                        <div>
+                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="offcanvas">Cerrar</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="ti ti-filter me-1" aria-hidden="true"></i>Aplicar filtros
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {{-- /OFFCANVAS --}}
+            </form>
+            {{-- ===== /FORM DE BÚSQUEDA/FILTROS (GET) ===== --}}
 
-        return view('cargas.edit', [
-            'carga'      => $carga,
-            'operadores' => Operador::orderBy('nombre')->get(),
-            'vehiculos'  => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
-            'tipos'      => CargaCombustible::TIPOS_COMBUSTIBLE,
-        ]);
-    }
+            {{-- ===== TABLA (fuera del <form GET>) ===== --}}
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-vcenter table-striped table-hover">
+                        <thead>
+                            <tr class="text-uppercase text-secondary small">
+                                <th class="text-center text-nowrap">#</th>
+                                <th>Nombre completo</th>
+                                <th>Correo electrónico</th>
+                                <th>Teléfono</th>
+                                <th class="text-nowrap">Tipo sangre</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($p as $op)
+                                @php
+                                    $nombre = $op->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
+                                    $correo = data_get($op, 'user.email', '—');
+                                    $telefono = $op->telefono ?: '—';
+                                    $tsangre = $op->tipo_sangre ?: '—';
+                                    $emNombre = $op->contacto_emergencia_nombre ?: null;
+                                    $emTel    = $op->contacto_emergencia_tel ?: null;
+                                @endphp
+                                <tr>
+                                    {{-- Numeración continua por página --}}
+                                    <td class="text-center text-nowrap">
+                                        {{ ($firstItem ?? 0) + $loop->index }}
+                                    </td>
 
-    public function update(Request $request, CargaCombustible $carga)
-    {
-        $data = $request->validate([
-            'fecha'            => ['required', 'date'],
-            'precio'           => ['required', 'numeric', 'min:0'],
-            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
-            'litros'           => ['required', 'numeric', 'min:0.001'],
-            'custodio'         => ['nullable', 'string', 'max:255'],
-            'operador_id'      => ['required', 'exists:operadores,id'],
-            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
-            'km_final'         => ['required', 'integer', 'min:0'],
-            'destino'          => ['nullable', 'string', 'max:255'],
-            'observaciones'    => ['nullable', 'string', 'max:2000'],
-        ]);
+                                    <td class="text-nowrap">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="avatar avatar-sm avatar-rounded bg-blue-lt" aria-hidden="true">
+                                                <i class="ti ti-user"></i>
+                                            </span>
+                                            <div class="lh-1">
+                                                <div class="fw-semibold">{{ $nombre ?: 'Operador' }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
 
-        return DB::transaction(function () use ($carga, $data) {
-            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+                                    <td class="text-nowrap">
+                                        <div class="text-truncate" style="max-width: 280px" title="{{ $correo }}">{{ $correo }}</div>
+                                    </td>
 
-            $previa = CargaCombustible::where('vehiculo_id', $vehiculo->id)
-                ->where(function($q) use ($carga, $data){
-                    $fechaNueva = $data['fecha'];
-                    $q->where('fecha','<', $fechaNueva)
-                    ->orWhere(function($q2) use ($fechaNueva, $carga){
-                        $q2->where('fecha', $fechaNueva)->where('id','<', $carga->id);
-                    });
-                })
-                ->orderBy('fecha','desc')->orderBy('id','desc')
-                ->first();
+                                    <td class="text-nowrap" title="{{ $telefono }}">
+                                        <i class="ti ti-device-mobile me-1"></i>{{ $telefono }}
+                                    </td>
 
-            $kmInicial = $previa?->km_final ?? $vehiculo->kilometros;
+                                    <td class="text-nowrap">
+                                        <span class="badge bg-red-lt"><i class="ti ti-droplet me-1"></i>{{ $tsangre }}</span>
+                                    </td>
 
-            if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
-                throw ValidationException::withMessages([
-                    'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el KM inicial calculado ({$kmInicial}).",
-                ]);
-            }
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1">
+                                            {{-- Ver (placeholder hacia edit si no hay show) --}}
+                                            <a href="{{ route('operadores.edit', $op) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Ver">
+                                                <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
+                                            </a>
 
-            $this->applyDerived($data, $kmInicial);
+                                            {{-- Editar --}}
+                                            <a href="{{ route('operadores.edit', $op) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Editar">
+                                                <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
+                                            </a>
 
-            $carga->forceFill($data)->save();
+                                            {{-- Eliminar (formulario POST DELETE FUERA de cualquier GET) --}}
+                                            <form
+                                                action="{{ route('operadores.destroy', $op) }}"
+                                                method="POST"
+                                                class="d-inline"
+                                                onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $nombre ?: 'este operador' }}?');"
+                                            >
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
+                                                    <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="py-6">
+                                        <div class="empty">
+                                            <div class="empty-icon">
+                                                <i class="ti ti-database-off" aria-hidden="true"></i>
+                                            </div>
+                                            <p class="empty-title">No hay datos</p>
+                                            <p class="empty-subtitle text-secondary">
+                                                @if($search !== '')
+                                                    No se encontraron resultados con los filtros aplicados.
+                                                @else
+                                                    Aún no has registrado operadores.
+                                                @endif
+                                            </p>
+                                            <div class="empty-action">
+                                                @if($search !== '')
+                                                    <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
+                                                        Limpiar filtros
+                                                    </a>
+                                                @endif
+                                                <a href="{{ route('operadores.create') }}" class="btn btn-primary">
+                                                    <i class="ti ti-plus me-2" aria-hidden="true"></i>Agregar Nuevo Operador
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {{-- ===== /TABLA ===== --}}
 
-            $ultima = CargaCombustible::where('vehiculo_id', $vehiculo->id)
-                ->orderBy('fecha','desc')->orderBy('id','desc')
-                ->first();
+            {{-- PAGINACIÓN + CONTADOR --}}
+            @if(method_exists($p, 'links'))
+                <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
+                    <p class="text-secondary small mb-2 mb-sm-0">
+                        @if($total === 0)
+                            Mostrando 0 resultados
+                        @elseif($total === 1)
+                            Resultado <strong>(1 de 1)</strong>
+                        @else
+                            Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> —
+                            Mostrando <strong>{{ $firstItem }}–{{ $lastItem }}</strong> de <strong>{{ $total }}</strong> resultados
+                        @endif
+                    </p>
+                    <div>
+                        {{ $p->appends($q->only($keepParams))->links() }}
+                    </div>
+                </div>
+            @endif
 
-            if ($ultima && $ultima->id === $carga->id) {
-                $vehiculo->update(['kilometros' => $data['km_final']]);
-            }
+            {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
+        </div>
+    </div>
+</x-app-layout>
 
-            return redirect()->route('cargas.index')
-                ->with('success', 'Carga actualizada correctamente.');
-        });
-    }
+create:
 
-    public function destroy(CargaCombustible $carga)
-    {
-        return DB::transaction(function () use ($carga) {
-            $vehiculoId = $carga->vehiculo_id;
+{{-- resources/views/operadores/create.blade.php — diseño alineado al EDIT (un solo form + 2 cards + Material Symbols) --}}
+<x-app-layout>
+    @vite(['resources/js/app.js'])
 
-            $esUltima = CargaCombustible::where('vehiculo_id', $vehiculoId)
-                ->orderBy('fecha','desc')->orderBy('id','desc')->value('id') === $carga->id;
+    {{-- HEADER --}}
+    <x-slot name="header">
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <p class="text-secondary text-uppercase small mb-1">Operadores</p>
+                        <h2 class="page-title mb-0">Registrar un nuevo Operador</h2>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
+                            <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver al listado
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </x-slot>
 
-            $deleted = $carga->delete();
+    <div class="page-body">
+        <div class="container-xl">
 
-            if ($deleted && $esUltima) {
-                $vehiculo = Vehiculo::lockForUpdate()->find($vehiculoId);
-                if ($vehiculo) {
-                    $nuevaUltima = CargaCombustible::where('vehiculo_id', $vehiculoId)
-                        ->orderBy('fecha','desc')->orderBy('id','desc')->first();
-                    $vehiculo->update(['kilometros' => $nuevaUltima?->km_final]);
-                }
-            }
+            {{-- FLASH ÉXITO --}}
+            @if(session('success'))
+                <div class="alert alert-success mb-4" role="alert">
+                    <span class="material-symbols-outlined me-2 align-middle">check_circle</span>{{ session('success') }}
+                </div>
+            @endif
 
-            return redirect()->route('cargas.index')
-                ->with('success', $deleted ? 'Carga eliminada correctamente.' : 'No se pudo eliminar la carga.');
-        });
-    }
+            {{-- ERRORES --}}
+            @if ($errors->any())
+                <div class="alert alert-danger mb-4" role="alert">
+                    <span class="material-symbols-outlined me-2 align-middle">warning</span>Revisa los campos marcados y vuelve a intentar.
+                    @if($errors->count() > 0)
+                        <ul class="mt-2 mb-0 ps-4">
+                            @foreach ($errors->all() as $error)
+                                <li class="small">{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            @endif
 
-    // ===================== Helpers =====================
+            <div class="row g-4">
+                {{-- ===== FORM ÚNICO (incluye datos y fotos) ===== --}}
+                <div class="col-12 col-xl-8">
+                    <form id="operador-form" method="POST" action="{{ route('operadores.store') }}" enctype="multipart/form-data" novalidate>
+                        @csrf
 
-    protected function applyDerived(array &$data, ?int $kmInicial): void
-    {
-        $data['mes']   = ucfirst(Carbon::parse($data['fecha'])->locale('es')->translatedFormat('F'));
-        $data['total'] = round(((float)$data['precio']) * ((float)$data['litros']), 2);
+                        {{-- DATOS --}}
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
+                                    <span class="material-symbols-outlined">badge</span> Datos del operador
+                                </h3> 
+                                <div class="card-subtitle">&nbsp;Completa la información requerida.</div>
+                            </div>
 
-        $data['km_inicial'] = $kmInicial;
+                            <div class="card-body pt-3">
+                                <div class="row g-4">
+                                    <div class="col-12 col-md-6">
+                                        <label for="nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
+                                            <input id="nombre" name="nombre" type="text" autocomplete="given-name"
+                                                   class="form-control @error('nombre') is-invalid @enderror"
+                                                   value="{{ old('nombre') }}" required placeholder="Ej. Juan">
+                                            @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
 
-        $recorrido = (!is_null($kmInicial) && isset($data['km_final']))
-            ? max(0, (int)$data['km_final'] - (int)$kmInicial)
-            : null;
+                                    <div class="col-12 col-md-6">
+                                        <label for="apellido_paterno" class="form-label">Apellido paterno <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
+                                            <input id="apellido_paterno" name="apellido_paterno" type="text" autocomplete="family-name"
+                                                   class="form-control @error('apellido_paterno') is-invalid @enderror"
+                                                   value="{{ old('apellido_paterno') }}" required placeholder="Ej. Pérez">
+                                            @error('apellido_paterno') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
 
-        $data['recorrido'] = is_null($recorrido) ? null : (int)$recorrido;
+                                    <div class="col-12 col-md-6">
+                                        <label for="apellido_materno" class="form-label">Apellido materno</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
+                                            <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
+                                                   class="form-control @error('apellido_materno') is-invalid @enderror"
+                                                   value="{{ old('apellido_materno') }}" placeholder="(opcional)">
+                                            @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
 
-        $data['rendimiento'] = (!is_null($recorrido) && (float)$data['litros'] > 0)
-            ? round($recorrido / (float)$data['litros'], 2)
-            : null;
+                                    <div class="col-12 col-md-6">
+                                        <label for="email" class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">mail</span></span>
+                                            <input id="email" name="email" type="email" autocomplete="email"
+                                                   class="form-control @error('email') is-invalid @enderror"
+                                                   value="{{ old('email') }}" required
+                                                   placeholder="usuario@futuramatiresmx.com" aria-describedby="email_help">
+                                            @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                        <div id="email_help" class="form-hint">Usa un correo del dominio <strong>@futuramatiresmx.com</strong>.</div>
+                                    </div>
 
-        if (!is_null($recorrido) && isset($data['litros'], $data['precio'])) {
-            $data['diferencia'] = round(-(((float)$data['litros'] - ($recorrido / 14)) * (float)$data['precio']), 2);
-        } else {
-            $data['diferencia'] = null;
-        }
-    }
+                                    {{-- Teléfono --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="telefono" class="form-label">Teléfono</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                                            <input id="telefono" name="telefono" type="tel"
+                                                   class="form-control @error('telefono') is-invalid @enderror"
+                                                   value="{{ old('telefono') }}" placeholder="+527771234567" autocomplete="tel">
+                                            @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
 
-    // ===================== API MÓVIL =====================
+                                    {{-- Tipo de sangre --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="tipo_sangre" class="form-label">Tipo de sangre</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">bloodtype</span></span>
+                                            <input id="tipo_sangre" name="tipo_sangre" type="text"
+                                                   class="form-control @error('tipo_sangre') is-invalid @enderror"
+                                                   value="{{ old('tipo_sangre') }}" placeholder="Ej. O+, A-, B+" maxlength="5">
+                                            @error('tipo_sangre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                        <div class="form-hint">Formato corto (ej.: O+, A-, AB-).</div>
+                                    </div>
 
-    /**
-     * API móvil: crea carga y, si vienen imágenes temporales, las anexa (tabla carga_fotos).
-     * Entrada opcional:
-     *   - imagenes: [{tipo: 'ticket|voucher|odometro|extra', tmp_path: 'tmp/ocr/...'}]
-     */
-    public function storeApi(Request $request)
-    {
-        $data = $request->validate([
-            'fecha'            => ['required', 'date'],
-            'precio'           => ['required', 'numeric', 'min:0'],
-            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
-            'litros'           => ['required', 'numeric', 'min:0.001'],
-            'custodio'         => ['nullable', 'string', 'max:255'],
-            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
-            'km_final'         => ['required', 'integer', 'min:0'],
-            'destino'          => ['nullable', 'string', 'max:255'],
-            'observaciones'    => ['nullable', 'string', 'max:2000'],
-            'imagenes'             => ['nullable', 'array'],
-            'imagenes.*.tipo'      => ['nullable', 'in:ticket,voucher,odometro,extra'],
-            'imagenes.*.tmp_path'  => ['required_with:imagenes', 'string'],
-        ]);
+                                    {{-- Contacto emergencia nombre --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="contacto_emergencia_nombre" class="form-label">Contacto de emergencia (nombre)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">contact_emergency</span></span>
+                                            <input id="contacto_emergencia_nombre" name="contacto_emergencia_nombre" type="text"
+                                                   class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror"
+                                                   value="{{ old('contacto_emergencia_nombre') }}" placeholder="Ej. Juan Pérez">
+                                            @error('contacto_emergencia_nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
 
-        $imagenes = $data['imagenes'] ?? [];
-        unset($data['imagenes']);
+                                    {{-- Contacto emergencia teléfono --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="contacto_emergencia_tel" class="form-label">Contacto de emergencia (teléfono)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                                            <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
+                                                   class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
+                                                   value="{{ old('contacto_emergencia_tel') }}" placeholder="+527770000000">
+                                            @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-        $user = $request->user();
-        $operador = Operador::where('user_id', $user->id)->first();
+                        {{-- FOTOS: subir + previsualizar --}}
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
+                                    <span class="material-symbols-outlined">add_photo_alternate</span> Agregar fotografías
+                                </h3>
+                            </div>
 
-        if (!$operador) {
-            return response()->json([
-                'message' => 'El usuario autenticado no tiene un operador asociado.'
-            ], 422);
-        }
+                            {{-- Subir nuevas --}}
+                            <div class="card-body">
+                                <div class="form-hint mb-3">JPG, JPEG, PNG o WEBP. Máx 5&nbsp;MB por archivo. Máx 12 archivos.</div>
 
-        return DB::transaction(function () use ($data, $operador, $imagenes) {
-            $vehiculo  = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
-            $kmInicial = $vehiculo->kilometros;
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-12 col-lg-8">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">upload</span></span>
+                                            <input type="file" id="fotos" name="fotos[]" accept="image/*" multiple
+                                                   class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror"
+                                                   aria-describedby="fotos_help">
+                                        </div>
+                                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                    </div>
+                                </div>
 
-            if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
-                return response()->json([
-                    'errors' => ['km_final' => ["El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial})."]]
-                ], 422);
-            }
+                                {{-- Controles y contador --}}
+                                <div class="d-flex justify-content-between align-items-center my-3">
+                                    <div class="text-secondary small">
+                                        <span id="fotos-count">0</span> seleccionada(s)
+                                    </div>
+                                    <div class="btn-group">
+                                        <button type="button" id="btn-clear-fotos" class="btn btn-outline-secondary btn-sm" disabled>
+                                            <span class="material-symbols-outlined align-middle me-1">delete</span>Quitar todas
+                                        </button>
+                                    </div>
+                                </div>
 
-            $payload = $data;
-            $payload['operador_id'] = $operador->id;
+                                {{-- Grid de vista previa --}}
+                                <div id="fotos-grid" class="row g-2"></div>
+                            </div>
+                        </div>
 
-            $this->applyDerived($payload, $kmInicial);
+                        {{-- FOOTER del form: un único botón que guarda TODO --}}
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">
+                                <span class="material-symbols-outlined me-1 align-middle">person_add</span> Guardar operador
+                            </button>
+                        </div>
+                    </form>
+                </div>
 
-            $carga = new CargaCombustible();
-            $carga->forceFill($payload)->save();
+                {{-- LATERAL --}}
+                <div class="col-12 col-xl-4">
+                    <div class="card">
+                        <div class="card-body text-center py-4">
+                            <span class="avatar avatar-xl avatar-rounded bg-blue-lt mb-3 d-inline-flex align-items-center justify-content-center">
+                                <span class="material-symbols-outlined" style="font-size:32px; line-height:1;">person</span>
+                            </span>
+                            <div class="h3 mb-1">Nuevo operador</div>
+                            <div class="text-secondary">Se creará una cuenta asociada.</div>
+                        </div>
+                    </div>
+                </div>
+            </div> {{-- /row --}}
 
-            $vehiculo->update(['kilometros' => $payload['km_final']]);
+            {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
+        </div>
+    </div>
 
-            if (!empty($imagenes)) {
-                $this->attachTmpImagesToCarga($carga, $imagenes);
-            }
+    {{-- MODAL DE CREDENCIALES (se muestra si viene en sesión) --}}
+    @if(session('created') && session('email') && session('password'))
+        <div class="modal fade" id="createdModal" tabindex="-1" aria-labelledby="createdModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title h4" id="createdModalLabel">
+                            <span class="material-symbols-outlined me-2 text-success align-middle">check_circle</span>Operador creado exitosamente
+                        </h3>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-3">Guarda estas credenciales de acceso:</p>
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="fw-semibold">Correo:</span>
+                                    <code class="select-all">{{ session('email') }}</code>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-semibold">Contraseña:</span>
+                                    <code id="gen-pass" class="select-all">{{ session('password') }}</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary"
+                                onclick="navigator.clipboard.writeText(document.getElementById('gen-pass').innerText)">
+                            <span class="material-symbols-outlined me-1 align-middle">content_copy</span>Copiar contraseña
+                        </button>
+                        <a href="{{ route('dashboard') }}" class="btn btn-primary">Aceptar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-            // 🔔 Notificar después del commit
-            $carga->loadMissing('vehiculo','operador');
-            DB::afterCommit(function () use ($carga) {
-                $destinatarios = User::role(['administrador','capturista'], 'web')->get();
-                Notification::send($destinatarios, new NuevaCarga($carga));
-            });
-
-            return response()->json(
-                $carga->load([
-                    'vehiculo:id,unidad,placa',
-                    'operador:id,nombre,apellido_paterno,apellido_materno',
-                    'fotos:id,carga_id,tipo,path,mime,size,original_name'
-                ]),
-                201
-            );
-        });
-    }
-
-    /**
-     * Mueve archivos temporales a PRIVADO.
-     * Acepta ambos orígenes durante la transición:
-     *   - PRIVADO: storage/app/tmp/ocr/...
-     *   - LEGADO (público): storage/app/public/tmp/ocr/...
-     * Los deja en: storage/app/cargas/{carga_id}/...
-     */
-    protected function attachTmpImagesToCarga(CargaCombustible $carga, array $imagenes): void
-    {
-        $private = Storage::disk('local');  // destino privado
-        $public  = Storage::disk('public'); // legado (origen posible)
-
-        $baseDir = "cargas/{$carga->id}";
-        if (!$private->exists($baseDir)) {
-            $private->makeDirectory($baseDir);
-        }
-
-        foreach ($imagenes as $img) {
-            $tmp  = $img['tmp_path'] ?? null;
-            $tipo = $img['tipo'] ?? CargaFoto::EXTRA;
-
-            if (!$tmp || !is_string($tmp)) continue;
-            if (!str_starts_with($tmp, 'tmp/ocr/')) continue;
-
-            // Detecta en qué disco está la temporal
-            $sourceDisk = null;
-            if ($private->exists($tmp)) {
-                $sourceDisk = 'local';
-            } elseif ($public->exists($tmp)) {
-                $sourceDisk = 'public';
-            } else {
-                continue; // no existe en ninguno
-            }
-
-            $ext  = pathinfo($tmp, PATHINFO_EXTENSION) ?: 'jpg';
-            $name = ($tipo ?: 'extra') . '-' . now()->format('Ymd-His') . '-' . Str::random(6) . '.' . $ext;
-            $dest = $baseDir . '/' . $name;
-
-            // Mueve en-local o copia de public->local y borra origen
-            if ($sourceDisk === 'local') {
-                if (!$private->move($tmp, $dest)) {
-                    throw ValidationException::withMessages(['imagenes' => "No se pudo mover la imagen temporal {$tmp}."]);
-                }
-            } else {
+        {{-- Auto mostrar el modal al cargar --}}
+        <script>
+            document.addEventListener('DOMContentLoaded', function(){
                 try {
-                    $bytes = $public->get($tmp);
-                    $private->put($dest, $bytes);
-                    $public->delete($tmp);
-                } catch (\Throwable $e) {
-                    throw ValidationException::withMessages(['imagenes' => "No se pudo transferir la imagen temporal {$tmp} al almacenamiento privado."]);
-                }
+                    var modalEl = document.getElementById('createdModal');
+                    if (modalEl) {
+                        var modal = new bootstrap.Modal(modalEl);
+                        modal.show();
+                    }
+                } catch (e) {}
+            });
+        </script>
+    @endif
+
+    {{-- =============== JS: manejo de selección y previsualización de fotos =============== --}}
+    <script>
+        (function () {
+            const MAX_FILES = 12;
+            const MAX_SIZE_MB = 5;
+            const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
+
+            const input = document.getElementById('fotos');
+            const grid  = document.getElementById('fotos-grid');
+            const count = document.getElementById('fotos-count');
+            const btnClear = document.getElementById('btn-clear-fotos');
+
+            /** Lista viva de archivos seleccionados (mutable) */
+            let selectedFiles = [];
+
+            function updateInputFiles() {
+                const dt = new DataTransfer();
+                selectedFiles.forEach(f => dt.items.add(f));
+                input.files = dt.files;
+                count.textContent = selectedFiles.length.toString();
+                btnClear.disabled = selectedFiles.length === 0;
             }
 
-            $mime = $private->mimeType($dest);
-            $size = $private->size($dest);
+            function renderPreviews() {
+                grid.innerHTML = '';
+                selectedFiles.forEach((file, idx) => {
+                    const url = URL.createObjectURL(file);
 
-            CargaFoto::create([
-                'carga_id'      => $carga->id,
-                'tipo'          => $tipo,
-                'path'          => $dest,
-                'mime'          => $mime,
-                'size'          => $size,
-                'original_name' => null,
-            ]);
+                    const col = document.createElement('div');
+                    col.className = 'col-6 col-md-4 col-lg-3';
+
+                    const card = document.createElement('div');
+                    card.className = 'card card-sm';
+
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.alt = file.name;
+                    img.className = 'card-img-top img-fluid';
+                    img.onload = () => URL.revokeObjectURL(url); // liberar memoria cuando cargue
+
+                    const body = document.createElement('div');
+                    body.className = 'card-body p-2';
+
+                    const meta = document.createElement('div');
+                    meta.className = 'small text-truncate mb-1';
+                    meta.title = file.name;
+                    meta.textContent = file.name;
+
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-outline-danger btn-sm w-100';
+                    btn.innerHTML = '<span class="material-symbols-outlined align-middle me-1">delete</span>Quitar';
+                    btn.addEventListener('click', () => {
+                        selectedFiles.splice(idx, 1);
+                        updateInputFiles();
+                        renderPreviews();
+                    });
+
+                    body.appendChild(meta);
+                    body.appendChild(btn);
+                    card.appendChild(img);
+                    card.appendChild(body);
+                    col.appendChild(card);
+                    grid.appendChild(col);
+                });
+            }
+
+            function addFiles(files) {
+                const incoming = Array.from(files || []);
+                const accepted = [];
+
+                for (const f of incoming) {
+                    const typeOk = /^image\//i.test(f.type);
+                    const sizeOk = f.size <= MAX_SIZE;
+
+                    if (!typeOk || !sizeOk) { continue; }
+
+                    // Evitar duplicados exactos (mismo nombre + tamaño + lastModified)
+                    const dup = selectedFiles.some(sf => sf.name === f.name && sf.size === f.size && sf.lastModified === f.lastModified);
+                    if (dup) { continue; }
+
+                    accepted.push(f);
+                }
+
+                // Respeta el máximo
+                const availableSlots = MAX_FILES - selectedFiles.length;
+                if (availableSlots <= 0) return;
+
+                selectedFiles = selectedFiles.concat(accepted.slice(0, availableSlots));
+                updateInputFiles();
+                renderPreviews();
+            }
+
+            input?.addEventListener('change', (e) => {
+                const el = e.currentTarget; // más seguro que target
+                const files = el && el.files ? Array.from(el.files) : []; // COPIA a array
+                el.value = '';                    // limpia primero
+                addFiles(files);                  // pásale el array, no el FileList vivo
+            });
+
+            btnClear?.addEventListener('click', () => {
+                selectedFiles = [];
+                updateInputFiles();
+                renderPreviews();
+            });
+
+            // Soporte drag & drop al grid
+            grid?.addEventListener('dragover', (e) => { e.preventDefault(); grid.classList.add('border', 'border-primary'); });
+            grid?.addEventListener('dragleave', () => grid.classList.remove('border', 'border-primary'));
+            grid?.addEventListener('drop', (e) => {
+                e.preventDefault();
+                grid.classList.remove('border', 'border-primary');
+                addFiles(e.dataTransfer.files);
+            });
+        })();
+    </script>
+</x-app-layout>
+
+edit:
+
+{{-- resources/views/operadores/edit.blade.php — un solo form (datos + fotos subir/borrar + galería) con Material Symbols (Google Fonts) --}}
+<x-app-layout>
+    @vite(['resources/js/app.js'])
+
+    {{-- HEADER --}}
+    <x-slot name="header">
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <p class="text-secondary text-uppercase small mb-1">Operadores</p>
+                        <h2 class="page-title mb-0">Editar un Operador</h2>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
+                            <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver al listado
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </x-slot>
+
+    <div class="page-body">
+        <div class="container-xl">
+
+            {{-- FLASHES --}}
+            @if (session('success'))
+                <div class="alert alert-success mb-4" role="alert">
+                    <span class="material-symbols-outlined me-2 align-middle">check_circle</span>{{ session('success') }}
+                </div>
+            @endif
+
+            @if ($errors->any())
+                <div class="alert alert-danger mb-4" role="alert">
+                    <span class="material-symbols-outlined me-2 align-middle">warning</span>Revisa los campos marcados y vuelve a intentar.
+                </div>
+            @endif
+
+            @php
+                $photosData = $operador->fotos->values()->map(function($f){
+                    return ['id' => $f->id, 'src' => route('operadores.fotos.show', $f)];
+                })->all();
+                $nombreCompleto = trim(($operador->nombre ?? '').' '.($operador->apellido_paterno ?? '').' '.($operador->apellido_materno ?? ''));
+                $correo = optional($operador->user)->email ?? '—';
+            @endphp
+
+            <div class="row g-4">
+                {{-- ===== FORM ÚNICO (incluye datos y fotos) ===== --}}
+                <div class="col-12 col-xl-8">
+<form id="operador-form" method="POST"
+      action="{{ route('operadores.update', $operador) }}"
+      enctype="multipart/form-data" novalidate>
+                        @csrf
+                        @method('PUT')
+
+                        {{-- DATOS --}}
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0 d-flex align-items-center">
+                                    <span class="material-symbols-outlined me-2">badge</span>
+                                    Datos del operador
+                                </h3>
+                                <div class="card-subtitle ms-2">Completa o corrige la información requerida.</div>
+                            </div>
+
+                            <div class="card-body pt-3">
+                                <div class="row g-4">
+                                    <div class="col-12 col-md-6">
+                                        <label for="nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">edit_note</span></span>
+                                            <input id="nombre" name="nombre" type="text" autocomplete="given-name"
+                                                   class="form-control @error('nombre') is-invalid @enderror"
+                                                   value="{{ old('nombre', $operador->nombre) }}" required placeholder="Ej. Juan">
+                                            @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 col-md-6">
+                                        <label for="apellido_paterno" class="form-label">Apellido paterno <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
+                                            <input id="apellido_paterno" name="apellido_paterno" type="text" autocomplete="family-name"
+                                                   class="form-control @error('apellido_paterno') is-invalid @enderror"
+                                                   value="{{ old('apellido_paterno', $operador->apellido_paterno) }}" required placeholder="Ej. Pérez">
+                                            @error('apellido_paterno') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 col-md-6">
+                                        <label for="apellido_materno" class="form-label">Apellido materno</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
+                                            <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
+                                                   class="form-control @error('apellido_materno') is-invalid @enderror"
+                                                   value="{{ old('apellido_materno', $operador->apellido_materno) }}" placeholder="(opcional)">
+                                            @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 col-md-6">
+                                        <label for="email" class="form-label">Correo electrónico</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">mail</span></span>
+                                            <input id="email" name="email" type="email" autocomplete="email"
+                                                   class="form-control @error('email') is-invalid @enderror"
+                                                   value="{{ old('email', optional($operador->user)->email) }}"
+                                                   placeholder="usuario@dominio.com" aria-describedby="email_help">
+                                            @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Teléfono --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="telefono" class="form-label">Teléfono</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                                            <input id="telefono" name="telefono" type="tel"
+                                                   class="form-control @error('telefono') is-invalid @enderror"
+                                                   value="{{ old('telefono', $operador->telefono) }}"
+                                                   placeholder="+52 777 123 4567" autocomplete="tel">
+                                            @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Tipo de sangre --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="tipo_sangre" class="form-label">Tipo de sangre</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">bloodtype</span></span>
+                                            <input id="tipo_sangre" name="tipo_sangre" type="text"
+                                                   class="form-control @error('tipo_sangre') is-invalid @enderror"
+                                                   value="{{ old('tipo_sangre', $operador->tipo_sangre) }}"
+                                                   placeholder="Ej. O+, A-, B+" maxlength="5">
+                                            @error('tipo_sangre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                        <div class="form-hint">Formato corto (ej.: O+, A-, AB-).</div>
+                                    </div>
+
+                                    {{-- Contacto emergencia nombre --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="contacto_emergencia_nombre" class="form-label">Contacto de emergencia (nombre completo)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">contact_emergency</span></span>
+                                            <input id="contacto_emergencia_nombre" name="contacto_emergencia_nombre" type="text"
+                                                   class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror"
+                                                   value="{{ old('contacto_emergencia_nombre', $operador->contacto_emergencia_nombre) }}"
+                                                   placeholder="Ej. Juan Pérez">
+                                            @error('contacto_emergencia_nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Contacto emergencia teléfono --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="contacto_emergencia_tel" class="form-label">Contacto de emergencia (teléfono)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                                            <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
+                                                   class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
+                                                   value="{{ old('contacto_emergencia_tel', $operador->contacto_emergencia_tel) }}"
+                                                   placeholder="+52 777 000 0000">
+                                            @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- FOTOS: subir + marcar para borrar + galería --}}
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0 d-flex align-items-center">
+                                    <span class="material-symbols-outlined me-2">add_photo_alternate</span>
+                                    Agregar fotografías
+                                </h3>
+                            </div>
+
+                            {{-- Subir nuevas --}}
+                            <div class="card-body">
+                                <div class="form-hint mb-3">JPG, JPEG, PNG o WEBP. Máx 8&nbsp;MB por archivo.</div>
+
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-12 col-lg-8">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">upload</span></span>
+                                            <input type="file" name="fotos[]" accept="image/*" multiple
+                                                   class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror">
+                                        </div>
+                                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Listado/galería y marcado para borrar --}}
+                            <div class="card-body border-top">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <h2 class="h5 mb-0 d-flex align-items-center">
+                                            <span class="material-symbols-outlined me-2">photo</span>
+                                            Fotografías actuales
+                                        </h2
+                                        >
+                                        <span class="badge bg-secondary-lt">{{ $operador->fotos->count() }} foto(s)</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <button type="button" class="btn btn-dark btn-sm" id="openGalleryAll">
+                                            <span class="material-symbols-outlined me-1 align-middle">slideshow</span> Ver galería
+                                        </button>
+                                        <span class="small text-secondary">
+                                            Marcadas para borrar: <strong id="delCount">0</strong>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                @if($operador->fotos->isEmpty())
+                                    <div class="empty my-4">
+                                        <div class="empty-icon">
+                                            <span class="material-symbols-outlined">image_not_supported</span>
+                                        </div>
+                                        <p class="empty-title">Este operador aún no tiene fotos</p>
+                                        <p class="empty-subtitle text-secondary">Puedes subirlas en la sección “Agregar nuevas fotos”.</p>
+                                    </div>
+                                @else
+                                    <div class="row g-3" id="photosGrid" data-photos='@json($photosData)'>
+                                        @foreach($operador->fotos as $foto)
+                                            <div class="col-6 col-sm-4 col-md-3">
+                                                <div class="card position-relative foto-card" data-id="{{ $foto->id }}">
+                                                    <div class="ratio ratio-4x3">
+                                                        <div class="w-100 h-100 rounded bg-cover"
+                                                             style="background-image:url('{{ route('operadores.fotos.show', $foto) }}'); background-size:cover; background-position:center;"></div>
+                                                    </div>
+
+                                                    {{-- Botón marcar para borrar (toggle) --}}
+                                                    <button type="button"
+                                                            class="btn btn-danger btn-icon btn-sm position-absolute top-0 end-0 m-1 toggle-delete z-3"
+                                                            data-id="{{ $foto->id }}" title="Marcar para borrar">
+                                                        <span class="material-symbols-outlined">delete</span>
+                                                    </button>
+
+                                                    {{-- Checkbox oculto que viaja en el form --}}
+                                                    <input type="checkbox" class="d-none delete-input"
+                                                           id="del-{{ $foto->id }}" name="delete_fotos[]"
+                                                           value="{{ $foto->id }}">
+
+                                                    {{-- Cinta visual cuando está marcada --}}
+                                                    <div class="position-absolute top-0 start-0 w-100 h-100 rounded bg-danger opacity-25 d-none overlay-del"></div>
+                                                    <span class="badge bg-danger position-absolute bottom-0 start-0 m-2 d-none badge-del">
+                                                        <span class="material-symbols-outlined me-1 align-middle">delete</span> Se borrará
+                                                    </span>
+
+                                                    {{-- Abrir galería (clic en tarjeta) --}}
+                                                    <a href="javascript:void(0)" class="stretched-link gal-photo" data-index="{{ $loop->index }}" title="Ver grande"></a>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        {{-- FOOTER del form: un único botón que guarda TODO --}}
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">
+                                <span class="material-symbols-outlined me-1 align-middle">save</span> Guardar todo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                {{-- LATERAL --}}
+                <div class="col-12 col-xl-4">
+                    <div class="card">
+                        <div class="card-body text-center py-4">
+                            <span class="avatar avatar-xl avatar-rounded bg-blue-lt mb-3">
+                                <span class="material-symbols-outlined" style="font-size:32px; line-height:1;">person</span>
+                            </span>
+                            <div class="h3 mb-1">{{ $nombreCompleto ?: 'Operador #'.$operador->id }}</div>
+                            <div class="text-secondary">{{ $correo }}</div>
+
+                            <div class="mt-3 text-start small text-secondary">
+                                @if(optional($operador->created_at)->isValid())
+                                    <div>
+                                        <span class="material-symbols-outlined me-1 align-middle">calendar_month</span>
+                                        Registrado:
+                                        <span class="fw-semibold">{{ optional($operador->created_at)->format('Y-m-d') }}</span>
+                                    </div>
+                                @endif
+                                @if(optional($operador->updated_at)->isValid())
+                                    <div>
+                                        <span class="material-symbols-outlined me-1 align-middle">history</span>
+                                        Actualizado:
+                                        <span class="fw-semibold">{{ optional($operador->updated_at)->diffForHumans() }}</span>
+                                    </div>
+                                @endif
+                            </div>
+
+                            <div class="d-grid gap-2 mt-4">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> {{-- /row --}}
+
+            {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
+        </div>
+    </div>
+
+    {{-- ===== MODAL GALERÍA ===== --}}
+    <div class="modal fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title h4" id="galleryModalLabel">
+                        <span class="material-symbols-outlined me-2 align-middle">photo</span>Galería de fotos
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="galleryCarousel" class="carousel slide" data-bs-ride="false">
+                        <div class="carousel-inner" id="galleryInner"></div>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Anterior</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Siguiente</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ===== SCRIPTS ===== --}}
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- Galería ---
+        const photosGrid = document.getElementById('photosGrid');
+        let photos = [];
+        try { photos = JSON.parse(photosGrid?.getAttribute('data-photos') || '[]'); } catch { photos = []; }
+
+        const galleryInner   = document.getElementById('galleryInner');
+        const galleryEl      = document.getElementById('galleryCarousel');
+        const galleryModalEl = document.getElementById('galleryModal');
+
+        function openGallery(startIndex = 0){
+            if (!photos.length) return;
+            galleryInner.innerHTML = '';
+            photos.forEach((p, i) => {
+                const div = document.createElement('div');
+                div.className = 'carousel-item' + (i === startIndex ? ' active' : '');
+                div.innerHTML = `<img src="${p.src}" class="d-block w-100 rounded" alt="Foto ${i+1}">`;
+                galleryInner.appendChild(div);
+            });
+            const Carousel = window.bootstrap?.Carousel;
+            if (Carousel) {
+                const instance = Carousel.getInstance(galleryEl) || new Carousel(galleryEl, { interval: false });
+                instance.to(startIndex);
+            }
+            const modal = window.bootstrap ? new window.bootstrap.Modal(galleryModalEl) : null;
+            modal?.show();
         }
-    }
-}
 
+        photosGrid?.addEventListener('click', (e) => {
+            const a = e.target.closest('.gal-photo');
+            if (!a) return;
+            const idx = parseInt(a.getAttribute('data-index') || '0', 10) || 0;
+            openGallery(idx);
+        });
+
+        document.getElementById('openGalleryAll')?.addEventListener('click', () => openGallery(0));
+
+        // --- Togglear borrado de fotos ---
+        const delCountEl = document.getElementById('delCount');
+        function refreshDelCount(){
+            const checked = document.querySelectorAll('.delete-input:checked').length;
+            if (delCountEl) delCountEl.textContent = String(checked);
+        }
+
+        photosGrid?.querySelectorAll('.toggle-delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const id = btn.getAttribute('data-id');
+                const input = document.getElementById('del-' + id);
+                const card  = btn.closest('.foto-card');
+                const overlay = card?.querySelector('.overlay-del');
+                const badge   = card?.querySelector('.badge-del');
+
+                if (!input) return;
+                input.checked = !input.checked;
+
+                const marked = input.checked;
+                btn.classList.toggle('btn-danger', !marked);
+                btn.classList.toggle('btn-warning', marked);
+                if (overlay) overlay.classList.toggle('d-none', !marked);
+                if (badge)   badge.classList.toggle('d-none', !marked);
+                btn.title = marked ? 'Quitar de borrado' : 'Marcar para borrar';
+
+                refreshDelCount();
+            });
+        });
+
+        refreshDelCount();
+    });
+    </script>
+
+    <style>
+        .bg-cover { background-repeat: no-repeat; }
+        /* La capa roja no bloquea clics */
+        .overlay-del { pointer-events: none; }
+        /* Botón por encima de stretched-link */
+        .foto-card .toggle-delete { z-index: 3; }
+    </style>
+</x-app-layout>

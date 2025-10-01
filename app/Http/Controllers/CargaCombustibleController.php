@@ -40,7 +40,7 @@ class CargaCombustibleController extends Controller
             'km_ini_min','km_ini_max',
             'km_fin_min','km_fin_max',
             'destino','custodio',
-            'estado',                // 👈 nuevo filtro por estado (Pendiente/Aprobada)
+            'estado',                
             'sort_by','sort_dir',
         ]);
 

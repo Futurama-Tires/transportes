@@ -9,6 +9,7 @@ use App\Models\VerificacionReglaDetalle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
@@ -78,7 +79,7 @@ class VerificacionReglaController extends Controller
         return view('verificacion_reglas.generar', ['regla' => $verificacion_regla]);
     }
 
-    /* ===== Store con menú flexible ===== */
+    /* ===== Store (1 PASO: crea y genera periodos del año elegido) ===== */
     public function store(Request $request)
     {
         // Validación base de la regla + menú flexible
@@ -97,26 +98,55 @@ class VerificacionReglaController extends Controller
             'detalles'        => ['required','array'],
         ]);
 
-        DB::transaction(function () use ($data) {
+        $insertados = 0;
+
+        DB::transaction(function () use ($data, &$insertados) {
+            $anio = (int) $data['anio'];
+
+            // Normaliza estados seleccionados
+            $estadosOriginales = $data['estados'];
+            $estadosNorm = array_values(array_unique(array_map(
+                fn($e) => $this->normalizeEstado($e),
+                $estadosOriginales
+            )));
+
+            // 0) Validación extra de disponibilidad (evita choques por año+estado)
+            //    - Checa tabla puente verificacion_regla_estados (ocupación lógica)
+            //    - Checa también calendario_verificacion por robustez (ocupación materializada)
+            $choquesPivot = VerificacionReglaEstado::query()
+                ->where('anio', $anio)
+                ->whereIn('estado', $estadosNorm)
+                ->exists();
+
+            $choquesCal = DB::table('calendario_verificacion')
+                ->where('anio', $anio)
+                ->whereIn('estado', $estadosNorm)
+                ->exists();
+
+            if ($choquesPivot || $choquesCal) {
+                throw ValidationException::withMessages([
+                    'estados' => 'Uno o más estados ya están asignados en '.$anio.'. Elige otros estados o cambia el año.',
+                ]);
+            }
+
             // 1) Crear la regla
             $regla = VerificacionRegla::create([
                 'nombre'          => $data['nombre'],
                 'version'         => $data['version'] ?? null,
                 'status'          => 'published',
-                'vigencia_inicio' => Carbon::create($data['anio'], 1, 1)->toDateString(),
-                'vigencia_fin'    => Carbon::create($data['anio'], 12, 31)->toDateString(),
+                'vigencia_inicio' => Carbon::create($anio, 1, 1)->toDateString(),
+                'vigencia_fin'    => Carbon::create($anio, 12, 31)->toDateString(),
                 'frecuencia'      => $data['frecuencia'],
                 'estados'         => [], // dejamos vacío (usaremos tabla por año)
                 'notas'           => $data['notas'] ?? null,
             ]);
 
-            // 2) Guardar estados por AÑO (únicos por anio+estado)
-            $anio = (int) $data['anio'];
-            foreach ($data['estados'] as $label) {
+            // 2) Guardar estados por AÑO (únicos por anio+estado en DB idealmente)
+            foreach ($estadosOriginales as $label) {
                 VerificacionReglaEstado::create([
                     'regla_id' => $regla->id,
                     'anio'     => $anio,
-                    'estado'   => $label, // se normaliza en el setter del modelo
+                    'estado'   => $label, // normaliza en el mutator del modelo
                 ]);
             }
 
@@ -136,7 +166,6 @@ class VerificacionReglaController extends Controller
                         continue; // ignora filas malformadas
                     }
 
-                    // Evita duplicados exactos al guardar
                     $k = $terminacion.'|'.$semestre.'|'.$mi.'|'.$mf;
                     if (isset($seen[$k])) continue;
                     $seen[$k] = true;
@@ -151,10 +180,13 @@ class VerificacionReglaController extends Controller
                     ]);
                 }
             }
+
+            // 4) GENERAR PERIODOS AUTOMÁTICAMENTE para el año elegido
+            $insertados = $this->generarPeriodosCore($regla, $anio, false);
         });
 
         return redirect()->route('verificacion-reglas.index')
-            ->with('success', 'Regla creada. Ahora puedes generar los periodos para ese año.');
+            ->with('success', 'Regla creada y periodos generados ('.$data['anio'].'). Registros: '.$insertados);
     }
 
     public function update(Request $request, VerificacionRegla $verificacion_regla)
@@ -189,7 +221,6 @@ class VerificacionReglaController extends Controller
             ->with('success', 'Regla eliminada.');
     }
 
-
     /* ===== Generación usando ESTADOS (por año) + DETALLES ===== */
     public function generar(Request $request, VerificacionRegla $verificacion_regla)
     {
@@ -201,9 +232,23 @@ class VerificacionReglaController extends Controller
         $anio         = (int) $request->integer('anio');
         $sobrescribir = (bool) $request->boolean('sobrescribir');
 
+        $count = $this->generarPeriodosCore($verificacion_regla, $anio, $sobrescribir);
+
+        return redirect()->route('verificacion-reglas.index')
+            ->with('success', "Periodos generados para {$verificacion_regla->nombre} ({$anio}). Registros: {$count}");
+    }
+
+    /**
+     * Núcleo de generación de periodos: arma e inserta/upserta filas en calendario_verificacion.
+     * - Usa estados de la regla para ese año (pivot primero; JSON como fallback).
+     * - Si $sobrescribir, borra primero lo de ESA regla y año.
+     * - Retorna el total de filas existentes para esa regla y año tras la operación.
+     */
+    private function generarPeriodosCore(VerificacionRegla $regla, int $anio, bool $sobrescribir = false): int
+    {
         // Estados asignados a la regla para ese año (normalizados, únicos)
         $estados = VerificacionReglaEstado::query()
-            ->where('regla_id', $verificacion_regla->id)
+            ->where('regla_id', $regla->id)
             ->where('anio', $anio)
             ->pluck('estado')
             ->map(fn($e) => mb_strtoupper(trim($e)))
@@ -212,8 +257,8 @@ class VerificacionReglaController extends Controller
             ->all();
 
         // Backward-compat: si no hay pivot, usa JSON de la regla (si existiera).
-        if (empty($estados) && is_array($verificacion_regla->estados)) {
-            $estados = collect($verificacion_regla->estados)
+        if (empty($estados) && is_array($regla->estados)) {
+            $estados = collect($regla->estados)
                 ->map(fn($e) => mb_strtoupper(trim($e)))
                 ->unique()
                 ->values()
@@ -221,17 +266,21 @@ class VerificacionReglaController extends Controller
         }
 
         if (empty($estados)) {
-            return back()->withErrors('Esta regla no tiene estados asignados para el año seleccionado.');
+            throw ValidationException::withMessages([
+                'estados' => 'Esta regla no tiene estados asignados para el año seleccionado.',
+            ]);
         }
 
         // Trae los detalles tal como fueron guardados (una fila por terminación+semestre).
         $detalles = VerificacionReglaDetalle::query()
-            ->where('regla_id', $verificacion_regla->id)
+            ->where('regla_id', $regla->id)
             ->orderBy('terminacion')
             ->get(['terminacion','semestre','mes_inicio','mes_fin']);
 
         if ($detalles->isEmpty()) {
-            return back()->withErrors('La regla no tiene calendario por terminación configurado.');
+            throw ValidationException::withMessages([
+                'detalles' => 'La regla no tiene calendario por terminación configurado.',
+            ]);
         }
 
         // 1) Deduplicar detalles por combinación clave
@@ -239,22 +288,16 @@ class VerificacionReglaController extends Controller
             return $d->terminacion.'|'.$d->semestre.'|'.$d->mes_inicio.'|'.$d->mes_fin;
         })->values();
 
-        DB::transaction(function () use (
-            $anio,
-            $sobrescribir,
-            $estados,
-            $detalles,
-            $verificacion_regla
-        ) {
+        DB::transaction(function () use ($anio, $sobrescribir, $estados, $detalles, $regla) {
             // 2) Si sobrescribe, borra lo previo de ESTA regla y año (y solo eso)
             if ($sobrescribir) {
                 CalendarioVerificacion::query()
-                    ->where('regla_id', $verificacion_regla->id)
+                    ->where('regla_id', $regla->id)
                     ->where('anio', $anio)
                     ->delete();
             }
 
-            // 3) Construye filas únicas por (estado, terminación, mes_inicio, mes_fin, anio)
+            // 3) Construye filas únicas por (estado, terminacion, mes_inicio, mes_fin, anio)
             $rows     = [];
             $seenKeys = [];
 
@@ -289,11 +332,11 @@ class VerificacionReglaController extends Controller
                         'mes_inicio'     => $mi,
                         'mes_fin'        => $mf,
                         'semestre'       => $semestreEfectivo,
-                        'frecuencia'     => $verificacion_regla->frecuencia, // "Semestral" | "Anual"
+                        'frecuencia'     => $regla->frecuencia, // "Semestral" | "Anual"
                         'anio'           => $anio,
                         'vigente_desde'  => $desde->toDateString(),
                         'vigente_hasta'  => $hasta->toDateString(),
-                        'regla_id'       => $verificacion_regla->id,
+                        'regla_id'       => $regla->id,
                         'created_at'     => now(),
                         'updated_at'     => now(),
                     ];
@@ -312,13 +355,13 @@ class VerificacionReglaController extends Controller
             );
         });
 
+        // Total resultante para esa REGLA y AÑO (útil para feedback)
         $count = CalendarioVerificacion::query()
-            ->where('regla_id', $verificacion_regla->id)
+            ->where('regla_id', $regla->id)
             ->where('anio', $anio)
             ->count();
 
-        return redirect()->route('verificacion-reglas.index')
-            ->with('success', "Periodos generados para {$verificacion_regla->nombre} ({$anio}). Registros: {$count}");
+        return $count;
     }
 
     /* ===== Defaults para precarga en UI ===== */

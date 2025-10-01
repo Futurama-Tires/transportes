@@ -13,11 +13,18 @@ class VerificacionReglaDetalle extends Model
 
     protected $fillable = [
         'regla_id',
-        'frecuencia',
+        'frecuencia',  // "Semestral" | "Anual"
         'terminacion',
-        'semestre',
+        'semestre',    // 0 (anual), 1, 2 (semestral)
         'mes_inicio',
         'mes_fin',
+    ];
+
+    protected $casts = [
+        'terminacion' => 'integer',
+        'semestre'    => 'integer',
+        'mes_inicio'  => 'integer',
+        'mes_fin'     => 'integer',
     ];
 
     public function regla()

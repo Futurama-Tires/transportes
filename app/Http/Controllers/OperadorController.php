@@ -94,8 +94,8 @@ class OperadorController extends Controller
      */
     public function store(Request $request)
     {
-        // (1) Validación de campos básicos
-        $data = $this->validateOperador($request, isUpdate: false);
+        // (1) Validación de campos del Operador
+        $data = $this->validateOperador($request, isUpdate: false, operador: null);
 
         // Email único para el User que se creará
         $request->validate([
@@ -170,8 +170,8 @@ class OperadorController extends Controller
      */
     public function update(Request $request, Operador $operador)
     {
-        // (1) Validación de campos
-        $data = $this->validateOperador($request, isUpdate: true);
+        // (1) Validación de campos (ignorando unique de CURP/RFC en este operador)
+        $data = $this->validateOperador($request, isUpdate: true, operador: $operador);
 
         // (2) Actualizar modelo
         $operador->update($data);
@@ -250,12 +250,37 @@ class OperadorController extends Controller
     /**
      * Valida los campos comunes del Operador.
      *
-     * @param  Request $request
-     * @param  bool    $isUpdate  Modo actualización (true) o creación (false).
+     * @param  Request       $request
+     * @param  bool          $isUpdate  Modo actualización (true) o creación (false).
+     * @param  Operador|null $operador  Para ignorar reglas unique en update.
      * @return array
      */
-    private function validateOperador(Request $request, bool $isUpdate): array
+    private function validateOperador(Request $request, bool $isUpdate, ?Operador $operador = null): array
     {
+        // --- Normalización ligera antes de validar ---
+        $normalize = [];
+
+        if ($request->has('curp')) {
+            $normalize['curp'] = strtoupper(trim((string) $request->input('curp')));
+        }
+        if ($request->has('rfc')) {
+            $normalize['rfc'] = strtoupper(trim((string) $request->input('rfc')));
+        }
+        if ($request->has('estado_civil')) {
+            $normalize['estado_civil'] = strtolower(trim((string) $request->input('estado_civil')));
+        }
+        if ($request->has('contacto_emergencia_parentesco')) {
+            $normalize['contacto_emergencia_parentesco'] = trim((string) $request->input('contacto_emergencia_parentesco'));
+        }
+        if ($request->has('contacto_emergencia_ubicacion')) {
+            $normalize['contacto_emergencia_ubicacion'] = trim((string) $request->input('contacto_emergencia_ubicacion'));
+        }
+        if (!empty($normalize)) {
+            $request->merge($normalize);
+        }
+
+        $ignoreId = $operador?->id;
+
         // Nota: el email se valida aparte (en store/update) porque pertenece al User.
         return $request->validate([
             'user_id'                     => ['nullable', 'exists:users,id'],
@@ -263,15 +288,48 @@ class OperadorController extends Controller
             'apellido_paterno'            => ['required', 'string', 'max:255'],
             'apellido_materno'            => ['nullable', 'string', 'max:255'],
 
-            // Campos adicionales (opcionales)
+            // Campos adicionales (opcionales existentes)
             'telefono'                    => ['nullable', 'string', 'max:20'],
             'contacto_emergencia_nombre'  => ['nullable', 'string', 'max:255'],
             'contacto_emergencia_tel'     => ['nullable', 'string', 'max:20'],
             'tipo_sangre'                 => ['nullable', 'string', 'max:5'],
+
+            // ===== Nuevos campos =====
+            'estado_civil' => [
+                'nullable',
+                Rule::in(['soltero','casado','viudo','divorciado']),
+            ],
+            'curp' => [
+                'nullable',
+                'string',
+                'size:18',
+                // Patrón simple (18 alfanumérico en mayúsculas); evitamos uno ultra-estricto para no bloquear casos reales.
+                'regex:/^[A-ZÑ0-9]{18}$/',
+                Rule::unique('operadores', 'curp')->ignore($ignoreId),
+            ],
+            'rfc' => [
+                'nullable',
+                'string',
+                'min:12',
+                'max:13',
+                // RFC PM (12) o PF (13): 3-4 letras (&/Ñ permitidas) + 6 dígitos fecha + 3 alfanum.
+                'regex:/^([A-ZÑ&]{3,4})\d{6}[A-Z0-9]{3}$/',
+                Rule::unique('operadores', 'rfc')->ignore($ignoreId),
+            ],
+            'contacto_emergencia_parentesco' => ['nullable', 'string', 'max:100'],
+            'contacto_emergencia_ubicacion'  => ['nullable', 'string', 'max:255'],
         ], [
-            'user_id.exists'      => 'El usuario seleccionado no es válido.',
-            'nombre.required'     => 'El nombre es obligatorio.',
-            'apellido_paterno.required' => 'El apellido paterno es obligatorio.',
+            'user_id.exists'                => 'El usuario seleccionado no es válido.',
+            'nombre.required'               => 'El nombre es obligatorio.',
+            'apellido_paterno.required'     => 'El apellido paterno es obligatorio.',
+            'estado_civil.in'               => 'El estado civil debe ser: soltero, casado, viudo o divorciado.',
+            'curp.size'                     => 'La CURP debe tener 18 caracteres.',
+            'curp.regex'                    => 'La CURP debe ser alfanumérica en mayúsculas (18 chars).',
+            'curp.unique'                   => 'La CURP ya está registrada para otro operador.',
+            'rfc.min'                       => 'El RFC debe tener entre 12 y 13 caracteres.',
+            'rfc.max'                       => 'El RFC debe tener entre 12 y 13 caracteres.',
+            'rfc.regex'                     => 'El RFC no cumple el formato esperado.',
+            'rfc.unique'                    => 'El RFC ya está registrado para otro operador.',
         ]);
     }
 

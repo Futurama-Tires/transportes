@@ -16,11 +16,19 @@ class Operador extends Model
         'nombre',
         'apellido_paterno',
         'apellido_materno',
-        // Nuevos campos
+
+        // Contacto / datos existentes
         'telefono',
         'contacto_emergencia_nombre',
         'contacto_emergencia_tel',
         'tipo_sangre',
+
+        // ===== Nuevos campos =====
+        'estado_civil',                     // enum: soltero|casado|viudo|divorciado
+        'curp',                             // 18 chars
+        'rfc',                              // 12 (PM) / 13 (PF) — usamos 13
+        'contacto_emergencia_parentesco',
+        'contacto_emergencia_ubicacion',
     ];
 
     protected $appends = ['nombre_completo'];
@@ -58,6 +66,47 @@ class Operador extends Model
     }
 
     /**
+     * Normalizaciones:
+     * - estado_civil → minúsculas (coincide con ENUM de la migración)
+     * - CURP/RFC → mayúsculas y sin espacios extras
+     * - Parentesco/Uso de ubicación → trim
+     */
+    public function setEstadoCivilAttribute($value): void
+    {
+        $this->attributes['estado_civil'] = is_string($value)
+            ? strtolower(trim($value))
+            : $value;
+    }
+
+    public function setCurpAttribute($value): void
+    {
+        $this->attributes['curp'] = $value !== null
+            ? strtoupper(preg_replace('/\s+/', '', trim($value)))
+            : null;
+    }
+
+    public function setRfcAttribute($value): void
+    {
+        $this->attributes['rfc'] = $value !== null
+            ? strtoupper(preg_replace('/\s+/', '', trim($value)))
+            : null;
+    }
+
+    public function setContactoEmergenciaParentescoAttribute($value): void
+    {
+        $this->attributes['contacto_emergencia_parentesco'] = $value !== null
+            ? trim($value)
+            : null;
+    }
+
+    public function setContactoEmergenciaUbicacionAttribute($value): void
+    {
+        $this->attributes['contacto_emergencia_ubicacion'] = $value !== null
+            ? trim($value)
+            : null;
+    }
+
+    /**
      * Filtro principal: búsqueda global + ordenamiento.
      *
      * Acepta:
@@ -77,13 +126,23 @@ class Operador extends Model
                 $qq->where('operadores.nombre', 'like', $like)
                    ->orWhere('operadores.apellido_paterno', 'like', $like)
                    ->orWhere('operadores.apellido_materno', 'like', $like)
-                   // Nuevos campos de contacto
+
+                   // Contacto existentes
                    ->orWhere('operadores.telefono', 'like', $like)
                    ->orWhere('operadores.contacto_emergencia_nombre', 'like', $like)
                    ->orWhere('operadores.contacto_emergencia_tel', 'like', $like)
                    ->orWhere('operadores.tipo_sangre', 'like', $like)
+
+                   // ===== Nuevos campos =====
+                   ->orWhere('operadores.estado_civil', 'like', $like)
+                   ->orWhere('operadores.curp', 'like', $like)
+                   ->orWhere('operadores.rfc', 'like', $like)
+                   ->orWhere('operadores.contacto_emergencia_parentesco', 'like', $like)
+                   ->orWhere('operadores.contacto_emergencia_ubicacion', 'like', $like)
+
                    // Nombre completo
                    ->orWhereRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) LIKE ?", [$like])
+
                    // Relación user: email y (opcional) name
                    ->orWhereHas('user', function ($uq) use ($like) {
                        $uq->where('email', 'like', $like)

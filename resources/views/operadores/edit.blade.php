@@ -138,6 +138,83 @@
                                         <div class="form-hint">Formato corto (ej.: O+, A-, AB-).</div>
                                     </div>
 
+                                    {{-- ===== NUEVOS CAMPOS ===== --}}
+
+                                    {{-- Estado civil --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="estado_civil" class="form-label">Estado civil</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">
+                                                <span class="material-symbols-outlined">diversity_3</span>
+                                            </span>
+                                            <select id="estado_civil" name="estado_civil"
+                                                    class="form-select @error('estado_civil') is-invalid @enderror">
+                                                <option value="">(sin especificar)</option>
+                                                @foreach(['soltero'=>'Soltero','casado'=>'Casado','viudo'=>'Viudo','divorciado'=>'Divorciado'] as $val=>$label)
+                                                    <option value="{{ $val }}" {{ old('estado_civil', $operador->estado_civil)===$val ? 'selected' : '' }}>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                            @error('estado_civil') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- CURP --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="curp" class="form-label">CURP</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">badge</span></span>
+                                            <input id="curp" name="curp" type="text"
+                                                   class="form-control @error('curp') is-invalid @enderror"
+                                                   value="{{ old('curp', $operador->curp) }}" maxlength="18"
+                                                   style="text-transform:uppercase"
+                                                   oninput="this.value=this.value.toUpperCase().replace(/\s+/g,'');"
+                                                   pattern="[A-ZÑ0-9]{18}"
+                                                   title="18 caracteres en mayúsculas (A-Z/Ñ/0-9)">
+                                            @error('curp') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- RFC --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="rfc" class="form-label">RFC</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">verified</span></span>
+                                            <input id="rfc" name="rfc" type="text"
+                                                   class="form-control @error('rfc') is-invalid @enderror"
+                                                   value="{{ old('rfc', $operador->rfc) }}" maxlength="13"
+                                                   style="text-transform:uppercase"
+                                                   oninput="this.value=this.value.toUpperCase().replace(/\s+/g,'');"
+                                                   pattern="([A-ZÑ&]{3,4})\d{6}[A-Z0-9]{3}"
+                                                   title="3-4 letras + 6 dígitos de fecha + 3 alfanum.">
+                                            @error('rfc') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Parentesco del contacto de emergencia --}}
+                                    <div class="col-12 col-md-6">
+                                        <label for="contacto_emergencia_parentesco" class="form-label">Parentesco del contacto de emergencia</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">diversity_1</span></span>
+                                            <input id="contacto_emergencia_parentesco" name="contacto_emergencia_parentesco" type="text"
+                                                   class="form-control @error('contacto_emergencia_parentesco') is-invalid @enderror"
+                                                   value="{{ old('contacto_emergencia_parentesco', $operador->contacto_emergencia_parentesco) }}" placeholder="Ej. Esposa, Hermano, Amigo">
+                                            @error('contacto_emergencia_parentesco') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Ubicación del contacto de emergencia --}}
+                                    <div class="col-12">
+                                        <label for="contacto_emergencia_ubicacion" class="form-label">Ubicación del contacto de emergencia</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">place</span></span>
+                                            <input id="contacto_emergencia_ubicacion" name="contacto_emergencia_ubicacion" type="text"
+                                                   class="form-control @error('contacto_emergencia_ubicacion') is-invalid @enderror"
+                                                   value="{{ old('contacto_emergencia_ubicacion', $operador->contacto_emergencia_ubicacion) }}" placeholder="Ej. Cuernavaca, Morelos">
+                                            @error('contacto_emergencia_ubicacion') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                        </div>
+                                        <div class="form-hint">Puedes capturar ciudad/estado o una dirección breve.</div>
+                                    </div>
+
                                     {{-- Contacto emergencia nombre --}}
                                     <div class="col-12 col-md-6">
                                         <label for="contacto_emergencia_nombre" class="form-label">Contacto de emergencia (nombre completo)</label>

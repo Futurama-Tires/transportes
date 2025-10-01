@@ -35,7 +35,7 @@ Reglas:
 - Si un dato no está claro, pon null.
 - "fecha" debe normalizarse a "YYYY-MM-DD" (si no hay año, asume el del día actual).
 - "importe" debe ser el TOTAL FINAL pagado, con impuestos incluidos.
-  • Si el ticket muestra SUBTOTAL, IMPORTE y TOTAL → elige TOTAL.
+  • Si el ticket muestra SUBTOTAL, IMPORTE y TOTAL → elige TOTAL, o bien en su defecto, elige el importe mas grande entre esos tres .
   • Ignora subtotales o importes parciales.
 - "precio_por_litro" es el unitario.
 - Solo JSON. Nada de explicación.
