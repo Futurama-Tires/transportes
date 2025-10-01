@@ -6,17 +6,13 @@
             <div class="container-xl">
                 <div class="row g-2 align-items-center">
                     <div class="col">
-                        <nav aria-label="breadcrumb">
                             <ol class="breadcrumb">
                                 <li class="breadcrumb-item">
-                                    <a href="{{ route('dashboard') }}">Inicio</a>
+                                    <a>Inicio</a>
                                 </li>
                                 <li class="breadcrumb-item active" aria-current="page">Panel</li>
                             </ol>
-                        </nav>
-
                         <div class="d-flex align-items-center gap-2">
-                            <i class="ti ti-layout-dashboard fs-2 text-primary"></i>
                             <h2 class="page-title mb-0">Panel de Administración</h2>
                         </div>
                     </div>

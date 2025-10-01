@@ -37,14 +37,12 @@
             <div class="mb-8">
                 <a href="{{ url('/') }}" class="w-full flex flex-col items-center">
                     <img src="{{ asset('images/logoOriginal.png') }}" alt="Futurama Tires" class="h-14 w-auto rounded-sm shadow-sm">
-                    <span class="mt-3 text-base font-semibold tracking-tight">Gestión de combustible</span>
+                    <span class="mt-3 text-base font-semibold tracking-tight">Transportes</span>
                 </a>
             </div>
 
             <h1 class="text-2xl font-bold tracking-tight">Iniciar sesión</h1>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Accede para gestionar cargas y rendimiento de tu flotilla.
-            </p>
+            <br>
 
             <!-- Session Status -->
             <x-auth-session-status class="mt-4" :status="session('status')" />
@@ -54,7 +52,7 @@
 
                 <!-- Email Address -->
                 <div>
-                    <x-input-label for="email" :value="__('Email')" />
+                    <x-input-label for="email" :value="__('Correo electrónico')" />
                     <x-text-input
                         id="email"
                         class="mt-2 block w-full text-base px-4 py-3 rounded-xl"
@@ -70,7 +68,7 @@
 
                 <!-- Password -->
                 <div>
-                    <x-input-label for="password" :value="__('Password')" />
+                    <x-input-label for="password" :value="__('Contraseña')" />
                     <x-text-input
                         id="password"
                         class="mt-2 block w-full text-base px-4 py-3 rounded-xl"
@@ -92,7 +90,7 @@
                             name="remember"
                         >
                         <span class="ms-2 text-sm text-gray-600 dark:text-gray-400">
-                            {{ __('Remember me') }}
+                            {{ __('Recordarme') }}
                         </span>
                     </label>
 
@@ -101,7 +99,7 @@
                             class="text-sm font-medium text-slate-700 dark:text-slate-300 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 rounded"
                             href="{{ route('password.request') }}"
                         >
-                            {{ __('Forgot your password?') }}
+                            {{ __('Olvidé mi contraseña') }}
                         </a>
                     @endif
                 </div>
@@ -109,7 +107,7 @@
                 <!-- Submit -->
                 <div>
                     <x-primary-button class="w-full justify-center h-12 text-base">
-                        {{ __('Log in') }}
+                        {{ __('ACCEDER') }}
                     </x-primary-button>
                 </div>
             </form>
