@@ -97,9 +97,9 @@ class OperadorController extends Controller
         // (1) Validación de campos del Operador
         $data = $this->validateOperador($request, isUpdate: false, operador: null);
 
-        // Email único para el User que se creará
+        // CAMBIO: Aceptar cualquier correo electrónico válido (sin restringir dominio)
         $request->validate([
-            'email' => ['required', 'email', Rule::unique('users', 'email')],
+            'email' => ['required', 'string', 'email:rfc', Rule::unique('users', 'email')],
         ]);
 
         // Validación de fotos para fallar pronto si no cumplen
@@ -178,8 +178,9 @@ class OperadorController extends Controller
 
         // (3) Actualizar correo del User (opcional)
         if ($request->filled('email') && $operador->user) {
+            // CAMBIO: Aceptar cualquier correo válido, sin dominio específico
             $request->validate([
-                'email' => ['nullable', 'email', Rule::unique('users', 'email')->ignore($operador->user->id)],
+                'email' => ['nullable', 'string', 'email:rfc', Rule::unique('users', 'email')->ignore($operador->user->id)],
             ]);
             $operador->user->update(['email' => $request->string('email')->toString()]);
         }

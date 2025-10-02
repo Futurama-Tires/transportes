@@ -13,7 +13,7 @@ class Tanque extends Model
 
     protected $fillable = [
         'vehiculo_id',
-        'numero_tanque',         // opcional: 1, 2, etc. por vehículo
+        'cantidad_tanques',         // opcional: 1, 2, etc. por vehículo
         'capacidad_litros',      // float
         'rendimiento_estimado',  // float (km/L)
         'km_recorre',            // float (capacidad * rendimiento)

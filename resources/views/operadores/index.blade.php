@@ -36,6 +36,72 @@
 
         // Parámetros a mantener en los links de paginación/acciones
         $keepParams = ['search','sort_by','sort_dir'];
+
+        /* ============================
+         | Columnas dinámicas de la tabla "operadores"
+         | Mostrar TODO excepto: id, user_id, created_at, updated_at, deleted_at
+         | y ordenarlas de forma lógica
+         *============================ */
+        $excluded = ['id','user_id','created_at','updated_at','deleted_at'];
+
+        $firstModel = $p->first();
+        if ($firstModel) {
+            // Unimos fillable + atributos reales por si hay columnas no fillable
+            $columnsAll = array_unique(array_merge(
+                $firstModel->getFillable(),
+                array_keys($firstModel->getAttributes() ?? [])
+            ));
+        } else {
+            // Sin datos: usamos fillable del modelo para renderizar encabezados
+            $columnsAll = (new \App\Models\Operador)->getFillable();
+        }
+        $columnsAll = array_values(array_filter($columnsAll, fn($c) => !in_array($c, $excluded, true)));
+
+        // Orden lógico propuesto:
+        // 1) Identidad, 2) Contacto básico, 3) Datos personales,
+        // 4) Identificadores oficiales, 5) Contacto de emergencia
+        $preferredOrder = [
+            // 1) Identidad
+            'nombre','apellido_paterno','apellido_materno',
+            // 2) Contacto básico
+            'telefono',
+            // 3) Datos personales
+            'estado_civil','tipo_sangre',
+            // 4) Identificadores oficiales
+            'curp','rfc',
+            // 5) Contacto de emergencia
+            'contacto_emergencia_nombre','contacto_emergencia_parentesco','contacto_emergencia_tel','contacto_emergencia_ubicacion',
+        ];
+
+        // Creamos la lista final respetando el orden preferido y añadiendo cualquier resto (alfabético)
+        $columnsOrdered = [];
+        foreach ($preferredOrder as $c) {
+            if (in_array($c, $columnsAll, true)) $columnsOrdered[] = $c;
+        }
+        $remaining = array_values(array_diff($columnsAll, $columnsOrdered));
+        sort($remaining); // por si existen columnas nuevas no contempladas
+        $columns = array_merge($columnsOrdered, $remaining);
+
+        // Etiquetas amigables por columna (opcionales)
+        $labelMap = [
+            'nombre'                         => 'Nombre',
+            'apellido_paterno'               => 'Apellido paterno',
+            'apellido_materno'               => 'Apellido materno',
+            'telefono'                       => 'Teléfono',
+            'contacto_emergencia_nombre'     => 'Contacto de emergencia',
+            'contacto_emergencia_tel'        => 'Tel. emergencia',
+            'tipo_sangre'                    => 'Tipo de sangre',
+            'estado_civil'                   => 'Estado civil',
+            'curp'                           => 'CURP',
+            'rfc'                            => 'RFC',
+            'contacto_emergencia_parentesco' => 'Parentesco (emergencia)',
+            'contacto_emergencia_ubicacion'  => 'Ubicación (emergencia)',
+        ];
+
+        $labelFor = function(string $col) use ($labelMap) {
+            if (isset($labelMap[$col])) return $labelMap[$col];
+            return \Illuminate\Support\Str::of($col)->replace('_',' ')->ucfirst();
+        };
     @endphp
 
     {{-- HEADER --}}
@@ -45,7 +111,6 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <h2 class="page-title mb-0">Gestión de Operadores</h2>
-                        <div class="text-secondary small mt-1">Consulta, filtra y gestiona a tus operadores.</div>
                     </div>
                     <div class="col-auto ms-auto">
                         <a href="{{ route('operadores.create') }}" class="btn btn-primary">
@@ -85,7 +150,7 @@
                                         name="search"
                                         value="{{ $search }}"
                                         class="form-control"
-                                        placeholder="Buscar por nombre, apellidos, correo, teléfono, RFC, CURP…"
+                                        placeholder="Buscar…"
                                         aria-label="Búsqueda global"
                                     >
                                     <button class="btn btn-primary" type="submit">
@@ -210,75 +275,56 @@
                         <thead>
                             <tr class="text-uppercase text-secondary small">
                                 <th class="text-center text-nowrap">#</th>
-                                <th>Nombre completo</th>
-                                <th>Correo electrónico</th>
-                                <th>Teléfono</th>
-                                <th class="text-nowrap">Tipo sangre</th>
-                                <th class="text-nowrap">Estado civil</th>
-                                <th class="text-nowrap">CURP</th>
-                                <th class="text-nowrap">RFC</th>
+                                @foreach($columns as $col)
+                                    <th class="text-nowrap">{{ $labelFor($col) }}</th>
+                                @endforeach
                                 <th class="text-end">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($p as $op)
-                                @php
-                                    $nombre   = $op->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
-                                    $correo   = data_get($op, 'user.email', '—');
-                                    $telefono = $op->telefono ?: '—';
-                                    $tsangre  = $op->tipo_sangre ?: '—';
-                                    $ecivil   = $op->estado_civil ?: '—';
-                                    $curp     = $op->curp ?: '—';
-                                    $rfc      = $op->rfc ?: '—';
-                                @endphp
                                 <tr>
                                     {{-- Numeración continua por página --}}
                                     <td class="text-center text-nowrap">
                                         {{ ($firstItem ?? 0) + $loop->index }}
                                     </td>
 
-                                    <td class="text-nowrap">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="avatar avatar-sm avatar-rounded bg-blue-lt" aria-hidden="true">
-                                                <i class="ti ti-user"></i>
-                                            </span>
-                                            <div class="lh-1">
-                                                <div class="fw-semibold">{{ $nombre ?: 'Operador' }}</div>
-                                            </div>
-                                        </div>
-                                    </td>
+                                    {{-- Celdas dinámicas por cada columna de la tabla (orden lógico) --}}
+                                    @foreach($columns as $col)
+                                        @php
+                                            $val = data_get($op, $col);
+                                            $display = $val;
 
-                                    <td class="text-nowrap">
-                                        <div class="text-truncate" style="max-width: 280px" title="{{ $correo }}">{{ $correo }}</div>
-                                    </td>
+                                            // Formateos ligeros por tipo de campo
+                                            if ($col === 'estado_civil' && is_string($display)) {
+                                                $display = ucfirst(strtolower($display));
+                                            }
+                                            if (in_array($col, ['curp','rfc'], true) && is_string($display)) {
+                                                $display = strtoupper($display);
+                                            }
+                                        @endphp
 
-                                    <td class="text-nowrap" title="{{ $telefono }}">
-                                        <i class="ti ti-device-mobile me-1"></i>{{ $telefono }}
-                                    </td>
-
-                                    <td class="text-nowrap">
-                                        <span class="badge bg-red-lt"><i class="ti ti-droplet me-1"></i>{{ $tsangre }}</span>
-                                    </td>
-
-                                    <td class="text-nowrap text-capitalize">{{ $ecivil }}</td>
-
-                                    <td class="text-nowrap">
-                                        <div class="text-truncate" style="max-width: 180px" title="{{ $curp }}">{{ $curp }}</div>
-                                    </td>
-
-                                    <td class="text-nowrap">
-                                        <div class="text-truncate" style="max-width: 140px" title="{{ $rfc }}">{{ $rfc }}</div>
-                                    </td>
+                                        @if($col === 'tipo_sangre')
+                                            <td class="text-nowrap">
+                                                <span class="badge bg-red-lt">
+                                                    <i class="ti ti-droplet me-1"></i>{{ $display ?: '—' }}
+                                                </span>
+                                            </td>
+                                        @elseif($col === 'telefono' || $col === 'contacto_emergencia_tel')
+                                            <td class="text-nowrap" title="{{ $display }}">
+                                                {{ ($display !== null && $display !== '') ? $display : '—' }}
+                                            </td>
+                                        @else
+                                            <td>
+                                                <div class="text-truncate" style="max-width: 260px" title="{{ $display }}">
+                                                    {{ ($display !== null && $display !== '') ? $display : '—' }}
+                                                </div>
+                                            </td>
+                                        @endif
+                                    @endforeach
 
                                     <td class="text-end">
                                         <div class="d-inline-flex gap-1">
-                                            {{-- Ver (placeholder hacia edit si no hay show) --}}
-                                            <a href="{{ route('operadores.edit', $op) }}"
-                                               class="btn btn-outline-secondary btn-sm"
-                                               title="Ver">
-                                                <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
-                                            </a>
-
                                             {{-- Editar --}}
                                             <a href="{{ route('operadores.edit', $op) }}"
                                                class="btn btn-outline-secondary btn-sm"
@@ -291,7 +337,7 @@
                                                 action="{{ route('operadores.destroy', $op) }}"
                                                 method="POST"
                                                 class="d-inline"
-                                                onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $nombre ?: 'este operador' }}?');"
+                                                onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $op->nombre_completo ?: 'este operador' }}?');"
                                             >
                                                 @csrf
                                                 @method('DELETE')
@@ -304,7 +350,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="9" class="py-6">
+                                    <td colspan="{{ 2 + count($columns) }}" class="py-6">
                                         <div class="empty">
                                             <div class="empty-icon">
                                                 <i class="ti ti-database-off" aria-hidden="true"></i>

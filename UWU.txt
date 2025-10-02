@@ -1,6 +1,9 @@
-Vistas.
+Realiza lo siguiente:
+Haz que en la tabla de operadores se muestre toda la información de la tabla,
+con excepción de los campos:
+id, user_id, created_at, updated_at, deleted_at,
 
-Index:
+index:
 
 {{-- resources/views/operadores/index.blade.php — versión Tabler (acciones separadas, filtros en offcanvas y numeración continua) --}}
 <x-app-layout>
@@ -89,7 +92,7 @@ Index:
                                         name="search"
                                         value="{{ $search }}"
                                         class="form-control"
-                                        placeholder="Buscar por nombre, apellidos, correo, teléfono…"
+                                        placeholder="Buscar por nombre, apellidos, correo, teléfono, RFC, CURP…"
                                         aria-label="Búsqueda global"
                                     >
                                     <button class="btn btn-primary" type="submit">
@@ -218,18 +221,22 @@ Index:
                                 <th>Correo electrónico</th>
                                 <th>Teléfono</th>
                                 <th class="text-nowrap">Tipo sangre</th>
+                                <th class="text-nowrap">Estado civil</th>
+                                <th class="text-nowrap">CURP</th>
+                                <th class="text-nowrap">RFC</th>
                                 <th class="text-end">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($p as $op)
                                 @php
-                                    $nombre = $op->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
-                                    $correo = data_get($op, 'user.email', '—');
+                                    $nombre   = $op->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
+                                    $correo   = data_get($op, 'user.email', '—');
                                     $telefono = $op->telefono ?: '—';
-                                    $tsangre = $op->tipo_sangre ?: '—';
-                                    $emNombre = $op->contacto_emergencia_nombre ?: null;
-                                    $emTel    = $op->contacto_emergencia_tel ?: null;
+                                    $tsangre  = $op->tipo_sangre ?: '—';
+                                    $ecivil   = $op->estado_civil ?: '—';
+                                    $curp     = $op->curp ?: '—';
+                                    $rfc      = $op->rfc ?: '—';
                                 @endphp
                                 <tr>
                                     {{-- Numeración continua por página --}}
@@ -258,6 +265,16 @@ Index:
 
                                     <td class="text-nowrap">
                                         <span class="badge bg-red-lt"><i class="ti ti-droplet me-1"></i>{{ $tsangre }}</span>
+                                    </td>
+
+                                    <td class="text-nowrap text-capitalize">{{ $ecivil }}</td>
+
+                                    <td class="text-nowrap">
+                                        <div class="text-truncate" style="max-width: 180px" title="{{ $curp }}">{{ $curp }}</div>
+                                    </td>
+
+                                    <td class="text-nowrap">
+                                        <div class="text-truncate" style="max-width: 140px" title="{{ $rfc }}">{{ $rfc }}</div>
                                     </td>
 
                                     <td class="text-end">
@@ -294,7 +311,7 @@ Index:
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="py-6">
+                                    <td colspan="9" class="py-6">
                                         <div class="empty">
                                             <div class="empty-icon">
                                                 <i class="ti ti-database-off" aria-hidden="true"></i>
@@ -354,837 +371,187 @@ Index:
     </div>
 </x-app-layout>
 
-create:
-
-{{-- resources/views/operadores/create.blade.php — diseño alineado al EDIT (un solo form + 2 cards + Material Symbols) --}}
-<x-app-layout>
-    @vite(['resources/js/app.js'])
-
-    {{-- HEADER --}}
-    <x-slot name="header">
-        <div class="page-header d-print-none">
-            <div class="container-xl">
-                <div class="row g-2 align-items-center">
-                    <div class="col">
-                        <p class="text-secondary text-uppercase small mb-1">Operadores</p>
-                        <h2 class="page-title mb-0">Registrar un nuevo Operador</h2>
-                    </div>
-                    <div class="col-auto ms-auto">
-                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
-                            <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver al listado
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </x-slot>
-
-    <div class="page-body">
-        <div class="container-xl">
-
-            {{-- FLASH ÉXITO --}}
-            @if(session('success'))
-                <div class="alert alert-success mb-4" role="alert">
-                    <span class="material-symbols-outlined me-2 align-middle">check_circle</span>{{ session('success') }}
-                </div>
-            @endif
-
-            {{-- ERRORES --}}
-            @if ($errors->any())
-                <div class="alert alert-danger mb-4" role="alert">
-                    <span class="material-symbols-outlined me-2 align-middle">warning</span>Revisa los campos marcados y vuelve a intentar.
-                    @if($errors->count() > 0)
-                        <ul class="mt-2 mb-0 ps-4">
-                            @foreach ($errors->all() as $error)
-                                <li class="small">{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    @endif
-                </div>
-            @endif
-
-            <div class="row g-4">
-                {{-- ===== FORM ÚNICO (incluye datos y fotos) ===== --}}
-                <div class="col-12 col-xl-8">
-                    <form id="operador-form" method="POST" action="{{ route('operadores.store') }}" enctype="multipart/form-data" novalidate>
-                        @csrf
-
-                        {{-- DATOS --}}
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
-                                    <span class="material-symbols-outlined">badge</span> Datos del operador
-                                </h3> 
-                                <div class="card-subtitle">&nbsp;Completa la información requerida.</div>
-                            </div>
-
-                            <div class="card-body pt-3">
-                                <div class="row g-4">
-                                    <div class="col-12 col-md-6">
-                                        <label for="nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
-                                            <input id="nombre" name="nombre" type="text" autocomplete="given-name"
-                                                   class="form-control @error('nombre') is-invalid @enderror"
-                                                   value="{{ old('nombre') }}" required placeholder="Ej. Juan">
-                                            @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-
-                                    <div class="col-12 col-md-6">
-                                        <label for="apellido_paterno" class="form-label">Apellido paterno <span class="text-danger">*</span></label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
-                                            <input id="apellido_paterno" name="apellido_paterno" type="text" autocomplete="family-name"
-                                                   class="form-control @error('apellido_paterno') is-invalid @enderror"
-                                                   value="{{ old('apellido_paterno') }}" required placeholder="Ej. Pérez">
-                                            @error('apellido_paterno') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-
-                                    <div class="col-12 col-md-6">
-                                        <label for="apellido_materno" class="form-label">Apellido materno</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
-                                            <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
-                                                   class="form-control @error('apellido_materno') is-invalid @enderror"
-                                                   value="{{ old('apellido_materno') }}" placeholder="(opcional)">
-                                            @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-
-                                    <div class="col-12 col-md-6">
-                                        <label for="email" class="form-label">Correo electrónico <span class="text-danger">*</span></label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">mail</span></span>
-                                            <input id="email" name="email" type="email" autocomplete="email"
-                                                   class="form-control @error('email') is-invalid @enderror"
-                                                   value="{{ old('email') }}" required
-                                                   placeholder="usuario@futuramatiresmx.com" aria-describedby="email_help">
-                                            @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                        <div id="email_help" class="form-hint">Usa un correo del dominio <strong>@futuramatiresmx.com</strong>.</div>
-                                    </div>
-
-                                    {{-- Teléfono --}}
-                                    <div class="col-12 col-md-6">
-                                        <label for="telefono" class="form-label">Teléfono</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
-                                            <input id="telefono" name="telefono" type="tel"
-                                                   class="form-control @error('telefono') is-invalid @enderror"
-                                                   value="{{ old('telefono') }}" placeholder="+527771234567" autocomplete="tel">
-                                            @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-
-                                    {{-- Tipo de sangre --}}
-                                    <div class="col-12 col-md-6">
-                                        <label for="tipo_sangre" class="form-label">Tipo de sangre</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">bloodtype</span></span>
-                                            <input id="tipo_sangre" name="tipo_sangre" type="text"
-                                                   class="form-control @error('tipo_sangre') is-invalid @enderror"
-                                                   value="{{ old('tipo_sangre') }}" placeholder="Ej. O+, A-, B+" maxlength="5">
-                                            @error('tipo_sangre') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                        <div class="form-hint">Formato corto (ej.: O+, A-, AB-).</div>
-                                    </div>
-
-                                    {{-- Contacto emergencia nombre --}}
-                                    <div class="col-12 col-md-6">
-                                        <label for="contacto_emergencia_nombre" class="form-label">Contacto de emergencia (nombre)</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">contact_emergency</span></span>
-                                            <input id="contacto_emergencia_nombre" name="contacto_emergencia_nombre" type="text"
-                                                   class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror"
-                                                   value="{{ old('contacto_emergencia_nombre') }}" placeholder="Ej. Juan Pérez">
-                                            @error('contacto_emergencia_nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-
-                                    {{-- Contacto emergencia teléfono --}}
-                                    <div class="col-12 col-md-6">
-                                        <label for="contacto_emergencia_tel" class="form-label">Contacto de emergencia (teléfono)</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
-                                            <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
-                                                   class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
-                                                   value="{{ old('contacto_emergencia_tel') }}" placeholder="+527770000000">
-                                            @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- FOTOS: subir + previsualizar --}}
-                        <div class="card mt-4">
-                            <div class="card-header">
-                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
-                                    <span class="material-symbols-outlined">add_photo_alternate</span> Agregar fotografías
-                                </h3>
-                            </div>
-
-                            {{-- Subir nuevas --}}
-                            <div class="card-body">
-                                <div class="form-hint mb-3">JPG, JPEG, PNG o WEBP. Máx 5&nbsp;MB por archivo. Máx 12 archivos.</div>
-
-                                <div class="row g-3 align-items-end">
-                                    <div class="col-12 col-lg-8">
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">upload</span></span>
-                                            <input type="file" id="fotos" name="fotos[]" accept="image/*" multiple
-                                                   class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror"
-                                                   aria-describedby="fotos_help">
-                                        </div>
-                                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                    </div>
-                                </div>
-
-                                {{-- Controles y contador --}}
-                                <div class="d-flex justify-content-between align-items-center my-3">
-                                    <div class="text-secondary small">
-                                        <span id="fotos-count">0</span> seleccionada(s)
-                                    </div>
-                                    <div class="btn-group">
-                                        <button type="button" id="btn-clear-fotos" class="btn btn-outline-secondary btn-sm" disabled>
-                                            <span class="material-symbols-outlined align-middle me-1">delete</span>Quitar todas
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {{-- Grid de vista previa --}}
-                                <div id="fotos-grid" class="row g-2"></div>
-                            </div>
-                        </div>
-
-                        {{-- FOOTER del form: un único botón que guarda TODO --}}
-                        <div class="d-flex justify-content-end gap-2 mt-4">
-                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">Cancelar</a>
-                            <button type="submit" class="btn btn-primary">
-                                <span class="material-symbols-outlined me-1 align-middle">person_add</span> Guardar operador
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                {{-- LATERAL --}}
-                <div class="col-12 col-xl-4">
-                    <div class="card">
-                        <div class="card-body text-center py-4">
-                            <span class="avatar avatar-xl avatar-rounded bg-blue-lt mb-3 d-inline-flex align-items-center justify-content-center">
-                                <span class="material-symbols-outlined" style="font-size:32px; line-height:1;">person</span>
-                            </span>
-                            <div class="h3 mb-1">Nuevo operador</div>
-                            <div class="text-secondary">Se creará una cuenta asociada.</div>
-                        </div>
-                    </div>
-                </div>
-            </div> {{-- /row --}}
-
-            {{-- FOOTER --}}
-            <div class="text-center text-secondary small py-4">
-                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
-            </div>
-        </div>
-    </div>
-
-    {{-- MODAL DE CREDENCIALES (se muestra si viene en sesión) --}}
-    @if(session('created') && session('email') && session('password'))
-        <div class="modal fade" id="createdModal" tabindex="-1" aria-labelledby="createdModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 class="modal-title h4" id="createdModalLabel">
-                            <span class="material-symbols-outlined me-2 text-success align-middle">check_circle</span>Operador creado exitosamente
-                        </h3>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="mb-3">Guarda estas credenciales de acceso:</p>
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="fw-semibold">Correo:</span>
-                                    <code class="select-all">{{ session('email') }}</code>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="fw-semibold">Contraseña:</span>
-                                    <code id="gen-pass" class="select-all">{{ session('password') }}</code>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary"
-                                onclick="navigator.clipboard.writeText(document.getElementById('gen-pass').innerText)">
-                            <span class="material-symbols-outlined me-1 align-middle">content_copy</span>Copiar contraseña
-                        </button>
-                        <a href="{{ route('dashboard') }}" class="btn btn-primary">Aceptar</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Auto mostrar el modal al cargar --}}
-        <script>
-            document.addEventListener('DOMContentLoaded', function(){
-                try {
-                    var modalEl = document.getElementById('createdModal');
-                    if (modalEl) {
-                        var modal = new bootstrap.Modal(modalEl);
-                        modal.show();
-                    }
-                } catch (e) {}
-            });
-        </script>
-    @endif
-
-    {{-- =============== JS: manejo de selección y previsualización de fotos =============== --}}
-    <script>
-        (function () {
-            const MAX_FILES = 12;
-            const MAX_SIZE_MB = 5;
-            const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
-
-            const input = document.getElementById('fotos');
-            const grid  = document.getElementById('fotos-grid');
-            const count = document.getElementById('fotos-count');
-            const btnClear = document.getElementById('btn-clear-fotos');
-
-            /** Lista viva de archivos seleccionados (mutable) */
-            let selectedFiles = [];
-
-            function updateInputFiles() {
-                const dt = new DataTransfer();
-                selectedFiles.forEach(f => dt.items.add(f));
-                input.files = dt.files;
-                count.textContent = selectedFiles.length.toString();
-                btnClear.disabled = selectedFiles.length === 0;
-            }
-
-            function renderPreviews() {
-                grid.innerHTML = '';
-                selectedFiles.forEach((file, idx) => {
-                    const url = URL.createObjectURL(file);
-
-                    const col = document.createElement('div');
-                    col.className = 'col-6 col-md-4 col-lg-3';
-
-                    const card = document.createElement('div');
-                    card.className = 'card card-sm';
-
-                    const img = document.createElement('img');
-                    img.src = url;
-                    img.alt = file.name;
-                    img.className = 'card-img-top img-fluid';
-                    img.onload = () => URL.revokeObjectURL(url); // liberar memoria cuando cargue
-
-                    const body = document.createElement('div');
-                    body.className = 'card-body p-2';
-
-                    const meta = document.createElement('div');
-                    meta.className = 'small text-truncate mb-1';
-                    meta.title = file.name;
-                    meta.textContent = file.name;
-
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'btn btn-outline-danger btn-sm w-100';
-                    btn.innerHTML = '<span class="material-symbols-outlined align-middle me-1">delete</span>Quitar';
-                    btn.addEventListener('click', () => {
-                        selectedFiles.splice(idx, 1);
-                        updateInputFiles();
-                        renderPreviews();
-                    });
-
-                    body.appendChild(meta);
-                    body.appendChild(btn);
-                    card.appendChild(img);
-                    card.appendChild(body);
-                    col.appendChild(card);
-                    grid.appendChild(col);
-                });
-            }
-
-            function addFiles(files) {
-                const incoming = Array.from(files || []);
-                const accepted = [];
-
-                for (const f of incoming) {
-                    const typeOk = /^image\//i.test(f.type);
-                    const sizeOk = f.size <= MAX_SIZE;
-
-                    if (!typeOk || !sizeOk) { continue; }
-
-                    // Evitar duplicados exactos (mismo nombre + tamaño + lastModified)
-                    const dup = selectedFiles.some(sf => sf.name === f.name && sf.size === f.size && sf.lastModified === f.lastModified);
-                    if (dup) { continue; }
-
-                    accepted.push(f);
-                }
-
-                // Respeta el máximo
-                const availableSlots = MAX_FILES - selectedFiles.length;
-                if (availableSlots <= 0) return;
-
-                selectedFiles = selectedFiles.concat(accepted.slice(0, availableSlots));
-                updateInputFiles();
-                renderPreviews();
-            }
-
-            input?.addEventListener('change', (e) => {
-                const el = e.currentTarget; // más seguro que target
-                const files = el && el.files ? Array.from(el.files) : []; // COPIA a array
-                el.value = '';                    // limpia primero
-                addFiles(files);                  // pásale el array, no el FileList vivo
-            });
-
-            btnClear?.addEventListener('click', () => {
-                selectedFiles = [];
-                updateInputFiles();
-                renderPreviews();
-            });
-
-            // Soporte drag & drop al grid
-            grid?.addEventListener('dragover', (e) => { e.preventDefault(); grid.classList.add('border', 'border-primary'); });
-            grid?.addEventListener('dragleave', () => grid.classList.remove('border', 'border-primary'));
-            grid?.addEventListener('drop', (e) => {
-                e.preventDefault();
-                grid.classList.remove('border', 'border-primary');
-                addFiles(e.dataTransfer.files);
-            });
-        })();
-    </script>
-</x-app-layout>
-
-edit:
-
-{{-- resources/views/operadores/edit.blade.php — un solo form (datos + fotos subir/borrar + galería) con Material Symbols (Google Fonts) --}}
-<x-app-layout>
-    @vite(['resources/js/app.js'])
-
-    {{-- HEADER --}}
-    <x-slot name="header">
-        <div class="page-header d-print-none">
-            <div class="container-xl">
-                <div class="row g-2 align-items-center">
-                    <div class="col">
-                        <p class="text-secondary text-uppercase small mb-1">Operadores</p>
-                        <h2 class="page-title mb-0">Editar un Operador</h2>
-                    </div>
-                    <div class="col-auto ms-auto">
-                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
-                            <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver al listado
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </x-slot>
-
-    <div class="page-body">
-        <div class="container-xl">
-
-            {{-- FLASHES --}}
-            @if (session('success'))
-                <div class="alert alert-success mb-4" role="alert">
-                    <span class="material-symbols-outlined me-2 align-middle">check_circle</span>{{ session('success') }}
-                </div>
-            @endif
-
-            @if ($errors->any())
-                <div class="alert alert-danger mb-4" role="alert">
-                    <span class="material-symbols-outlined me-2 align-middle">warning</span>Revisa los campos marcados y vuelve a intentar.
-                </div>
-            @endif
-
-            @php
-                $photosData = $operador->fotos->values()->map(function($f){
-                    return ['id' => $f->id, 'src' => route('operadores.fotos.show', $f)];
-                })->all();
-                $nombreCompleto = trim(($operador->nombre ?? '').' '.($operador->apellido_paterno ?? '').' '.($operador->apellido_materno ?? ''));
-                $correo = optional($operador->user)->email ?? '—';
-            @endphp
-
-            <div class="row g-4">
-                {{-- ===== FORM ÚNICO (incluye datos y fotos) ===== --}}
-                <div class="col-12 col-xl-8">
-<form id="operador-form" method="POST"
-      action="{{ route('operadores.update', $operador) }}"
-      enctype="multipart/form-data" novalidate>
-                        @csrf
-                        @method('PUT')
-
-                        {{-- DATOS --}}
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title mb-0 d-flex align-items-center">
-                                    <span class="material-symbols-outlined me-2">badge</span>
-                                    Datos del operador
-                                </h3>
-                                <div class="card-subtitle ms-2">Completa o corrige la información requerida.</div>
-                            </div>
-
-                            <div class="card-body pt-3">
-                                <div class="row g-4">
-                                    <div class="col-12 col-md-6">
-                                        <label for="nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">edit_note</span></span>
-                                            <input id="nombre" name="nombre" type="text" autocomplete="given-name"
-                                                   class="form-control @error('nombre') is-invalid @enderror"
-                                                   value="{{ old('nombre', $operador->nombre) }}" required placeholder="Ej. Juan">
-                                            @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-
-                                    <div class="col-12 col-md-6">
-                                        <label for="apellido_paterno" class="form-label">Apellido paterno <span class="text-danger">*</span></label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
-                                            <input id="apellido_paterno" name="apellido_paterno" type="text" autocomplete="family-name"
-                                                   class="form-control @error('apellido_paterno') is-invalid @enderror"
-                                                   value="{{ old('apellido_paterno', $operador->apellido_paterno) }}" required placeholder="Ej. Pérez">
-                                            @error('apellido_paterno') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-
-                                    <div class="col-12 col-md-6">
-                                        <label for="apellido_materno" class="form-label">Apellido materno</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
-                                            <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
-                                                   class="form-control @error('apellido_materno') is-invalid @enderror"
-                                                   value="{{ old('apellido_materno', $operador->apellido_materno) }}" placeholder="(opcional)">
-                                            @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-
-                                    <div class="col-12 col-md-6">
-                                        <label for="email" class="form-label">Correo electrónico</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">mail</span></span>
-                                            <input id="email" name="email" type="email" autocomplete="email"
-                                                   class="form-control @error('email') is-invalid @enderror"
-                                                   value="{{ old('email', optional($operador->user)->email) }}"
-                                                   placeholder="usuario@dominio.com" aria-describedby="email_help">
-                                            @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-
-                                    {{-- Teléfono --}}
-                                    <div class="col-12 col-md-6">
-                                        <label for="telefono" class="form-label">Teléfono</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
-                                            <input id="telefono" name="telefono" type="tel"
-                                                   class="form-control @error('telefono') is-invalid @enderror"
-                                                   value="{{ old('telefono', $operador->telefono) }}"
-                                                   placeholder="+52 777 123 4567" autocomplete="tel">
-                                            @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-
-                                    {{-- Tipo de sangre --}}
-                                    <div class="col-12 col-md-6">
-                                        <label for="tipo_sangre" class="form-label">Tipo de sangre</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">bloodtype</span></span>
-                                            <input id="tipo_sangre" name="tipo_sangre" type="text"
-                                                   class="form-control @error('tipo_sangre') is-invalid @enderror"
-                                                   value="{{ old('tipo_sangre', $operador->tipo_sangre) }}"
-                                                   placeholder="Ej. O+, A-, B+" maxlength="5">
-                                            @error('tipo_sangre') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                        <div class="form-hint">Formato corto (ej.: O+, A-, AB-).</div>
-                                    </div>
-
-                                    {{-- Contacto emergencia nombre --}}
-                                    <div class="col-12 col-md-6">
-                                        <label for="contacto_emergencia_nombre" class="form-label">Contacto de emergencia (nombre completo)</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">contact_emergency</span></span>
-                                            <input id="contacto_emergencia_nombre" name="contacto_emergencia_nombre" type="text"
-                                                   class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror"
-                                                   value="{{ old('contacto_emergencia_nombre', $operador->contacto_emergencia_nombre) }}"
-                                                   placeholder="Ej. Juan Pérez">
-                                            @error('contacto_emergencia_nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-
-                                    {{-- Contacto emergencia teléfono --}}
-                                    <div class="col-12 col-md-6">
-                                        <label for="contacto_emergencia_tel" class="form-label">Contacto de emergencia (teléfono)</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
-                                            <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
-                                                   class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
-                                                   value="{{ old('contacto_emergencia_tel', $operador->contacto_emergencia_tel) }}"
-                                                   placeholder="+52 777 000 0000">
-                                            @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- FOTOS: subir + marcar para borrar + galería --}}
-                        <div class="card mt-4">
-                            <div class="card-header">
-                                <h3 class="card-title mb-0 d-flex align-items-center">
-                                    <span class="material-symbols-outlined me-2">add_photo_alternate</span>
-                                    Agregar fotografías
-                                </h3>
-                            </div>
-
-                            {{-- Subir nuevas --}}
-                            <div class="card-body">
-                                <div class="form-hint mb-3">JPG, JPEG, PNG o WEBP. Máx 8&nbsp;MB por archivo.</div>
-
-                                <div class="row g-3 align-items-end">
-                                    <div class="col-12 col-lg-8">
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">upload</span></span>
-                                            <input type="file" name="fotos[]" accept="image/*" multiple
-                                                   class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror">
-                                        </div>
-                                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Listado/galería y marcado para borrar --}}
-                            <div class="card-body border-top">
-                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <h2 class="h5 mb-0 d-flex align-items-center">
-                                            <span class="material-symbols-outlined me-2">photo</span>
-                                            Fotografías actuales
-                                        </h2
-                                        >
-                                        <span class="badge bg-secondary-lt">{{ $operador->fotos->count() }} foto(s)</span>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-3">
-                                        <button type="button" class="btn btn-dark btn-sm" id="openGalleryAll">
-                                            <span class="material-symbols-outlined me-1 align-middle">slideshow</span> Ver galería
-                                        </button>
-                                        <span class="small text-secondary">
-                                            Marcadas para borrar: <strong id="delCount">0</strong>
-                                        </span>
-                                    </div>
-                                </div>
-
-                                @if($operador->fotos->isEmpty())
-                                    <div class="empty my-4">
-                                        <div class="empty-icon">
-                                            <span class="material-symbols-outlined">image_not_supported</span>
-                                        </div>
-                                        <p class="empty-title">Este operador aún no tiene fotos</p>
-                                        <p class="empty-subtitle text-secondary">Puedes subirlas en la sección “Agregar nuevas fotos”.</p>
-                                    </div>
-                                @else
-                                    <div class="row g-3" id="photosGrid" data-photos='@json($photosData)'>
-                                        @foreach($operador->fotos as $foto)
-                                            <div class="col-6 col-sm-4 col-md-3">
-                                                <div class="card position-relative foto-card" data-id="{{ $foto->id }}">
-                                                    <div class="ratio ratio-4x3">
-                                                        <div class="w-100 h-100 rounded bg-cover"
-                                                             style="background-image:url('{{ route('operadores.fotos.show', $foto) }}'); background-size:cover; background-position:center;"></div>
-                                                    </div>
-
-                                                    {{-- Botón marcar para borrar (toggle) --}}
-                                                    <button type="button"
-                                                            class="btn btn-danger btn-icon btn-sm position-absolute top-0 end-0 m-1 toggle-delete z-3"
-                                                            data-id="{{ $foto->id }}" title="Marcar para borrar">
-                                                        <span class="material-symbols-outlined">delete</span>
-                                                    </button>
-
-                                                    {{-- Checkbox oculto que viaja en el form --}}
-                                                    <input type="checkbox" class="d-none delete-input"
-                                                           id="del-{{ $foto->id }}" name="delete_fotos[]"
-                                                           value="{{ $foto->id }}">
-
-                                                    {{-- Cinta visual cuando está marcada --}}
-                                                    <div class="position-absolute top-0 start-0 w-100 h-100 rounded bg-danger opacity-25 d-none overlay-del"></div>
-                                                    <span class="badge bg-danger position-absolute bottom-0 start-0 m-2 d-none badge-del">
-                                                        <span class="material-symbols-outlined me-1 align-middle">delete</span> Se borrará
-                                                    </span>
-
-                                                    {{-- Abrir galería (clic en tarjeta) --}}
-                                                    <a href="javascript:void(0)" class="stretched-link gal-photo" data-index="{{ $loop->index }}" title="Ver grande"></a>
-                                                </div>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-
-                        {{-- FOOTER del form: un único botón que guarda TODO --}}
-                        <div class="d-flex justify-content-end gap-2 mt-4">
-                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">Cancelar</a>
-                            <button type="submit" class="btn btn-primary">
-                                <span class="material-symbols-outlined me-1 align-middle">save</span> Guardar todo
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                {{-- LATERAL --}}
-                <div class="col-12 col-xl-4">
-                    <div class="card">
-                        <div class="card-body text-center py-4">
-                            <span class="avatar avatar-xl avatar-rounded bg-blue-lt mb-3">
-                                <span class="material-symbols-outlined" style="font-size:32px; line-height:1;">person</span>
-                            </span>
-                            <div class="h3 mb-1">{{ $nombreCompleto ?: 'Operador #'.$operador->id }}</div>
-                            <div class="text-secondary">{{ $correo }}</div>
-
-                            <div class="mt-3 text-start small text-secondary">
-                                @if(optional($operador->created_at)->isValid())
-                                    <div>
-                                        <span class="material-symbols-outlined me-1 align-middle">calendar_month</span>
-                                        Registrado:
-                                        <span class="fw-semibold">{{ optional($operador->created_at)->format('Y-m-d') }}</span>
-                                    </div>
-                                @endif
-                                @if(optional($operador->updated_at)->isValid())
-                                    <div>
-                                        <span class="material-symbols-outlined me-1 align-middle">history</span>
-                                        Actualizado:
-                                        <span class="fw-semibold">{{ optional($operador->updated_at)->diffForHumans() }}</span>
-                                    </div>
-                                @endif
-                            </div>
-
-                            <div class="d-grid gap-2 mt-4">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div> {{-- /row --}}
-
-            {{-- FOOTER --}}
-            <div class="text-center text-secondary small py-4">
-                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
-            </div>
-        </div>
-    </div>
-
-    {{-- ===== MODAL GALERÍA ===== --}}
-    <div class="modal fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title h4" id="galleryModalLabel">
-                        <span class="material-symbols-outlined me-2 align-middle">photo</span>Galería de fotos
-                    </h3>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="galleryCarousel" class="carousel slide" data-bs-ride="false">
-                        <div class="carousel-inner" id="galleryInner"></div>
-                        <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
-                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Anterior</span>
-                        </button>
-                        <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
-                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Siguiente</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- ===== SCRIPTS ===== --}}
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- Galería ---
-        const photosGrid = document.getElementById('photosGrid');
-        let photos = [];
-        try { photos = JSON.parse(photosGrid?.getAttribute('data-photos') || '[]'); } catch { photos = []; }
-
-        const galleryInner   = document.getElementById('galleryInner');
-        const galleryEl      = document.getElementById('galleryCarousel');
-        const galleryModalEl = document.getElementById('galleryModal');
-
-        function openGallery(startIndex = 0){
-            if (!photos.length) return;
-            galleryInner.innerHTML = '';
-            photos.forEach((p, i) => {
-                const div = document.createElement('div');
-                div.className = 'carousel-item' + (i === startIndex ? ' active' : '');
-                div.innerHTML = `<img src="${p.src}" class="d-block w-100 rounded" alt="Foto ${i+1}">`;
-                galleryInner.appendChild(div);
-            });
-            const Carousel = window.bootstrap?.Carousel;
-            if (Carousel) {
-                const instance = Carousel.getInstance(galleryEl) || new Carousel(galleryEl, { interval: false });
-                instance.to(startIndex);
-            }
-            const modal = window.bootstrap ? new window.bootstrap.Modal(galleryModalEl) : null;
-            modal?.show();
-        }
-
-        photosGrid?.addEventListener('click', (e) => {
-            const a = e.target.closest('.gal-photo');
-            if (!a) return;
-            const idx = parseInt(a.getAttribute('data-index') || '0', 10) || 0;
-            openGallery(idx);
-        });
-
-        document.getElementById('openGalleryAll')?.addEventListener('click', () => openGallery(0));
-
-        // --- Togglear borrado de fotos ---
-        const delCountEl = document.getElementById('delCount');
-        function refreshDelCount(){
-            const checked = document.querySelectorAll('.delete-input:checked').length;
-            if (delCountEl) delCountEl.textContent = String(checked);
-        }
-
-        photosGrid?.querySelectorAll('.toggle-delete').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const id = btn.getAttribute('data-id');
-                const input = document.getElementById('del-' + id);
-                const card  = btn.closest('.foto-card');
-                const overlay = card?.querySelector('.overlay-del');
-                const badge   = card?.querySelector('.badge-del');
-
-                if (!input) return;
-                input.checked = !input.checked;
-
-                const marked = input.checked;
-                btn.classList.toggle('btn-danger', !marked);
-                btn.classList.toggle('btn-warning', marked);
-                if (overlay) overlay.classList.toggle('d-none', !marked);
-                if (badge)   badge.classList.toggle('d-none', !marked);
-                btn.title = marked ? 'Quitar de borrado' : 'Marcar para borrar';
-
-                refreshDelCount();
+operador.php:
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Operador extends Model
+{
+    use HasFactory;
+
+    protected $table = 'operadores';
+
+    protected $fillable = [
+        'user_id',
+        'nombre',
+        'apellido_paterno',
+        'apellido_materno',
+
+        // Contacto / datos existentes
+        'telefono',
+        'contacto_emergencia_nombre',
+        'contacto_emergencia_tel',
+        'tipo_sangre',
+
+        // ===== Nuevos campos =====
+        'estado_civil',                     // enum: soltero|casado|viudo|divorciado
+        'curp',                             // 18 chars
+        'rfc',                              // 12 (PM) / 13 (PF) — usamos 13
+        'contacto_emergencia_parentesco',
+        'contacto_emergencia_ubicacion',
+    ];
+
+    protected $appends = ['nombre_completo'];
+
+    /**
+     * Relación: un operador pertenece a un usuario.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function licencias()
+{
+    return $this->hasMany(LicenciaConducir::class);
+}
+
+
+    /**
+     * Relación: fotos asociadas al operador (para galería).
+     * Ordena por 'orden' y luego por 'created_at' desc.
+     */
+    public function fotos()
+    {
+        return $this->hasMany(OperadorFoto::class)
+            ->orderBy('orden')
+            ->orderByDesc('created_at');
+    }
+
+    /**
+     * Accesor para "nombre_completo".
+     */
+    public function getNombreCompletoAttribute(): string
+    {
+        $partes = array_filter([
+            $this->nombre,
+            $this->apellido_paterno,
+            $this->apellido_materno,
+        ]);
+        return trim(implode(' ', $partes));
+    }
+
+    /**
+     * Normalizaciones:
+     * - estado_civil → minúsculas (coincide con ENUM de la migración)
+     * - CURP/RFC → mayúsculas y sin espacios extras
+     * - Parentesco/Uso de ubicación → trim
+     */
+    public function setEstadoCivilAttribute($value): void
+    {
+        $this->attributes['estado_civil'] = is_string($value)
+            ? strtolower(trim($value))
+            : $value;
+    }
+
+    public function setCurpAttribute($value): void
+    {
+        $this->attributes['curp'] = $value !== null
+            ? strtoupper(preg_replace('/\s+/', '', trim($value)))
+            : null;
+    }
+
+    public function setRfcAttribute($value): void
+    {
+        $this->attributes['rfc'] = $value !== null
+            ? strtoupper(preg_replace('/\s+/', '', trim($value)))
+            : null;
+    }
+
+    public function setContactoEmergenciaParentescoAttribute($value): void
+    {
+        $this->attributes['contacto_emergencia_parentesco'] = $value !== null
+            ? trim($value)
+            : null;
+    }
+
+    public function setContactoEmergenciaUbicacionAttribute($value): void
+    {
+        $this->attributes['contacto_emergencia_ubicacion'] = $value !== null
+            ? trim($value)
+            : null;
+    }
+
+    /**
+     * Filtro principal: búsqueda global + ordenamiento.
+     *
+     * Acepta:
+     * - search   (string) // búsqueda global
+     * - sort_by  (string) // 'nombre_completo' | 'email'
+     * - sort_dir (string) // 'asc' | 'desc'
+     */
+    public function scopeFilter($query, array $filters)
+    {
+        // --- BÚSQUEDA GLOBAL ---
+        $query->when($filters['search'] ?? null, function ($q, $term) {
+            $term = trim($term);
+            $like = '%' . $term . '%';
+
+            $q->where(function ($qq) use ($like) {
+                // Campos locales
+                $qq->where('operadores.nombre', 'like', $like)
+                   ->orWhere('operadores.apellido_paterno', 'like', $like)
+                   ->orWhere('operadores.apellido_materno', 'like', $like)
+
+                   // Contacto existentes
+                   ->orWhere('operadores.telefono', 'like', $like)
+                   ->orWhere('operadores.contacto_emergencia_nombre', 'like', $like)
+                   ->orWhere('operadores.contacto_emergencia_tel', 'like', $like)
+                   ->orWhere('operadores.tipo_sangre', 'like', $like)
+
+                   // ===== Nuevos campos =====
+                   ->orWhere('operadores.estado_civil', 'like', $like)
+                   ->orWhere('operadores.curp', 'like', $like)
+                   ->orWhere('operadores.rfc', 'like', $like)
+                   ->orWhere('operadores.contacto_emergencia_parentesco', 'like', $like)
+                   ->orWhere('operadores.contacto_emergencia_ubicacion', 'like', $like)
+
+                   // Nombre completo
+                   ->orWhereRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) LIKE ?", [$like])
+
+                   // Relación user: email y (opcional) name
+                   ->orWhereHas('user', function ($uq) use ($like) {
+                       $uq->where('email', 'like', $like)
+                          ->orWhere('name', 'like', $like);
+                   });
             });
         });
 
-        refreshDelCount();
-    });
-    </script>
+        // --- ORDENAMIENTO ---
+        $allowedSorts = ['nombre_completo', 'email'];
+        $by = $filters['sort_by'] ?? 'nombre_completo';
+        if (!in_array($by, $allowedSorts, true)) {
+            $by = 'nombre_completo';
+        }
 
-    <style>
-        .bg-cover { background-repeat: no-repeat; }
-        /* La capa roja no bloquea clics */
-        .overlay-del { pointer-events: none; }
-        /* Botón por encima de stretched-link */
-        .foto-card .toggle-delete { z-index: 3; }
-    </style>
-</x-app-layout>
+        $dir = strtolower($filters['sort_dir'] ?? 'asc');
+        $dir = $dir === 'desc' ? 'desc' : 'asc';
+
+        if ($by === 'email') {
+            // ordenar por correo del usuario relacionado
+            $query->leftJoin('users', 'users.id', '=', 'operadores.user_id')
+                  ->select('operadores.*')
+                  ->orderBy('users.email', $dir);
+        } else {
+            // ordenar por nombre completo (ignora NULL con CONCAT_WS)
+            $query->orderByRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) {$dir}");
+        }
+
+        return $query;
+    }
+}

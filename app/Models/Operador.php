@@ -41,6 +41,12 @@ class Operador extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function licencias()
+{
+    return $this->hasMany(LicenciaConducir::class);
+}
+
+
     /**
      * Relación: fotos asociadas al operador (para galería).
      * Ordena por 'orden' y luego por 'created_at' desc.

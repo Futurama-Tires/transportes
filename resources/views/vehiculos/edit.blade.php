@@ -1,4 +1,4 @@
-{{-- resources/views/vehiculos/edit.blade.php}}
+{{-- resources/views/vehiculos/edit.blade.php --}}
 <x-app-layout>
     @vite(['resources/js/app.js'])
 
