@@ -90,12 +90,47 @@ class CalendarioVerificacion extends Model
         return $f->gt($this->vigente_hasta);
     }
 
-    /** Último dígito de una placa. */
+    /**
+     * Último dígito de una placa.
+     * Corrige el caso de placas que terminan en letra: busca el ÚLTIMO dígito en cualquier posición.
+     */
     public static function terminacionDePlaca(?string $placa): ?int
     {
         if (!$placa) return null;
-        if (preg_match('/(\d)\s*$/', $placa, $m)) return (int)$m[1];
+        // Normaliza: quita espacios y guiones, y mayúsculas para uniformidad
+        $p = preg_replace('/[\s\-]/', '', mb_strtoupper($placa));
+        // Captura el ÚLTIMO dígito que exista en la cadena (compatible con Unicode)
+        if (preg_match('/.*?(\d)(?!.*\d)/u', $p, $m)) {
+            return (int) $m[1];
+        }
         return null;
+    }
+
+    /**
+     * Bordes NORMALIZADOS del periodo (independientes de vigente_desde/hasta).
+     * - Inicio: 1° de mes_inicio
+     * - Fin: último día de mes_fin
+     */
+    public function inicioPeriodo(?string $tz = null): ?Carbon
+    {
+        $tz = $tz ?: config('verificacion.timezone');
+        if (!$this->anio || !$this->mes_inicio) {
+            return $this->vigente_desde ? Carbon::parse($this->vigente_desde, $tz)->startOfDay() : null;
+        }
+        // ¡OJO! TZ va al ÚLTIMO parámetro de create (hour,min,sec,tz)
+        return Carbon::create($this->anio, $this->mes_inicio, 1, 0, 0, 0, $tz)->startOfDay();
+    }
+
+    public function finPeriodo(?string $tz = null): ?Carbon
+    {
+        $tz = $tz ?: config('verificacion.timezone');
+        if (!$this->anio || !$this->mes_fin) {
+            return $this->vigente_hasta ? Carbon::parse($this->vigente_hasta, $tz)->startOfDay() : null;
+        }
+        // Último día del mes_fin, con TZ al final
+        return Carbon::create($this->anio, $this->mes_fin, 1, 0, 0, 0, $tz)
+            ->endOfMonth()
+            ->startOfDay();
     }
 
     /* ===================== Scopes ===================== */

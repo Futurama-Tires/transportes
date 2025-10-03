@@ -27,6 +27,7 @@ use App\Http\Controllers\VehiculoController;
 use App\Http\Controllers\VehiculoFotoController;
 use App\Http\Controllers\VerificacionController;
 use App\Http\Controllers\VerificacionReglaController;
+use App\Http\Controllers\PrecioCombustibleController;
 
 use App\Services\TelegramNotifier;
 
@@ -270,6 +271,27 @@ Route::middleware('auth')->group(function () {
             Route::get('archivos/{archivo}/download',          [LicenciaArchivoController::class, 'download'])->name('download');
             Route::get('archivos/{archivo}/inline',            [LicenciaArchivoController::class, 'inline'])->name('inline');
         });
+
+        Route::get('/precios-combustible', [PrecioCombustibleController::class, 'index'])
+        ->name('precios-combustible.index');
+
+    // CRUD básico
+    Route::post('/precios-combustible', [PrecioCombustibleController::class, 'store'])
+        ->name('precios-combustible.store');
+
+    Route::put('/precios-combustible/{precioCombustible}', [PrecioCombustibleController::class, 'update'])
+        ->name('precios-combustible.update');
+
+    // Endpoints para modal/AJAX
+    Route::get('/precios-combustible/json', [PrecioCombustibleController::class, 'current'])
+        ->name('precios-combustible.current');
+
+    Route::post('/precios-combustible/bulk', [PrecioCombustibleController::class, 'upsertMany'])
+        ->name('precios-combustible.bulk');
+
+    // (Opcional) Recalcular costo_tanque_lleno después de cambiar precios
+    Route::post('/precios-combustible/recalcular-tanques', [PrecioCombustibleController::class, 'recalc'])
+        ->name('precios-combustible.recalc');
     });
 });
 
@@ -285,3 +307,4 @@ Route::middleware('auth')->get('/debug/telegram', function (TelegramNotifier $tg
 /* Auth scaffolding (login, register, etc.)                           */
 /* ------------------------------------------------------------------ */
 require __DIR__ . '/auth.php';
+

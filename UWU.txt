@@ -1,377 +1,127 @@
-Realiza lo siguiente:
-Haz que en la tabla de operadores se muestre toda la información de la tabla,
-con excepción de los campos:
-id, user_id, created_at, updated_at, deleted_at,
+Valer primero te paso el modelo de verificaciones.
 
-index:
+CalendarioVerificacion.php:
 
-{{-- resources/views/operadores/index.blade.php — versión Tabler (acciones separadas, filtros en offcanvas y numeración continua) --}}
-<x-app-layout>
-    {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
-    @vite(['resources/js/app.js'])
+<?php
 
-    @php
-        // Parámetros y utilidades reutilizables en toda la vista
-        $q        = request();
-        $ignored  = ['search','page','sort_by','sort_dir'];
-        $activeCount = collect($q->except($ignored))->filter(
-            fn($v) => is_array($v)
-                ? collect($v)->filter(fn($x)=>$x!==null && $x!=='')->isNotEmpty()
-                : $v !== null && $v !== ''
-        )->count();
+namespace App\Models;
 
-        $search  = $q->input('search', '');
-        $sortBy  = $q->input('sort_by', 'nombre_completo');
-        $sortDir = $q->input('sort_dir', 'asc');
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
-        /** @var \Illuminate\Pagination\LengthAwarePaginator|\Illuminate\Contracts\Pagination\Paginator $p */
-        $p = $operadores;
+/**
+ * Cada fila representa una "ventana" de verificación para un estado y una terminación.
+ *
+ * Tabla: calendario_verificacion
+ * Campos: id, regla_id, estado, terminacion, mes_inicio, mes_fin, semestre, frecuencia,
+ *         anio, vigente_desde, vigente_hasta, timestamps
+ */
+class CalendarioVerificacion extends Model
+{
+    protected $table = 'calendario_verificacion';
 
-        // Opciones de ordenamiento (único lugar)
-        $sortOptions = [
-            'nombre_completo' => 'Nombre completo',
-            'email'           => 'Correo electrónico',
-            'id'              => 'ID',
-        ];
+    protected $fillable = [
+        'regla_id',
+        'estado',
+        'terminacion',
+        'mes_inicio',
+        'mes_fin',
+        'semestre',
+        'frecuencia',
+        'anio',
+        'vigente_desde',
+        'vigente_hasta',
+    ];
 
-        // Datos de paginación (seguros cuando hay resultados)
-        $total     = method_exists($p, 'total') ? $p->total() : ($p->count() ?? 0);
-        $firstItem = method_exists($p, 'firstItem') ? $p->firstItem() : null;
-        $lastItem  = method_exists($p, 'lastItem')  ? $p->lastItem()  : null;
-        $current   = method_exists($p, 'currentPage') ? $p->currentPage() : 1;
-        $lastPage  = method_exists($p, 'lastPage')    ? $p->lastPage()    : 1;
+    protected $casts = [
+        'semestre'      => 'integer',
+        'terminacion'   => 'integer',
+        'mes_inicio'    => 'integer',
+        'mes_fin'       => 'integer',
+        'anio'          => 'integer',
+        'vigente_desde' => 'date',
+        'vigente_hasta' => 'date',
+    ];
 
-        // Parámetros a mantener en los links de paginación/acciones
-        $keepParams = ['search','sort_by','sort_dir'];
-    @endphp
+    /* ===================== Relaciones ===================== */
+    public function regla()
+    {
+        // Si no usas el modelo, no pasará nada.
+        return $this->belongsTo(\App\Models\VerificacionRegla::class, 'regla_id');
+    }
 
-    {{-- HEADER --}}
-    <x-slot name="header">
-        <div class="page-header d-print-none">
-            <div class="container-xl">
-                <div class="row g-2 align-items-center">
-                    <div class="col">
-                        <h2 class="page-title mb-0">Gestión de Operadores</h2>
-                        <div class="text-secondary small mt-1">Consulta, filtra y gestiona a tus operadores.</div>
-                    </div>
-                    <div class="col-auto ms-auto">
-                        <a href="{{ route('operadores.create') }}" class="btn btn-primary">
-                            <i class="ti ti-plus me-1"></i>
-                            Agregar Nuevo Operador
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </x-slot>
+    public function verificaciones()
+    {
+        return $this->hasMany(\App\Models\Verificacion::class, 'calendario_id');
+    }
 
-    <div class="page-body">
-        <div class="container-xl">
+    /* ===================== Accessors/Helpers ===================== */
 
-            {{-- FLASH ÉXITO --}}
-            @if(session('success'))
-                <div class="alert alert-success alert-dismissible" role="alert">
-                    <i class="ti ti-check me-2"></i>{{ session('success') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-                </div>
-            @endif
+    /** Etiqueta tipo "May-Jun". */
+    public function getEtiquetaBimestreAttribute(): string
+    {
+        $meses = [null,'Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        $ini = $meses[$this->mes_inicio] ?? $this->mes_inicio;
+        $fin = $meses[$this->mes_fin]    ?? $this->mes_fin;
+        return "{$ini}-{$fin}";
+    }
 
-            {{-- ===== FORM DE BÚSQUEDA/FILTROS (GET) =====
-                 Importante: este formulario NO envuelve la tabla para evitar formularios anidados. --}}
-            <form method="GET" action="{{ route('operadores.index') }}" autocomplete="off" novalidate>
-                {{-- TOOLBAR: búsqueda + acciones rápidas --}}
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <div class="row g-2 align-items-center">
-                            {{-- Búsqueda global --}}
-                            <div class="col-12 col-xl">
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="ti ti-search" aria-hidden="true"></i></span>
-                                    <input
-                                        type="text"
-                                        name="search"
-                                        value="{{ $search }}"
-                                        class="form-control"
-                                        placeholder="Buscar por nombre, apellidos, correo, teléfono, RFC, CURP…"
-                                        aria-label="Búsqueda global"
-                                    >
-                                    <button class="btn btn-primary" type="submit">
-                                        <i class="ti ti-search me-1" aria-hidden="true"></i>Buscar
-                                    </button>
-                                </div>
-                            </div>
+    /** "1er semestre" | "2º semestre" | null */
+    public function getEtiquetaSemestreAttribute(): ?string
+    {
+        return $this->semestre ? ($this->semestre === 1 ? '1er semestre' : '2º semestre') : null;
+    }
 
-                            {{-- Acciones --}}
-                            <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                {{-- Botón único: Exportar Excel --}}
-                                <a
-                                    href="{{ route('operadores.index', array_merge(request()->only($keepParams), ['export'=>'xlsx'])) }}"
-                                    class="btn btn-outline-success"
-                                    role="button"
-                                >
-                                    <i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
-                                    Exportar
-                                </a>
+    /** Alias legible para mostrar la ventana. */
+    public function getVentanaAttribute(): string
+    {
+        return $this->etiqueta_bimestre;
+    }
 
-                                {{-- Botón Filtros (abre Offcanvas) --}}
-                                <button
-                                    type="button"
-                                    class="btn btn-outline-secondary position-relative"
-                                    data-bs-toggle="offcanvas"
-                                    data-bs-target="#filtersOffcanvas"
-                                    aria-controls="filtersOffcanvas"
-                                >
-                                    <i class="ti ti-adjustments" aria-hidden="true"></i>
-                                    <span class="ms-2">Filtros</span>
-                                    @if($activeCount>0)
-                                        <span class="badge bg-primary ms-2" aria-label="{{ $activeCount }} filtros activos">{{ $activeCount }}</span>
-                                    @endif
-                                </button>
-                            </div>
-                        </div>
+    /** ¿La fecha dada cae dentro de la ventana vigente? */
+    public function contieneFecha(null|string|\DateTimeInterface $fecha): bool
+    {
+        if (!$this->vigente_desde || !$this->vigente_hasta) return false;
+        $f = $fecha ? Carbon::parse($fecha) : Carbon::now();
+        return $f->between($this->vigente_desde, $this->vigente_hasta);
+    }
 
-                        {{-- Resumen cuando hay búsqueda --}}
-                        @if($search !== '')
-                            <div class="mt-3 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between">
-                                <div class="small">
-                                    <span class="badge bg-secondary text-uppercase">Filtro</span>
-                                    <span class="ms-2">“{{ $search }}”</span>
-                                </div>
-                                <div class="text-secondary small mt-2 mt-sm-0">
-                                    @if($total === 0)
-                                        Sin resultados para la búsqueda.
-                                    @elseif($total === 1)
-                                        Resultado <strong>(1 de 1)</strong>
-                                    @else
-                                        Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> — Mostrando <strong>{{ $firstItem }}–{{ $lastItem }}</strong> de <strong>{{ $total }}</strong>
-                                    @endif
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-                </div>
+    /** ¿La ventana ya venció respecto a la fecha dada (o hoy)? */
+    public function estaVencida(null|string|\DateTimeInterface $ref = null): bool
+    {
+        if (!$this->vigente_hasta) return false;
+        $f = $ref ? Carbon::parse($ref) : Carbon::now();
+        return $f->gt($this->vigente_hasta);
+    }
 
-                {{-- OFFCANVAS DE FILTROS (incluye ordenación) --}}
-                <div
-                    class="offcanvas offcanvas-end"
-                    tabindex="-1"
-                    id="filtersOffcanvas"
-                    aria-labelledby="filtersOffcanvasLabel"
-                    data-bs-backdrop="false"   {{-- ← sin oscurecimiento --}}
-                    data-bs-scroll="true"      {{-- ← permite scroll del contenido de fondo --}}
-                >
-                    <div class="offcanvas-header">
-                        <h2 class="offcanvas-title h4" id="filtersOffcanvasLabel">
-                            <i class="ti ti-adjustments me-2" aria-hidden="true"></i>Filtros
-                        </h2>
-                        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
-                    </div>
+    /** Último dígito de una placa. */
+    public static function terminacionDePlaca(?string $placa): ?int
+    {
+        if (!$placa) return null;
+        if (preg_match('/(\d)\s*$/', $placa, $m)) return (int)$m[1];
+        return null;
+    }
 
-                    <div class="offcanvas-body">
-                        {{-- Orden y dirección --}}
-                        <div class="mb-4">
-                            <div class="text-secondary text-uppercase fw-semibold small mb-2">Orden y vista</div>
-                            <div class="row g-2">
-                                <div class="col-12 col-sm-6">
-                                    <label class="form-label" for="sort_by">Ordenar por</label>
-                                    <select id="sort_by" name="sort_by" class="form-select">
-                                        @foreach($sortOptions as $value => $label)
-                                            <option value="{{ $value }}" @selected($sortBy === $value)>{{ $label }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="col-12 col-sm-6">
-                                    <label class="form-label" for="sort_dir">Dirección</label>
-                                    <select id="sort_dir" name="sort_dir" class="form-select">
-                                        <option value="asc"  @selected($sortDir === 'asc')>Ascendente</option>
-                                        <option value="desc" @selected($sortDir === 'desc')>Descendente</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
+    /* ===================== Scopes ===================== */
 
-                        {{-- Espacio para futuros filtros --}}
-                        <div class="mb-2">
-                            <div class="text-secondary small">Puedes añadir más filtros aquí cuando existan en el modelo.</div>
-                        </div>
-                    </div>
+    public function scopeAnio($q, ?int $anio)
+    {
+        return $anio ? $q->where('anio', $anio) : $q;
+    }
 
-                    <div class="offcanvas-footer d-flex justify-content-between align-items-center p-3 border-top">
-                        <a href="{{ route('operadores.index') }}" class="btn btn-link">Limpiar filtros</a>
-                        <div>
-                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="offcanvas">Cerrar</button>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="ti ti-filter me-1" aria-hidden="true"></i>Aplicar filtros
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                {{-- /OFFCANVAS --}}
-            </form>
-            {{-- ===== /FORM DE BÚSQUEDA/FILTROS (GET) ===== --}}
+    public function scopeEstadoTerminacion($q, ?string $estado, ?int $terminacion)
+    {
+        if ($estado !== null && $estado !== '') {
+            $q->whereRaw('UPPER(estado) = ?', [mb_strtoupper($estado)]);
+        }
+        if ($terminacion !== null) {
+            $q->where('terminacion', (int)$terminacion);
+        }
+        return $q;
+    }
+}
 
-            {{-- ===== TABLA (fuera del <form GET>) ===== --}}
-            <div class="card">
-                <div class="table-responsive">
-                    <table class="table table-vcenter table-striped table-hover">
-                        <thead>
-                            <tr class="text-uppercase text-secondary small">
-                                <th class="text-center text-nowrap">#</th>
-                                <th>Nombre completo</th>
-                                <th>Correo electrónico</th>
-                                <th>Teléfono</th>
-                                <th class="text-nowrap">Tipo sangre</th>
-                                <th class="text-nowrap">Estado civil</th>
-                                <th class="text-nowrap">CURP</th>
-                                <th class="text-nowrap">RFC</th>
-                                <th class="text-end">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($p as $op)
-                                @php
-                                    $nombre   = $op->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
-                                    $correo   = data_get($op, 'user.email', '—');
-                                    $telefono = $op->telefono ?: '—';
-                                    $tsangre  = $op->tipo_sangre ?: '—';
-                                    $ecivil   = $op->estado_civil ?: '—';
-                                    $curp     = $op->curp ?: '—';
-                                    $rfc      = $op->rfc ?: '—';
-                                @endphp
-                                <tr>
-                                    {{-- Numeración continua por página --}}
-                                    <td class="text-center text-nowrap">
-                                        {{ ($firstItem ?? 0) + $loop->index }}
-                                    </td>
-
-                                    <td class="text-nowrap">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="avatar avatar-sm avatar-rounded bg-blue-lt" aria-hidden="true">
-                                                <i class="ti ti-user"></i>
-                                            </span>
-                                            <div class="lh-1">
-                                                <div class="fw-semibold">{{ $nombre ?: 'Operador' }}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    <td class="text-nowrap">
-                                        <div class="text-truncate" style="max-width: 280px" title="{{ $correo }}">{{ $correo }}</div>
-                                    </td>
-
-                                    <td class="text-nowrap" title="{{ $telefono }}">
-                                        <i class="ti ti-device-mobile me-1"></i>{{ $telefono }}
-                                    </td>
-
-                                    <td class="text-nowrap">
-                                        <span class="badge bg-red-lt"><i class="ti ti-droplet me-1"></i>{{ $tsangre }}</span>
-                                    </td>
-
-                                    <td class="text-nowrap text-capitalize">{{ $ecivil }}</td>
-
-                                    <td class="text-nowrap">
-                                        <div class="text-truncate" style="max-width: 180px" title="{{ $curp }}">{{ $curp }}</div>
-                                    </td>
-
-                                    <td class="text-nowrap">
-                                        <div class="text-truncate" style="max-width: 140px" title="{{ $rfc }}">{{ $rfc }}</div>
-                                    </td>
-
-                                    <td class="text-end">
-                                        <div class="d-inline-flex gap-1">
-                                            {{-- Ver (placeholder hacia edit si no hay show) --}}
-                                            <a href="{{ route('operadores.edit', $op) }}"
-                                               class="btn btn-outline-secondary btn-sm"
-                                               title="Ver">
-                                                <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
-                                            </a>
-
-                                            {{-- Editar --}}
-                                            <a href="{{ route('operadores.edit', $op) }}"
-                                               class="btn btn-outline-secondary btn-sm"
-                                               title="Editar">
-                                                <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
-                                            </a>
-
-                                            {{-- Eliminar (formulario POST DELETE FUERA de cualquier GET) --}}
-                                            <form
-                                                action="{{ route('operadores.destroy', $op) }}"
-                                                method="POST"
-                                                class="d-inline"
-                                                onsubmit="return confirm('¿Seguro que quieres eliminar a {{ $nombre ?: 'este operador' }}?');"
-                                            >
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
-                                                    <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="9" class="py-6">
-                                        <div class="empty">
-                                            <div class="empty-icon">
-                                                <i class="ti ti-database-off" aria-hidden="true"></i>
-                                            </div>
-                                            <p class="empty-title">No hay datos</p>
-                                            <p class="empty-subtitle text-secondary">
-                                                @if($search !== '')
-                                                    No se encontraron resultados con los filtros aplicados.
-                                                @else
-                                                    Aún no has registrado operadores.
-                                                @endif
-                                            </p>
-                                            <div class="empty-action">
-                                                @if($search !== '')
-                                                    <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
-                                                        Limpiar filtros
-                                                    </a>
-                                                @endif
-                                                <a href="{{ route('operadores.create') }}" class="btn btn-primary">
-                                                    <i class="ti ti-plus me-2" aria-hidden="true"></i>Agregar Nuevo Operador
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            {{-- ===== /TABLA ===== --}}
-
-            {{-- PAGINACIÓN + CONTADOR --}}
-            @if(method_exists($p, 'links'))
-                <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
-                    <p class="text-secondary small mb-2 mb-sm-0">
-                        @if($total === 0)
-                            Mostrando 0 resultados
-                        @elseif($total === 1)
-                            Resultado <strong>(1 de 1)</strong>
-                        @else
-                            Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> —
-                            Mostrando <strong>{{ $firstItem }}–{{ $lastItem }}</strong> de <strong>{{ $total }}</strong> resultados
-                        @endif
-                    </p>
-                    <div>
-                        {{ $p->appends($q->only($keepParams))->links() }}
-                    </div>
-                </div>
-            @endif
-
-            {{-- FOOTER --}}
-            <div class="text-center text-secondary small py-4">
-                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
-            </div>
-        </div>
-    </div>
-</x-app-layout>
-
-operador.php:
+Vehiculo.php
 
 <?php
 
@@ -379,179 +129,533 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+use App\Models\VehiculoFoto;
+use App\Models\TarjetaSiVale; // ← importe explícito para la relación belongsTo
 
-class Operador extends Model
+/**
+ * Class Vehiculo
+ *
+ * @property int         $id
+ * @property string|null $ubicacion
+ * @property string|null $propietario
+ * @property string|null $unidad
+ * @property string|null $marca
+ * @property int|null    $anio
+ * @property string|null $serie
+ * @property string|null $motor
+ * @property string|null $placa
+ * @property string|null $estado
+ * @property int|null    $tarjeta_si_vale_id
+ * @property string|null $nip
+ * @property string|null $fec_vencimiento
+ * @property string|null $vencimiento_t_circulacion
+ * @property string|null $cambio_placas
+ * @property string|null $poliza_hdi
+ * @property string|null $poliza_latino
+ * @property string|null $poliza_qualitas
+ * @property float|null  $rend
+ * @property int|null    $kilometros  Odómetro actual del vehículo
+ */
+class Vehiculo extends Model
 {
     use HasFactory;
 
-    protected $table = 'operadores';
+    protected $table = 'vehiculos';
 
-    protected $fillable = [
-        'user_id',
-        'nombre',
-        'apellido_paterno',
-        'apellido_materno',
-
-        // Contacto / datos existentes
-        'telefono',
-        'contacto_emergencia_nombre',
-        'contacto_emergencia_tel',
-        'tipo_sangre',
-
-        // ===== Nuevos campos =====
-        'estado_civil',                     // enum: soltero|casado|viudo|divorciado
-        'curp',                             // 18 chars
-        'rfc',                              // 12 (PM) / 13 (PF) — usamos 13
-        'contacto_emergencia_parentesco',
-        'contacto_emergencia_ubicacion',
+    // Atributos que deseas siempre en MAYÚSCULAS
+    public const UPPERCASE = [
+        'ubicacion',
+        'propietario',
+        'unidad',
+        'marca',
+        'serie',
+        'motor',
+        'placa',
+        'estado',
+        'poliza_hdi',
+        'poliza_latino',
+        'poliza_qualitas',
     ];
 
-    protected $appends = ['nombre_completo'];
+    protected $fillable = [
+        'ubicacion',
+        'propietario',
+        'unidad',
+        'marca',
+        'anio',
+        'serie',
+        'motor',
+        'placa',
+        'estado',
+        'tarjeta_si_vale_id',
+        'nip',
+        'fec_vencimiento',
+        'vencimiento_t_circulacion',
+        'cambio_placas',
+        'poliza_hdi',
+        'poliza_latino',  
+        'poliza_qualitas', 
+        'rend',
+        'kilometros', 
+    ];
+
+    protected $casts = [
+        'rend'       => 'float',
+        'kilometros' => 'integer', // 👈 cast del odómetro
+        // Descomenta si esas columnas son DATE/DATETIME en BD:
+        // 'fec_vencimiento' => 'date',
+        // 'vencimiento_t_circulacion' => 'date',
+        // 'cambio_placas' => 'date',
+    ];
 
     /**
-     * Relación: un operador pertenece a un usuario.
+     * Normalización a MAYÚSCULAS antes de guardar.
      */
-    public function user()
+    protected static function booted()
     {
-        return $this->belongsTo(User::class);
+        static::saving(function (self $vehiculo) {
+            foreach (self::UPPERCASE as $attr) {
+                $value = $vehiculo->{$attr};
+                if (is_string($value)) {
+                    $value = preg_replace('/\s+/u', ' ', trim($value)); // normaliza espacios
+                    $vehiculo->{$attr} = Str::upper($value);            // respeta acentos/ñ
+                }
+            }
+        });
     }
 
-    public function licencias()
-{
-    return $this->hasMany(LicenciaConducir::class);
-}
-
+    // ========= RELACIONES =========
 
     /**
-     * Relación: fotos asociadas al operador (para galería).
-     * Ordena por 'orden' y luego por 'created_at' desc.
+     * Un vehículo puede tener varios tanques (si manejas ese módulo).
+     */
+    public function tanque()
+    {
+        return $this->hasOne(\App\Models\Tanque::class);
+    }
+
+    public function tanques()
+    {
+        return $this->hasMany(\App\Models\Tanque::class, 'vehiculo_id');
+    }
+
+    /**
+     * Verificaciones vehiculares asociadas.
+     */
+    public function verificaciones()
+    {
+        return $this->hasMany('App\Models\Verificacion');
+    }
+
+    /**
+     * Cargas de combustible realizadas por este vehículo.
+     * Clave foránea por convención: cargas_combustible.vehiculo_id
+     */
+    public function cargasCombustible()
+    {
+        return $this->hasMany('App\Models\CargaCombustible');
+    }
+
+    /**
+     * La tarjeta SiVale asignada al vehículo.
+     * Clave foránea: vehiculos.tarjeta_si_vale_id → tarjetas_sivale.id
+     */
+    public function tarjetaSiVale()
+    {
+        return $this->belongsTo(TarjetaSiVale::class, 'tarjeta_si_vale_id');
+    }
+
+    /**
+     * Fotos del vehículo (ordenadas por 'orden' y luego por fecha desc).
      */
     public function fotos()
     {
-        return $this->hasMany(OperadorFoto::class)
-            ->orderBy('orden')
-            ->orderByDesc('created_at');
+        return $this->hasMany(VehiculoFoto::class)
+                    ->orderBy('orden')
+                    ->orderByDesc('created_at');
     }
+
+    // ========= SCOPES =========
 
     /**
-     * Accesor para "nombre_completo".
+     * Filtro principal (búsqueda y filtros por campo).
      */
-    public function getNombreCompletoAttribute(): string
+    public function scopeFilter($query, array $filters = [])
     {
-        $partes = array_filter([
-            $this->nombre,
-            $this->apellido_paterno,
-            $this->apellido_materno,
-        ]);
-        return trim(implode(' ', $partes));
-    }
-
-    /**
-     * Normalizaciones:
-     * - estado_civil → minúsculas (coincide con ENUM de la migración)
-     * - CURP/RFC → mayúsculas y sin espacios extras
-     * - Parentesco/Uso de ubicación → trim
-     */
-    public function setEstadoCivilAttribute($value): void
-    {
-        $this->attributes['estado_civil'] = is_string($value)
-            ? strtolower(trim($value))
-            : $value;
-    }
-
-    public function setCurpAttribute($value): void
-    {
-        $this->attributes['curp'] = $value !== null
-            ? strtoupper(preg_replace('/\s+/', '', trim($value)))
-            : null;
-    }
-
-    public function setRfcAttribute($value): void
-    {
-        $this->attributes['rfc'] = $value !== null
-            ? strtoupper(preg_replace('/\s+/', '', trim($value)))
-            : null;
-    }
-
-    public function setContactoEmergenciaParentescoAttribute($value): void
-    {
-        $this->attributes['contacto_emergencia_parentesco'] = $value !== null
-            ? trim($value)
-            : null;
-    }
-
-    public function setContactoEmergenciaUbicacionAttribute($value): void
-    {
-        $this->attributes['contacto_emergencia_ubicacion'] = $value !== null
-            ? trim($value)
-            : null;
-    }
-
-    /**
-     * Filtro principal: búsqueda global + ordenamiento.
-     *
-     * Acepta:
-     * - search   (string) // búsqueda global
-     * - sort_by  (string) // 'nombre_completo' | 'email'
-     * - sort_dir (string) // 'asc' | 'desc'
-     */
-    public function scopeFilter($query, array $filters)
-    {
-        // --- BÚSQUEDA GLOBAL ---
-        $query->when($filters['search'] ?? null, function ($q, $term) {
-            $term = trim($term);
-            $like = '%' . $term . '%';
-
-            $q->where(function ($qq) use ($like) {
-                // Campos locales
-                $qq->where('operadores.nombre', 'like', $like)
-                   ->orWhere('operadores.apellido_paterno', 'like', $like)
-                   ->orWhere('operadores.apellido_materno', 'like', $like)
-
-                   // Contacto existentes
-                   ->orWhere('operadores.telefono', 'like', $like)
-                   ->orWhere('operadores.contacto_emergencia_nombre', 'like', $like)
-                   ->orWhere('operadores.contacto_emergencia_tel', 'like', $like)
-                   ->orWhere('operadores.tipo_sangre', 'like', $like)
-
-                   // ===== Nuevos campos =====
-                   ->orWhere('operadores.estado_civil', 'like', $like)
-                   ->orWhere('operadores.curp', 'like', $like)
-                   ->orWhere('operadores.rfc', 'like', $like)
-                   ->orWhere('operadores.contacto_emergencia_parentesco', 'like', $like)
-                   ->orWhere('operadores.contacto_emergencia_ubicacion', 'like', $like)
-
-                   // Nombre completo
-                   ->orWhereRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) LIKE ?", [$like])
-
-                   // Relación user: email y (opcional) name
-                   ->orWhereHas('user', function ($uq) use ($like) {
-                       $uq->where('email', 'like', $like)
-                          ->orWhere('name', 'like', $like);
-                   });
+        if (!empty($filters['search'])) {
+            $term = trim($filters['search']);
+            $query->where(function ($q) use ($term) {
+                $like = '%' . str_replace('%', '\\%', $term) . '%';
+                if (is_numeric($term)) {
+                    $q->orWhere('id', (int)$term);
+                }
+                $q->orWhere('unidad', 'like', $like)
+                  ->orWhere('placa', 'like', $like)
+                  ->orWhere('serie', 'like', $like)
+                  ->orWhere('anio', 'like', $like)
+                  ->orWhere('propietario', 'like', $like)
+                  // 👇 incluimos las pólizas en la búsqueda global
+                  ->orWhere('poliza_hdi', 'like', $like)
+                  ->orWhere('poliza_latino', 'like', $like)
+                  ->orWhere('poliza_qualitas', 'like', $like);
             });
-        });
-
-        // --- ORDENAMIENTO ---
-        $allowedSorts = ['nombre_completo', 'email'];
-        $by = $filters['sort_by'] ?? 'nombre_completo';
-        if (!in_array($by, $allowedSorts, true)) {
-            $by = 'nombre_completo';
         }
 
-        $dir = strtolower($filters['sort_dir'] ?? 'asc');
-        $dir = $dir === 'desc' ? 'desc' : 'asc';
+        if (!empty($filters['id']))          $query->where('id', (int)$filters['id']);
+        if (!empty($filters['unidad']))      $query->where('unidad', 'like', '%' . $filters['unidad'] . '%');
+        if (!empty($filters['placa']))       $query->where('placa', 'like', '%' . $filters['placa'] . '%');
+        if (!empty($filters['serie']))       $query->where('serie', 'like', '%' . $filters['serie'] . '%');
+        if (!empty($filters['propietario'])) $query->where('propietario', 'like', '%' . $filters['propietario'] . '%');
+        if (!empty($filters['marca']))       $query->where('marca', $filters['marca']);
 
-        if ($by === 'email') {
-            // ordenar por correo del usuario relacionado
-            $query->leftJoin('users', 'users.id', '=', 'operadores.user_id')
-                  ->select('operadores.*')
-                  ->orderBy('users.email', $dir);
+        if (!empty($filters['anio'])) {
+            $query->where('anio', $filters['anio']);
         } else {
-            // ordenar por nombre completo (ignora NULL con CONCAT_WS)
-            $query->orderByRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) {$dir}");
+            if (!empty($filters['anio_min'])) $query->where('anio', '>=', (int) $filters['anio_min']);
+            if (!empty($filters['anio_max'])) $query->where('anio', '<=', (int) $filters['anio_max']);
+        }
+
+        // 👇 Filtros por odómetro
+        if (isset($filters['kilometros']) && $filters['kilometros'] !== '') {
+            $query->where('kilometros', (int)$filters['kilometros']);
+        }
+        if (isset($filters['km_min']) && $filters['km_min'] !== '') {
+            $query->where('kilometros', '>=', (int)$filters['km_min']);
+        }
+        if (isset($filters['km_max']) && $filters['km_max'] !== '') {
+            $query->where('kilometros', '<=', (int)$filters['km_max']);
         }
 
         return $query;
     }
+
+    /**
+     * Ordenamiento seguro por columnas permitidas.
+     */
+    public function scopeSort($query, ?string $by, ?string $dir = 'asc')
+    {
+        $dir = strtolower($dir) === 'desc' ? 'desc' : 'asc';
+
+        $whitelist = ['id','unidad','placa','serie','anio','propietario','marca','kilometros','created_at'];
+
+        if ($by && in_array($by, $whitelist, true)) {
+            return $query->orderBy($by, $dir);
+        }
+
+        return $query->orderBy('created_at', 'desc');
+    }
 }
+
+routes web:
+
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+
+/* ================================
+ | Controllers
+ *=============================== */
+use App\Http\Controllers\AdminBackupController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\CalendarioVerificacionController;
+use App\Http\Controllers\CapturistaController;
+use App\Http\Controllers\CargaCombustibleController;
+use App\Http\Controllers\CargaFotoWebController;
+use App\Http\Controllers\ComodinGastoController;
+use App\Http\Controllers\LicenciaArchivoController;
+use App\Http\Controllers\LicenciaConducirController;
+use App\Http\Controllers\OperadorController;
+use App\Http\Controllers\OperadorFotoController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProgramaVerificacionController;
+use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\TanqueController;
+use App\Http\Controllers\TarjetaComodinController;
+use App\Http\Controllers\TarjetaSiValeController;
+use App\Http\Controllers\VehiculoController;
+use App\Http\Controllers\VehiculoFotoController;
+use App\Http\Controllers\VerificacionController;
+use App\Http\Controllers\VerificacionReglaController;
+use App\Http\Controllers\PrecioCombustibleController;
+
+use App\Services\TelegramNotifier;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+| - Rutas públicas (welcome, forgot password)
+| - Rutas autenticadas (dashboard, perfil)
+| - Rutas por rol (administrador, capturista)
+| - Recursos anidados con scopeBindings
+| - Convenciones de nombres y parámetros
+|
+| Nota: Se definen patrones globales numéricos para IDs.
+*/
+
+/* ------------------------------------------------------------------ */
+/* Patrones globales de parámetros (IDs numéricos)                    */
+/* ------------------------------------------------------------------ */
+Route::pattern('operador', '\d+');
+Route::pattern('vehiculo', '\d+');
+Route::pattern('verificacion', '\d+');
+Route::pattern('tanque', '\d+');
+Route::pattern('tarjeta', '\d+');            // SiVale
+Route::pattern('tarjeta_comodin', '\d+');    // Tarjeta Comodín
+Route::pattern('gasto', '\d+');
+Route::pattern('carga', '\d+');
+Route::pattern('foto', '\d+');
+Route::pattern('verificacion_regla', '\d+'); // Regla de verificación
+Route::pattern('archivo', '\d+');            // Archivos de licencia
+
+/* ------------------------------------------------------------------ */
+/* Rutas públicas                                                     */
+/* ------------------------------------------------------------------ */
+Route::view('/', 'welcome')->name('welcome');
+
+Route::middleware('guest')->group(function () {
+    Route::get('/forgot-password',  [PasswordResetLinkController::class, 'create'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
+});
+
+/* ------------------------------------------------------------------ */
+/* Rutas autenticadas                                                 */
+/* ------------------------------------------------------------------ */
+Route::middleware('auth')->group(function () {
+
+    /* -------------------------- Dashboard -------------------------- */
+    Route::view('/dashboard', 'dashboard')->middleware('verified')->name('dashboard');
+
+    /* ----------------------- Perfil de usuario --------------------- */
+    Route::prefix('profile')->name('profile.')->group(function () {
+        Route::get('/',    [ProfileController::class, 'edit'])->name('edit');
+        Route::patch('/',  [ProfileController::class, 'update'])->name('update');
+        Route::delete('/', [ProfileController::class, 'destroy'])->name('destroy');
+    });
+
+    /* ------------------------- Notificaciones ---------------------- */
+    Route::name('notificaciones.')->prefix('notificaciones')->group(function () {
+        // Últimas no leídas (máx. 8)
+        Route::get('/nuevas', function (Request $request) {
+            $user  = $request->user();
+            $items = $user->unreadNotifications()
+                ->latest()
+                ->take(8)
+                ->get()
+                ->map(function ($n) {
+                    return [
+                        'id'      => $n->id,
+                        'titulo'  => data_get($n->data, 'titulo', 'Notificación'),
+                        'mensaje' => data_get($n->data, 'mensaje', ''),
+                        'url'     => data_get($n->data, 'url', route('cargas.index')),
+                        'fecha'   => optional($n->created_at)->diffForHumans(),
+                    ];
+                });
+
+            return response()->json([
+                'count' => $user->unreadNotifications()->count(),
+                'items' => $items,
+            ]);
+        })->name('nuevas');
+
+        // Marcar una notificación como leída
+        Route::post('/{id}/leer', function (Request $request, $id) {
+            $n = $request->user()->notifications()->where('id', $id)->firstOrFail();
+            $n->markAsRead();
+            return response()->noContent();
+        })->name('leer');
+    });
+
+    /* =============================================================== */
+    /*   SOLO ADMINISTRADORES                                          */
+    /* =============================================================== */
+    Route::middleware('role:administrador')->group(function () {
+
+        /* Capturistas */
+        Route::resource('capturistas', CapturistaController::class);
+
+        /* Backups */
+        Route::prefix('admin/backup')->name('admin.backup.')->group(function () {
+            Route::get('/',            [AdminBackupController::class, 'index'])->name('index');
+            // POST => evita ejecuciones por prefetch/bots
+            Route::post('/download',   [AdminBackupController::class, 'download'])->name('download');
+            Route::post('/restore',    [AdminBackupController::class, 'restore'])->name('restore');
+        });
+    });
+
+    /* =============================================================== */
+    /*   ADMINISTRADOR | CAPTURISTA                                    */
+    /* =============================================================== */
+    Route::middleware('role:administrador|capturista')->group(function () {
+
+        /* --------------------- Recursos base ------------------------ */
+        Route::resource('operadores', OperadorController::class)
+            ->parameters(['operadores' => 'operador']);
+
+        Route::resources([
+            'vehiculos' => VehiculoController::class,
+            'tarjetas'  => TarjetaSiValeController::class, // parámetro {tarjeta}
+        ]);
+
+        Route::resource('verificaciones', VerificacionController::class)
+            ->parameters(['verificaciones' => 'verificacion']);
+
+        Route::resource('cargas', CargaCombustibleController::class)
+            ->parameters(['cargas' => 'carga']);
+
+        /* -------------------- Tanques por Vehículo ------------------ */
+        Route::scopeBindings()->group(function () {
+            Route::resource('vehiculos.tanques', TanqueController::class)->except(['show']);
+        });
+
+        /* ----------------- Tarjetas Comodín y Gastos ---------------- */
+        Route::resource('tarjetas-comodin', TarjetaComodinController::class);
+
+        // Listado global de gastos (filtrable por ?tarjeta=ID)
+        Route::get('comodin-gastos', [ComodinGastoController::class, 'index'])->name('comodin-gastos.index');
+
+        // Gastos anidados a Tarjeta Comodín (shallow ed/act/del)
+        Route::scopeBindings()->group(function () {
+            Route::resource('tarjetas-comodin.gastos', ComodinGastoController::class)
+                ->only(['create', 'store', 'edit', 'update', 'destroy'])
+                ->shallow();
+        });
+
+        /* ---------------------- Fotos: Vehículos -------------------- */
+        Route::prefix('vehiculos')->name('vehiculos.')->scopeBindings()->group(function () {
+            Route::get('{vehiculo}/fotos',            [VehiculoFotoController::class, 'index'])->name('fotos.index');
+            Route::post('{vehiculo}/fotos',           [VehiculoFotoController::class, 'store'])->name('fotos.store');
+            Route::delete('{vehiculo}/fotos/{foto}',  [VehiculoFotoController::class, 'destroy'])->name('fotos.destroy');
+        });
+        // Visualización directa por ID
+        Route::get('vehiculos/fotos/{foto}', [VehiculoFotoController::class, 'show'])->name('vehiculos.fotos.show');
+
+        /* ---------------------- Fotos: Operadores ------------------- */
+        Route::prefix('operadores')->name('operadores.')->scopeBindings()->group(function () {
+            Route::get('{operador}/fotos',            [OperadorFotoController::class, 'index'])->name('fotos.index');
+            Route::post('{operador}/fotos',           [OperadorFotoController::class, 'store'])->name('fotos.store');
+            Route::delete('{operador}/fotos/{foto}',  [OperadorFotoController::class, 'destroy'])->name('fotos.destroy');
+        });
+        // Visualización directa por ID
+        Route::get('operadores/fotos/{foto}', [OperadorFotoController::class, 'show'])->name('operadores.fotos.show');
+
+        /* ------------------------ Fotos: Cargas --------------------- */
+        Route::prefix('cargas')->name('cargas.')->group(function () {
+            // Visualización directa por ID (protegida)
+            Route::get('fotos/{foto}',         [CargaFotoWebController::class, 'show'])->name('fotos.show');
+            // Subir/Borrar foto de una carga
+            Route::post('{carga}/fotos',       [CargaFotoWebController::class, 'store'])->name('fotos.store');
+            Route::delete('{carga}/fotos/{foto}', [CargaFotoWebController::class, 'destroy'])->name('fotos.destroy');
+
+            // Aprobar carga (POST)
+            Route::post('{carga}/aprobar', [CargaCombustibleController::class, 'approve'])->name('approve');
+        });
+
+        /* ---------------- Calendario de Verificación ---------------- */
+        Route::resource('calendarios', CalendarioVerificacionController::class)
+            ->parameters(['calendarios' => 'calendario'])
+            ->names('calendarios');
+
+        /* ------------- Reglas de Verificación + Periodos ------------ */
+        Route::prefix('verificacion-reglas')->name('verificacion-reglas.')->group(function () {
+
+            // Endpoint JSON primero para evitar choques
+            Route::get('/estados-disponibles', [VerificacionReglaController::class, 'estadosDisponibles'])
+                ->name('estados-disponibles');
+
+            // CRUD
+            Route::get('/',                          [VerificacionReglaController::class, 'index'])->name('index');
+            Route::get('/create',                    [VerificacionReglaController::class, 'create'])->name('create');
+            Route::post('/',                         [VerificacionReglaController::class, 'store'])->name('store');
+            Route::get('/{verificacion_regla}/edit', [VerificacionReglaController::class, 'edit'])->name('edit');
+            Route::put('/{verificacion_regla}',      [VerificacionReglaController::class, 'update'])->name('update');
+            Route::delete('/{verificacion_regla}',   [VerificacionReglaController::class, 'destroy'])->name('destroy');
+
+            // Generación de periodos
+            Route::get('/{verificacion_regla}/generar',  [VerificacionReglaController::class, 'generarForm'])->name('generar.form');
+            Route::post('/{verificacion_regla}/generar', [VerificacionReglaController::class, 'generar'])->name('generar');
+        });
+
+        /* --------------------- Programa Verificación ---------------- */
+        Route::prefix('programa-verificacion')->name('programa-verificacion.')->group(function () {
+            Route::get('/',        [ProgramaVerificacionController::class, 'index'])->name('index');
+            Route::post('/marcar', [ProgramaVerificacionController::class, 'marcar'])->name('marcar');
+        });
+
+        /* --------------------------- Reportes ----------------------- */
+        // Vista principal (Dashboard de reportes)
+        Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
+
+        // JSON API (se mantienen las rutas exactas, ahora con nombres)
+        Route::prefix('api/reportes')->name('reportes.api.')->group(function () {
+            Route::get('/rendimiento',  [ReporteController::class, 'rendimientoJson'])->name('rendimiento');
+            Route::get('/costo-km',     [ReporteController::class, 'costoKmJson'])->name('costo_km');
+            Route::get('/auditoria',    [ReporteController::class, 'auditoriaJson'])->name('auditoria');
+            Route::get('/verificacion', [ReporteController::class, 'verificacionJson'])->name('verificacion');
+        });
+
+        // Exportación PDF (se conservan endpoints; se agregan nombres)
+        Route::prefix('reportes')->name('reportes.export.')->group(function () {
+            // Rendimiento (GET/POST)
+            Route::match(['get','post'], '/rendimiento/export.pdf',  [ReporteController::class, 'exportRendimientoPdf'])->name('rendimiento_pdf');
+
+            // Costo por km (GET/POST)
+            Route::match(['get','post'], '/costo-km/export.pdf',     [ReporteController::class, 'exportCostoKmPdf'])->name('costo_km_pdf');
+
+            // Auditoría (GET/POST)
+            Route::match(['get','post'], '/auditoria/export.pdf',    [ReporteController::class, 'exportAuditoriaPdf'])->name('auditoria_pdf');
+
+            // Verificación (GET/POST)
+            Route::match(['get','post'], '/verificacion/export.pdf', [ReporteController::class, 'exportVerificacionPdf'])->name('verificacion_pdf');
+        });
+
+        /* -------------------- Licencias de Conducir ----------------- */
+        // CRUD principal
+        Route::resource('licencias', LicenciaConducirController::class);
+
+        // Archivos asociados a licencias (subir / ver / descargar / eliminar)
+        Route::prefix('licencias')->name('licencias.archivos.')->group(function () {
+            Route::post('{licencia}/archivos',                 [LicenciaArchivoController::class, 'store'])->name('store');
+            Route::delete('archivos/{archivo}',                [LicenciaArchivoController::class, 'destroy'])->name('destroy');
+            Route::get('archivos/{archivo}/download',          [LicenciaArchivoController::class, 'download'])->name('download');
+            Route::get('archivos/{archivo}/inline',            [LicenciaArchivoController::class, 'inline'])->name('inline');
+        });
+
+        Route::get('/precios-combustible', [PrecioCombustibleController::class, 'index'])
+        ->name('precios-combustible.index');
+
+    // CRUD básico
+    Route::post('/precios-combustible', [PrecioCombustibleController::class, 'store'])
+        ->name('precios-combustible.store');
+
+    Route::put('/precios-combustible/{precioCombustible}', [PrecioCombustibleController::class, 'update'])
+        ->name('precios-combustible.update');
+
+    // Endpoints para modal/AJAX
+    Route::get('/precios-combustible/json', [PrecioCombustibleController::class, 'current'])
+        ->name('precios-combustible.current');
+
+    Route::post('/precios-combustible/bulk', [PrecioCombustibleController::class, 'upsertMany'])
+        ->name('precios-combustible.bulk');
+
+    // (Opcional) Recalcular costo_tanque_lleno después de cambiar precios
+    Route::post('/precios-combustible/recalcular-tanques', [PrecioCombustibleController::class, 'recalc'])
+        ->name('precios-combustible.recalc');
+    });
+});
+
+/* ------------------------------------------------------------------ */
+/* Ruta de prueba para Telegram                                       */
+/* ------------------------------------------------------------------ */
+Route::middleware('auth')->get('/debug/telegram', function (TelegramNotifier $tg) {
+    $ok = $tg->send("✅ <b>Prueba</b> de notificación desde Laravel.\n<i>Si ves esto, ya estamos listos.</i>");
+    return $ok ? '✅ Enviado a Telegram' : '❌ No se pudo enviar (revisa logs).';
+})->name('debug.telegram');
+
+/* ------------------------------------------------------------------ */
+/* Auth scaffolding (login, register, etc.)                           */
+/* ------------------------------------------------------------------ */
+require __DIR__ . '/auth.php';
+

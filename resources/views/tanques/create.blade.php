@@ -187,7 +187,7 @@
                                         @error('rendimiento_estimado') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                                     </div>
 
-                                    {{-- Costo tanque lleno --}}
+                                    {{-- Costo tanque lleno (auto) --}}
                                     <div class="col-md-6">
                                         <label for="costo_tanque_lleno" class="form-label">Costo tanque lleno</label>
                                         <div class="input-group">
@@ -200,7 +200,10 @@
                                             <span class="input-group-text">MXN</span>
                                         </div>
                                         @error('costo_tanque_lleno') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                        <div class="form-hint">Opcional; útil para proyecciones de gasto.</div>
+                                        <div class="form-hint">
+                                            Se calcula automático con el <strong>precio por litro</strong> vigente.
+                                            <span id="precio-litro-hint" class="text-teal ms-1"></span>
+                                        </div>
                                     </div>
 
                                     {{-- Km que recorre (capacidad × rendimiento) --}}
@@ -302,19 +305,71 @@
                 new window.bootstrap.Tooltip(el);
             });
 
-            // Cálculo en vivo de km (capacidad * rendimiento)
-            const cap  = document.getElementById('capacidad_litros');
-            const rend = document.getElementById('rendimiento_estimado');
-            const out  = document.getElementById('km_calculados');
+            const ROUTE_CURRENT = "{{ route('precios-combustible.current') }}";
 
-            function recalc() {
+            // Inputs
+            const radios = [...document.querySelectorAll('input[name="tipo_combustible"]')];
+            const cap    = document.getElementById('capacidad_litros');
+            const rend   = document.getElementById('rendimiento_estimado');
+            const kmOut  = document.getElementById('km_calculados');
+            const costo  = document.getElementById('costo_tanque_lleno');
+            const hint   = document.getElementById('precio-litro-hint');
+
+            let precios = {}; // { magna: 22.99, premium: 24.99, diesel: 23.50 }
+
+            function selectedCombustible() {
+                const r = radios.find(x => x.checked);
+                return r ? (r.value || '').toLowerCase() : '';
+            }
+            function getPrecioLitro() {
+                const tipo = selectedCombustible();
+                return precios[tipo] ?? 0;
+            }
+            function recalcKm() {
                 const c = parseFloat(cap?.value || '0')  || 0;
                 const r = parseFloat(rend?.value || '0') || 0;
                 const km = c * r;
-                if (out) out.value = km.toFixed(2);
+                if (kmOut) kmOut.value = km.toFixed(2);
             }
-            cap?.addEventListener('input', recalc);
-            rend?.addEventListener('input', recalc);
+            function recalcCosto() {
+                const c = parseFloat(cap?.value || '0') || 0;
+                const p = parseFloat(getPrecioLitro() || 0) || 0;
+                const total = c * p; // Capacidad total * precio vigente
+                if (costo) costo.value = total.toFixed(2);
+                if (hint) {
+                    if (p > 0) hint.textContent = `(Usando $${p.toFixed(3)} MXN/L — ${selectedCombustible().toUpperCase()})`;
+                    else hint.textContent = '(Precio no disponible)';
+                }
+            }
+
+            async function loadPrecios() {
+                try {
+                    const res = await fetch(ROUTE_CURRENT, { headers: { 'Accept': 'application/json', 'X-Requested-With':'XMLHttpRequest' }});
+                    const data = await res.json();
+                    precios = {};
+                    (data?.data || []).forEach(x => {
+                        precios[(x.combustible || '').toLowerCase()] = Number(x.precio_por_litro);
+                    });
+                } catch (e) {
+                    precios = {};
+                }
+            }
+
+            // Listeners
+            radios.forEach(r => r.addEventListener('change', () => { recalcCosto(); }));
+            cap?.addEventListener('input', () => { recalcKm(); recalcCosto(); });
+            rend?.addEventListener('input', recalcKm);
+
+            // Init
+            (async () => {
+                await loadPrecios();
+                // UX: si aún no hay selección, marcamos la primera opción
+                if (!selectedCombustible() && radios.length) {
+                    radios[0].checked = true;
+                }
+                recalcKm();
+                recalcCosto();
+            })();
         });
     </script>
 </x-app-layout>

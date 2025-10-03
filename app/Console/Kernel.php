@@ -12,7 +12,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        $schedule->command('verificacion:digest')
+            ->timezone(config('verificacion.timezone','America/Mexico_City'))
+            ->dailyAt('09:00')
+            ->withoutOverlapping()
+            ->onOneServer();
     }
 
     /**
@@ -25,3 +29,4 @@ class Kernel extends ConsoleKernel
         require base_path('routes/console.php');
     }
 }
+
