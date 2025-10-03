@@ -125,6 +125,10 @@ Route::middleware('auth')->group(function () {
         /* Capturistas */
         Route::resource('capturistas', CapturistaController::class);
 
+        Route::get('/admin/backup', [AdminBackupController::class, 'index'])->name('admin.backup.index');
+    Route::post('/admin/backup/download', [AdminBackupController::class, 'download'])->name('admin.backup.download');
+    Route::post('/admin/backup/restore', [AdminBackupController::class, 'restore'])->name('admin.backup.restore');
+
         /* Backups */
         Route::prefix('admin/backup')->name('admin.backup.')->group(function () {
             Route::get('/',            [AdminBackupController::class, 'index'])->name('index');

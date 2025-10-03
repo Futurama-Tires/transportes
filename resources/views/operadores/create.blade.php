@@ -250,7 +250,6 @@
                                                            value="{{ old('contacto_emergencia_ubicacion') }}" placeholder="Ej. Cuernavaca, Morelos">
                                                     @error('contacto_emergencia_ubicacion') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                                 </div>
-                                                <div class="form-hint">Puedes capturar ciudad/estado o una dirección breve.</div>
                                             </div>
                                         </div>
                                     </div>
@@ -262,16 +261,6 @@
 
                     {{-- ===== COLUMNA DERECHA: AVATAR + FOTOS ===== --}}
                     <div class="col-12 col-xl-4">
-                        {{-- Tarjeta de avatar/info --}}
-                        <div class="card mb-4">
-                            <div class="card-body text-center py-4">
-                                <span class="avatar avatar-xl avatar-rounded bg-blue-lt mb-3 d-inline-flex align-items-center justify-content-center">
-                                    <span class="material-symbols-outlined" style="font-size:32px; line-height:1;">person</span>
-                                </span>
-                                <div class="h3 mb-1">Nuevo operador</div>
-                                <div class="text-secondary">Se creará una cuenta asociada.</div>
-                            </div>
-                        </div>
 
                         {{-- FOTOS: subir + previsualizar --}}
                         <div class="card">

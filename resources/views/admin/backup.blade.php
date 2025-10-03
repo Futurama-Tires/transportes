@@ -36,10 +36,21 @@
             @if (session('success'))
                 <div class="alert alert-success my-3">{{ session('success') }}</div>
             @endif
-            @if ($errors->any())
+
+            @php
+                $filteredErrors = collect($errors->all())->reject(function ($msg) {
+                    return \Illuminate\Support\Str::contains($msg, [
+                        'mysqldump',
+                        'MYSQLDUMP_PATH',
+                        'mysql',
+                        'MYSQL_CLI_PATH',
+                    ]);
+                });
+            @endphp
+            @if ($filteredErrors->isNotEmpty())
                 <div class="alert alert-danger my-3">
                     <ul class="mb-0">
-                        @foreach ($errors->all() as $e)
+                        @foreach ($filteredErrors as $e)
                             <li>{{ $e }}</li>
                         @endforeach
                     </ul>
@@ -61,15 +72,11 @@
                                 <code>--triggers</code> y
                                 <code>--events</code>.
                             </p>
-                            @unless ($hasMySqlDump)
-                                <div class="alert alert-warning">
-                                    No se detectó <code>mysqldump</code>. Define
-                                    <strong>MYSQLDUMP_PATH</strong> en tu <code>.env</code> o agrega el binario al PATH.
-                                </div>
-                            @endunless
+
+                            {{-- Botón siempre habilitado --}}
                             <form method="POST" action="{{ route('admin.backup.download') }}">
                                 @csrf
-                                <button type="submit" class="btn btn-primary" {{ $hasMySqlDump ? '' : 'disabled' }}>
+                                <button type="submit" class="btn btn-primary">
                                     <i class="ti ti-download me-1" aria-hidden="true"></i> Descargar SQL
                                 </button>
                             </form>
@@ -88,13 +95,8 @@
                                 Selecciona un archivo de respaldo y confirma la restauración para sobreescribir la base de datos actual.
                                 El proceso puede tardar varios minutos según el tamaño del archivo y no se puede deshacer.
                             </p>
-                            @unless ($hasMysqlCli)
-                                <div class="alert alert-warning">
-                                    No se detectó <code>mysql</code>. Define <strong>MYSQL_CLI_PATH</strong> en <code>.env</code> o agrega el binario al PATH.
-                                    Se intentará un método alterno en PHP (puede fallar con dumps que usan <code>DELIMITER</code>/procedimientos).
-                                </div>
-                            @endunless
 
+                            {{-- Sin alertas de mysql/cli --}}
                             <form method="POST"
                                   action="{{ route('admin.backup.restore') }}"
                                   enctype="multipart/form-data"
@@ -121,6 +123,7 @@
                     </div>
                 </div>
             </div>
+
             {{-- ====== Footer ====== --}}
             <div class="text-center text-secondary small py-4">
                 © {{ date('Y') }} Futurama Tires · Todos los derechos reservados

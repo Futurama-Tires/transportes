@@ -1,4 +1,4 @@
-{{-- resources/views/operadores/edit.blade.php — campos ordenados lógicamente + fotos y galería --}}
+{{-- resources/views/operadores/edit.blade.php — campos ordenados lógicamente + fotos (clic abre en nueva pestaña) --}}
 <x-app-layout>
     @vite(['resources/js/app.js'])
 
@@ -43,9 +43,6 @@
             @endif
 
             @php
-                $photosData = $operador->fotos->values()->map(function($f){
-                    return ['id' => $f->id, 'src' => route('operadores.fotos.show', $f)];
-                })->all();
                 $nombreCompleto = trim(($operador->nombre ?? '').' '.($operador->apellido_paterno ?? '').' '.($operador->apellido_materno ?? ''));
                 $correo = optional($operador->user)->email ?? '—';
             @endphp
@@ -273,35 +270,8 @@
 
                     {{-- ===== COLUMNA DERECHA: AVATAR + FOTOS ===== --}}
                     <div class="col-12 col-xl-4">
-                        {{-- Tarjeta de avatar/info --}}
-                        <div class="card mb-4">
-                            <div class="card-body text-center py-4">
-                                <span class="avatar avatar-xl avatar-rounded bg-blue-lt mb-3">
-                                    <span class="material-symbols-outlined" style="font-size:32px; line-height:1;">person</span>
-                                </span>
-                                <div class="h3 mb-1">{{ $nombreCompleto ?: 'Operador #'.$operador->id }}</div>
-                                <div class="text-secondary">{{ $correo }}</div>
 
-                                <div class="mt-3 text-start small text-secondary">
-                                    @if(optional($operador->created_at)->isValid())
-                                        <div>
-                                            <span class="material-symbols-outlined me-1 align-middle">calendar_month</span>
-                                            Registrado:
-                                            <span class="fw-semibold">{{ optional($operador->created_at)->format('Y-m-d') }}</span>
-                                        </div>
-                                    @endif
-                                    @if(optional($operador->updated_at)->isValid())
-                                        <div>
-                                            <span class="material-symbols-outlined me-1 align-middle">history</span>
-                                            Actualizado:
-                                            <span class="fw-semibold">{{ optional($operador->updated_at)->diffForHumans() }}</span>
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- FOTOS: subir + marcado borrar + galería --}}
+                        {{-- FOTOS: subir + marcado borrar + lista (clic abre en nueva pestaña) --}}
                         <div class="card">
                             <div class="card-header">
                                 <h3 class="card-title mb-0 d-flex align-items-center">
@@ -327,7 +297,7 @@
                                 </div>
                             </div>
 
-                            {{-- Listado/galería y marcado para borrar --}}
+                            {{-- Listado/galería simple y marcado para borrar --}}
                             <div class="card-body border-top">
                                 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                                     <div class="d-flex align-items-center gap-2">
@@ -338,12 +308,10 @@
                                         <span class="badge bg-secondary-lt">{{ $operador->fotos->count() }} foto(s)</span>
                                     </div>
                                     <div class="d-flex align-items-center gap-3">
-                                        <button type="button" class="btn btn-dark btn-sm" id="openGalleryAll">
-                                            <span class="material-symbols-outlined me-1 align-middle">slideshow</span> Ver galería
-                                        </button>
                                         <span class="small text-secondary">
                                             Marcadas para borrar: <strong id="delCount">0</strong>
                                         </span>
+                                        <span class="small text-secondary d-none d-xl-inline">Tip: haz clic en una foto para abrirla en otra pestaña.</span>
                                     </div>
                                 </div>
 
@@ -356,13 +324,19 @@
                                         <p class="empty-subtitle text-secondary">Puedes subirlas en la sección “Agregar nuevas fotos”.</p>
                                     </div>
                                 @else
-                                    <div class="row g-3" id="photosGrid" data-photos='@json($photosData)'>
+                                    <div class="row g-3" id="photosGrid">
                                         @foreach($operador->fotos as $foto)
                                             <div class="col-12">
                                                 <div class="card position-relative foto-card" data-id="{{ $foto->id }}">
                                                     <div class="ratio ratio-4x3">
-                                                        <div class="w-100 h-100 rounded bg-cover"
-                                                             style="background-image:url('{{ route('operadores.fotos.show', $foto) }}'); background-size:cover; background-position:center;"></div>
+                                                        {{-- Imagen visible y clicable (nueva pestaña) --}}
+                                                        <a href="{{ route('operadores.fotos.show', $foto) }}"
+                                                           target="_blank" rel="noopener noreferrer"
+                                                           title="Abrir en nueva pestaña"
+                                                           class="stretched-link"></a>
+                                                        <img src="{{ route('operadores.fotos.show', $foto) }}"
+                                                             alt="Foto {{ $loop->iteration }} de {{ $nombreCompleto ?: ('Operador #'.$operador->id) }}"
+                                                             class="w-100 h-100 rounded object-fit-cover">
                                                     </div>
 
                                                     {{-- Botón marcar para borrar (toggle) --}}
@@ -381,9 +355,6 @@
                                                     <span class="badge bg-danger position-absolute bottom-0 start-0 m-2 d-none badge-del">
                                                         <span class="material-symbols-outlined me-1 align-middle">delete</span> Se borrará
                                                     </span>
-
-                                                    {{-- Abrir galería (clic en tarjeta) --}}
-                                                    <a href="javascript:void(0)" class="stretched-link gal-photo" data-index="{{ $loop->index }}" title="Ver grande"></a>
                                                 </div>
                                             </div>
                                         @endforeach
@@ -465,7 +436,7 @@
                                                 @else
                                                     <div class="d-flex gap-1 flex-wrap">
                                                         @foreach($l->archivos as $a)
-                                                            <a href="{{ route('licencias.archivos.inline', $a) }}" class="btn btn-outline-secondary btn-xs" target="_blank" title="{{ $a->nombre_original }}">
+                                                            <a href="{{ route('licencias.archivos.inline', $a) }}" class="btn btn-outline-secondary btn-xs" target="_blank" rel="noopener" title="{{ $a->nombre_original }}">
                                                                 <span class="material-symbols-outlined" style="font-size:18px;">visibility</span>
                                                             </a>
                                                         @endforeach
@@ -500,75 +471,9 @@
         </div>
     </div>
 
-    {{-- ===== MODAL GALERÍA ===== --}}
-    <div class="modal fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title h4" id="galleryModalLabel">
-                        <span class="material-symbols-outlined me-2 align-middle">photo</span>Galería de fotos
-                    </h3>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="galleryCarousel" class="carousel slide" data-bs-ride="false">
-                        <div class="carousel-inner" id="galleryInner"></div>
-                        <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
-                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Anterior</span>
-                        </button>
-                        <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
-                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Siguiente</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     {{-- ===== SCRIPTS ===== --}}
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- Galería ---
-        const photosGrid = document.getElementById('photosGrid');
-        let photos = [];
-        try { photos = JSON.parse(photosGrid?.getAttribute('data-photos') || '[]'); } catch { photos = []; }
-
-        const galleryInner   = document.getElementById('galleryInner');
-        const galleryEl      = document.getElementById('galleryCarousel');
-        const galleryModalEl = document.getElementById('galleryModal');
-
-        function openGallery(startIndex = 0){
-            if (!photos.length) return;
-            galleryInner.innerHTML = '';
-            photos.forEach((p, i) => {
-                const div = document.createElement('div');
-                div.className = 'carousel-item' + (i === startIndex ? ' active' : '');
-                div.innerHTML = `<img src="${p.src}" class="d-block w-100 rounded" alt="Foto ${i+1}">`;
-                galleryInner.appendChild(div);
-            });
-            const Carousel = window.bootstrap?.Carousel;
-            if (Carousel) {
-                const instance = Carousel.getInstance(galleryEl) || new Carousel(galleryEl, { interval: false });
-                instance.to(startIndex);
-            }
-            const modal = window.bootstrap ? new window.bootstrap.Modal(galleryModalEl) : null;
-            modal?.show();
-        }
-
-        photosGrid?.addEventListener('click', (e) => {
-            const a = e.target.closest('.gal-photo');
-            if (!a) return;
-            const idx = parseInt(a.getAttribute('data-index') || '0', 10) || 0;
-            openGallery(idx);
-        });
-
-        document.getElementById('openGalleryAll')?.addEventListener('click', () => openGallery(0));
-
         // --- Togglear borrado de fotos ---
         const delCountEl = document.getElementById('delCount');
         function refreshDelCount(){
@@ -576,7 +481,7 @@
             if (delCountEl) delCountEl.textContent = String(checked);
         }
 
-        photosGrid?.querySelectorAll('.toggle-delete').forEach(btn => {
+        document.getElementById('photosGrid')?.querySelectorAll('.toggle-delete').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -607,9 +512,8 @@
 
     <style>
         .bg-cover { background-repeat: no-repeat; }
-        /* La capa roja no bloquea clics */
-        .overlay-del { pointer-events: none; }
-        /* Botón por encima de stretched-link */
-        .foto-card .toggle-delete { z-index: 3; }
+        .overlay-del { pointer-events: none; } /* La capa roja no bloquea clics */
+        .foto-card .toggle-delete { z-index: 3; } /* Botón por encima del stretched-link */
+        .object-fit-cover { object-fit: cover; }
     </style>
 </x-app-layout>

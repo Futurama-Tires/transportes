@@ -252,16 +252,6 @@
             </form>
 
             {{-- ===== FOTOS ACTUALES ===== --}}
-            @php
-                // PRECOMPUTAR datos de fotos para evitar problemas de parseo dentro del atributo HTML
-                $photosData = $vehiculo->fotos->values()->map(function($f){
-                    return [
-                        'id'  => $f->id,
-                        'src' => route('vehiculos.fotos.show', $f),
-                    ];
-                })->all();
-            @endphp
-
             <div class="card mt-3">
                 <div class="card-header justify-content-between">
                     <h3 class="card-title d-flex align-items-center gap-2 mb-0">
@@ -280,44 +270,42 @@
                             <p class="empty-subtitle text-secondary">Puedes subirlas desde la sección “Agregar nuevas fotos”.</p>
                         </div>
                     @else
-                        <div class="row g-2" id="photosGrid" data-photos='@json($photosData)'>
+                        <div class="row g-2">
                             @foreach($vehiculo->fotos as $foto)
                                 <div class="col-6 col-sm-4 col-md-3">
                                     <div class="card card-link position-relative">
-                                        <div class="img-responsive img-responsive-4x3 card-img-top" style="background-image: url('{{ route('vehiculos.fotos.show', $foto) }}')"></div>
+                                        {{-- Área visible de la imagen --}}
+                                        <div class="img-responsive img-responsive-4x3 card-img-top"
+                                             style="background-image: url('{{ route('vehiculos.fotos.show', $foto) }}')"></div>
+
+                                        {{-- Abrir directamente en otra pestaña --}}
+                                        <a href="{{ route('vehiculos.fotos.show', $foto) }}"
+                                           target="_blank" rel="noopener noreferrer"
+                                           title="Abrir en nueva pestaña"
+                                           class="stretched-link"></a>
 
                                         {{-- Eliminar foto --}}
                                         <form method="POST"
-                                            action="{{ route('vehiculos.fotos.destroy', [$vehiculo, $foto]) }}"
-                                            onsubmit="return confirm('¿Eliminar esta foto?')"
-                                            class="position-absolute top-0 end-0 m-1 z-3">
+                                              action="{{ route('vehiculos.fotos.destroy', [$vehiculo, $foto]) }}"
+                                              onsubmit="return confirm('¿Eliminar esta foto?')"
+                                              class="position-absolute top-0 end-0 m-1 z-3">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-danger btn-icon btn-sm position-relative">
                                                 <i class="ti ti-trash"></i>
                                             </button>
                                         </form>
-
-                                        {{-- Abrir galería --}}
-                                        <a href="javascript:void(0)" class="stretched-link veh-photo" data-index="{{ $loop->index }}" title="Ver grande"></a>
                                     </div>
                                 </div>
                             @endforeach
                         </div>
 
-                        <div class="mt-3">
-                            <button type="button" class="btn btn-dark btn-sm" id="openGalleryAll">
-                                <i class="ti ti-slideshow me-1"></i> Ver galería
-                            </button>
+                        <div class="mt-3 text-secondary small d-none d-md-block">
+                            <i class="ti ti-info-circle me-1"></i>
+                            Tip: haz clic en cualquier foto para abrirla en una nueva pestaña.
                         </div>
                     @endif
                 </div>
-            </div>
-
-            <div class="text-secondary small mt-3">
-                <i class="ti ti-info-circle me-1"></i>
-                Nota: si los campos de fecha están almacenados como texto, el selector enviará el valor en formato <code>YYYY-MM-DD</code>.
-                Considera migrarlos a tipo <code>DATE</code> para validaciones y reportes más consistentes.
             </div>
 
             {{-- FOOTER --}}
@@ -327,82 +315,10 @@
         </div>
     </div>
 
-    {{-- ===== MODAL GALERÍA ===== --}}
-    <div class="modal fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title h4" id="galleryModalLabel">
-                        <i class="ti ti-photo me-2"></i>Galería de fotos
-                    </h3>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="galleryCarousel" class="carousel slide" data-bs-ride="false">
-                        <div class="carousel-inner" id="galleryInner"></div>
-                        <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
-                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Anterior</span>
-                        </button>
-                        <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
-                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Siguiente</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- ===== SCRIPTS =====
-         Asegúrate en resources/js/app.js:
-         import * as bootstrap from 'bootstrap/dist/js/bootstrap.bundle.min.js'; window.bootstrap = bootstrap;
-    --}}
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const photosGrid = document.getElementById('photosGrid');
-        if (!photosGrid) return;
-
-        let photos = [];
-        try { photos = JSON.parse(photosGrid.getAttribute('data-photos') || '[]'); }
-        catch { photos = []; }
-
-        const galleryInner   = document.getElementById('galleryInner');
-        const galleryEl      = document.getElementById('galleryCarousel');
-        const galleryModalEl = document.getElementById('galleryModal');
-
-        function openGallery(startIndex = 0){
-            if (!photos.length) return;
-            galleryInner.innerHTML = '';
-            photos.forEach((p, i) => {
-                const div = document.createElement('div');
-                div.className = 'carousel-item' + (i === startIndex ? ' active' : '');
-                div.innerHTML = `<img src="${p.src}" class="d-block w-100 rounded" alt="Foto ${i+1}">`;
-                galleryInner.appendChild(div);
-            });
-            const Carousel = window.bootstrap?.Carousel;
-            if (Carousel) {
-                const instance = Carousel.getInstance(galleryEl) || new Carousel(galleryEl, { interval: false });
-                instance.to(startIndex);
-            }
-            const modal = window.bootstrap ? new window.bootstrap.Modal(galleryModalEl) : null;
-            modal?.show();
-        }
-
-        // Abrir por tarjeta
-        photosGrid.addEventListener('click', (e) => {
-            const a = e.target.closest('.veh-photo');
-            if (!a) return;
-            const idx = parseInt(a.getAttribute('data-index') || '0', 10) || 0;
-            openGallery(idx);
-        });
-
-        // Abrir todo
-        const openAllBtn = document.getElementById('openGalleryAll');
-        if (openAllBtn) openAllBtn.addEventListener('click', () => openGallery(0));
-    });
-    </script>
+    {{-- ===== SIN MODAL NI JS --}}
+    <style>
+        /* Asegura que el botón de borrar quede por encima del enlace expandido */
+        .card .btn.position-relative,
+        .card .btn.z-3 { z-index: 3; }
+    </style>
 </x-app-layout>

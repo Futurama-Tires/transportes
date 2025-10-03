@@ -42,6 +42,12 @@ return [
     'api_url'          => env('TELEGRAM_API_URL', 'https://api.telegram.org'),
     ],
 
+    'db_cli' => [
+    'mysqldump' => env('MYSQLDUMP_PATH', 'mysqldump'),
+    'mysql'     => env('MYSQL_CLI_PATH', 'mysql'),
+],
+
+
 
 
 ];

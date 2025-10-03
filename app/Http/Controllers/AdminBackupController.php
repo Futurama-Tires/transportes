@@ -36,10 +36,6 @@ use Symfony\Component\Process\Process;
  */
 class AdminBackupController extends Controller
 {
-    /* ===========================
-     * Constantes y propiedades
-     * =========================== */
-
     /** Tiempo para comandos cortos (detecciones, --help). */
     private const HELP_TIMEOUT_SEC = 10;
 
@@ -52,8 +48,7 @@ class AdminBackupController extends Controller
 
     /**
      * Tablas de "sondeo" opcional para checar efecto de restauración.
-     * Deja vacío para no realizar comprobación. Puedes agregar las que quieras.
-     * Ej.: ['operadores', 'vehiculos']
+     * Deja vacío para no realizar comprobación.
      */
     private const SAMPLE_TABLES = ['operadores'];
 
@@ -67,9 +62,6 @@ class AdminBackupController extends Controller
      * Vistas / UI
      * =========================== */
 
-    /**
-     * Muestra la vista del módulo con datos de conexión y disponibilidad de binarios.
-     */
     public function index(Request $request)
     {
         $conn = DB::connection()->getConfig();
@@ -82,6 +74,7 @@ class AdminBackupController extends Controller
             'username' => $conn['username'] ?? '',
         ];
 
+        // Aún calculamos disponibilidad, aunque tu Blade ya no lo usa.
         $hasMySqlDump = $this->binaryWorks($this->mysqldumpPath(), ['--version']);
         $hasMysqlCli  = $this->binaryWorks($this->mysqlCliPath(), ['--version']);
 
@@ -97,21 +90,13 @@ class AdminBackupController extends Controller
      * =========================== */
 
     /**
-     * Genera y descarga el archivo .sql en streaming usando `mysqldump`.
-     *
-     * @return StreamedResponse
+     * Genera y descarga el archivo .sql en streaming.
+     * Quitar pre-chequeo bloqueante: intentamos mysqldump y, si falla,
+     * hacemos fallback a ifsnop o emitimos comentarios SQL con el error.
      */
     public function download(Request $request)
     {
         $this->authorizeAdmin();
-
-        $dumpBin = $this->mysqldumpPath();
-        if (!$this->binaryWorks($dumpBin, ['--version'])) {
-            return back()->withErrors(
-                'No se encontró el binario "mysqldump". ' .
-                'Define MYSQLDUMP_PATH en .env o agrega el binario al PATH del servidor.'
-            );
-        }
 
         $cfg = $this->getDbConnConfig();
         if ($cfg['database'] === '' || $cfg['username'] === '') {
@@ -119,30 +104,42 @@ class AdminBackupController extends Controller
         }
 
         $filename = sprintf('backup-%s.sql', now()->format('Ymd-His'));
-
-        // Construye el comando `mysqldump` de forma portable y segura
-        $cmd = $this->buildMysqldumpCommand($dumpBin, $cfg);
+        $dumpBin  = $this->mysqldumpPath();
+        $cmd      = $this->buildMysqldumpCommand($dumpBin, $cfg);
 
         return response()->streamDownload(function () use ($cmd, $cfg) {
             $stderr = '';
 
-            $process = new Process($cmd, null, ['MYSQL_PWD' => $cfg['password']]);
-            $process->setTimeout(self::DUMP_TIMEOUT_SEC);
-            $process->run(function (string $type, string $data) use (&$stderr) {
-                if ($type === Process::OUT) {
-                    echo $data;
-                    @ob_flush();
-                    @flush(); // Empuja el stream al cliente
-                } else {
-                    $stderr .= $data;
-                }
-            });
+            // ===== Intento A: mysqldump (streaming a php://output) =====
+            try {
+                $process = new Process($cmd, null, ['MYSQL_PWD' => $cfg['password']]);
+                $process->setTimeout(self::DUMP_TIMEOUT_SEC);
+                $process->run(function (string $type, string $data) use (&$stderr) {
+                    if ($type === Process::OUT) {
+                        echo $data;
+                        @ob_flush();
+                        @flush();
+                    } else {
+                        $stderr .= $data;
+                    }
+                });
 
-            if ($process->isSuccessful()) {
-                return; // Ya se envió todo por STDOUT
+                if ($process->isSuccessful()) {
+                    return; // dump OK
+                }
+
+                // Log de diagnóstico (sin credenciales)
+                Log::error('Backup download: mysqldump failed', [
+                    'exit_code' => $process->getExitCode(),
+                    'stderr_len'=> strlen($process->getErrorOutput()),
+                    'stdout_len'=> strlen($process->getOutput()),
+                ]);
+            } catch (\Throwable $e) {
+                // No reventamos; seguimos al fallback
+                $stderr .= "\nExec error: " . $e->getMessage();
             }
 
-            // Fallback 1: ifsnop/mysqldump-php (si está instalado)
+            // ===== Intento B: ifsnop/mysqldump-php =====
             if (class_exists(\Ifsnop\Mysqldump\Mysqldump::class)) {
                 try {
                     $dsn  = sprintf(
@@ -157,18 +154,21 @@ class AdminBackupController extends Controller
                         'routines'           => true,
                         'events'             => true,
                         'hex-blob'           => true,
+                        'skip-comments'      => true,
                     ];
                     $dump = new \Ifsnop\Mysqldump\Mysqldump($dsn, $cfg['username'], $cfg['password'], $opts);
                     $dump->start('php://output');
+                    @ob_flush();
+                    @flush();
                     return;
                 } catch (\Throwable $e) {
                     $stderr .= "\nPHP fallback (ifsnop) failed: " . $e->getMessage();
                 }
             }
 
-            // Fallback 2: emite el error como COMENTARIOS SQL (no rompe el import)
-            $stderr = trim($stderr) !== '' ? $stderr : $process->getErrorOutput();
-            echo "\n-- mysqldump FAILED --\n-- " . str_replace("\n", "\n-- ", trim($stderr)) . "\n";
+            // ===== Intento C: emitir error como comentarios SQL =====
+            $msg = trim($stderr) !== '' ? $stderr : 'mysqldump e ifsnop fallaron sin mensaje.';
+            echo "\n-- mysqldump FAILED --\n-- " . str_replace("\n", "\n-- ", $msg) . "\n";
         }, $filename, [
             'Content-Type'        => 'application/sql; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
@@ -196,6 +196,7 @@ class AdminBackupController extends Controller
             '--routines',
             '--triggers',
             '--events',
+            '--default-character-set=utf8mb4',
         ];
 
         // Opcionales por soporte de versión
@@ -206,18 +207,15 @@ class AdminBackupController extends Controller
             $cmd[] = '--column-statistics=0';
         }
 
-        // Conectividad:
-        // - En Windows evitamos forzar TCP por defecto (error 10106 común).
-        // - Si forceTcp=true, o si NO es Windows, pasamos host/port y --protocol=TCP.
+        // Conectividad
         if (!$isWin || $forceTcp) {
             $hostArg = $cfg['host'] ?: '127.0.0.1';
             array_push($cmd, '-h', $hostArg, '-P', (string) $cfg['port'], '--protocol=TCP');
         } elseif (!empty($cfg['unix_socket'])) {
-            // Socket UNIX si existe y no estamos forzando TCP (útil en Linux/Mac)
             array_push($cmd, '--socket=' . $cfg['unix_socket']);
         }
 
-        // Por último, la base de datos
+        // Base de datos al final (STDOUT por defecto)
         $cmd[] = $cfg['database'];
 
         return $cmd;
@@ -227,20 +225,10 @@ class AdminBackupController extends Controller
      * Restauración / Restore
      * =========================== */
 
-    /**
-     * Restaura la base de datos desde un archivo .sql o .sql.gz.
-     *
-     * Flujo:
-     * 1) Validar y guardar temporalmente el archivo.
-     * 2) Si es .gz, descomprimir a .sql.
-     * 3) Intento A: cliente `mysql` con SOURCE (robusto).
-     * 4) Intento B: parser PHP línea a línea (limitado).
-     */
     public function restore(Request $request)
     {
         $this->authorizeAdmin();
 
-        // 1) Entrada y validaciones
         if (!$request->hasFile('sql_file')) {
             $u = ini_get('upload_max_filesize');
             $p = ini_get('post_max_size');
@@ -257,7 +245,6 @@ class AdminBackupController extends Controller
             'confirm.accepted' => 'Debes confirmar que entiendes que se sobreescribirá la base de datos.',
         ]);
 
-        // 2) Guardar archivo temporal
         Storage::disk('local')->makeDirectory('tmp/restores');
         $uploaded = $request->file('sql_file');
         $ext      = strtolower($uploaded->getClientOriginalExtension() ?: 'sql');
@@ -270,7 +257,6 @@ class AdminBackupController extends Controller
             return back()->withErrors('No fue posible guardar el archivo en disco (permisos/espacio).');
         }
 
-        // 3) Si viene .gz, descomprimir a .sql
         if ($ext === 'gz') {
             $sqlTemp = Storage::disk('local')->path('tmp/restores/' . uniqid('restore_', true) . '.sql');
             if (!$this->gunzipTo($fullPath, $sqlTemp) || !is_file($sqlTemp)) {
@@ -284,28 +270,22 @@ class AdminBackupController extends Controller
             return back()->withErrors('El archivo debe ser .sql o .sql.gz.');
         }
 
-        // 4) Datos de conexión
         $cfg = $this->getDbConnConfig();
-
-        // Conteo opcional de tablas de muestra (para validar efecto)
         $beforeSample = $this->sampleTablesCount(self::SAMPLE_TABLES);
 
-        // ===== 5) Intento 1: cliente mysql/mariadb con SOURCE (robusto) =====
+        // ===== Intento 1: cliente mysql con SOURCE =====
         $mysqlBin = $this->mysqlCliPath();
         if ($this->binaryWorks($mysqlBin, ['--version'])) {
             $isWin    = $this->isWindows();
             $forceTcp = (bool) env('MYSQL_FORCE_TCP', false);
-            $sourcePath = str_replace('\\', '/', $fullPath); // Normaliza para SOURCE
+            $sourcePath = str_replace('\\', '/', $fullPath);
 
-            // Base: usuario y base; host/port TCP si procede
             $cmd = [$mysqlBin, '-u', $cfg['username'], $cfg['database']];
             if (!$isWin || $forceTcp) {
                 array_splice($cmd, 2, 0, ['-h', $cfg['host'] ?: '127.0.0.1', '-P', (string) $cfg['port'], '--protocol=TCP']);
             } elseif (!empty($cfg['unix_socket'])) {
                 array_splice($cmd, 2, 0, ['--socket=' . $cfg['unix_socket']]);
             }
-
-            // Ejecuta la restauración encapsulando SOURCE y FK OFF/ON
             $cmd = array_merge($cmd, [
                 '-e', "SET FOREIGN_KEY_CHECKS=0; SOURCE {$sourcePath}; SET FOREIGN_KEY_CHECKS=1;"
             ]);
@@ -322,14 +302,12 @@ class AdminBackupController extends Controller
 
             Log::error('MySQL restore failed', [
                 'exit_code' => $process->getExitCode(),
-                // No incluimos credenciales ni ruta exacta del archivo
                 'stderr_len' => strlen($process->getErrorOutput()),
                 'stdout_len' => strlen($process->getOutput()),
             ]);
-            // Dejamos $fullPath para fallback PHP
         }
 
-        // ===== 6) Intento 2: fallback PHP (parser simple) =====
+        // ===== Intento 2: parser PHP (limitado) =====
         try {
             set_time_limit(0);
             ini_set('memory_limit', '-1');
@@ -341,7 +319,7 @@ class AdminBackupController extends Controller
             }
 
             $buffer = '';
-            $delimiter = ';'; // Parser simple no maneja DELIMITER dinámico
+            $delimiter = ';';
             $firstLine = true;
 
             while (($line = fgets($handle)) !== false) {
@@ -351,15 +329,12 @@ class AdminBackupController extends Controller
                 }
 
                 $trim = ltrim($line);
-
-                // Ignorar comentarios y ruidos comunes
                 if ($this->isIgnorableSqlLine($trim)) {
                     continue;
                 }
 
                 $buffer .= $line;
 
-                // Ejecuta cuando termina en ';' (delimiter fijo)
                 if ($this->endsWithDelimiter($line, $delimiter)) {
                     DB::unprepared($buffer);
                     $buffer = '';
@@ -367,16 +342,12 @@ class AdminBackupController extends Controller
             }
             fclose($handle);
 
-            // Si quedó buffer (última sentencia sin salto), intenta ejecutarla
             if (trim($buffer) !== '') {
                 DB::unprepared($buffer);
             }
 
             $afterMsg = $this->formatSampleDiffMsg($beforeSample, $this->sampleTablesCount(self::SAMPLE_TABLES));
-            return back()->with(
-                'success',
-                'Restauración completada (método PHP)' 
-            );
+            return back()->with('success', 'Restauración completada (método PHP)' . $afterMsg);
         } catch (\Throwable $e) {
             Log::error('PHP restore failed', ['msg' => $e->getMessage()]);
             return back()->withErrors('Falló la restauración: ' . $e->getMessage());
@@ -390,10 +361,6 @@ class AdminBackupController extends Controller
      * Helpers de autorización / entorno
      * =========================== */
 
-    /**
-     * Asegura que el usuario autenticado sea administrador.
-     * (Es redundante si el middleware role:administrador ya protege las rutas.)
-     */
     protected function authorizeAdmin(): void
     {
         if (!auth()->user() || !auth()->user()->hasRole('administrador')) {
@@ -401,28 +368,16 @@ class AdminBackupController extends Controller
         }
     }
 
-    /**
-     * Ruta o nombre del binario mysqldump.
-     */
     protected function mysqldumpPath(): string
     {
         return env('MYSQLDUMP_PATH', 'mysqldump');
     }
 
-    /**
-     * Ruta o nombre del binario mysql CLI.
-     */
     protected function mysqlCliPath(): string
     {
         return env('MYSQL_CLI_PATH', 'mysql');
     }
 
-    /**
-     * ¿El proceso binario funciona (e.g., --version)?, con cache en memoria.
-     *
-     * @param  string        $bin
-     * @param  array<string> $args
-     */
     protected function binaryWorks(string $bin, array $args = ['--version']): bool
     {
         $key = $bin . ' ' . implode(' ', $args);
@@ -440,15 +395,9 @@ class AdminBackupController extends Controller
         }
     }
 
-    /**
-     * Revisa si el binario soporta una opción (aparece en --help), con cache.
-     *
-     * @param  string $bin
-     * @param  string $option e.g. "set-gtid-purged" o "--set-gtid-purged"
-     */
     protected function supportsOption(string $bin, string $option): bool
     {
-        $needle = ltrim($option, '-'); // normaliza
+        $needle = ltrim($option, '-');
         $cacheKey = $bin . '::' . $needle;
         if (array_key_exists($cacheKey, $this->supportsOptionCache)) {
             return $this->supportsOptionCache[$cacheKey];
@@ -466,8 +415,6 @@ class AdminBackupController extends Controller
     }
 
     /**
-     * Devuelve la configuración de conexión activando defaults seguros.
-     *
      * @return array{host:string,port:int,database:string,username:string,password:string,unix_socket: ?string}
      */
     private function getDbConnConfig(): array
@@ -484,9 +431,6 @@ class AdminBackupController extends Controller
         ];
     }
 
-    /**
-     * ¿Es Windows?
-     */
     private function isWindows(): bool
     {
         return strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
@@ -496,9 +440,6 @@ class AdminBackupController extends Controller
      * Helpers de archivos y parsing
      * =========================== */
 
-    /**
-     * Descomprime un .gz hacia un archivo de salida .sql.
-     */
     protected function gunzipTo(string $gzFile, string $outFile): bool
     {
         try {
@@ -523,9 +464,6 @@ class AdminBackupController extends Controller
         }
     }
 
-    /**
-     * Determina si una línea SQL puede ignorarse: comentarios/ruido de herramientas.
-     */
     private function isIgnorableSqlLine(string $trimmedLine): bool
     {
         return $trimmedLine === ''
@@ -536,18 +474,12 @@ class AdminBackupController extends Controller
             || preg_match('/^--\s*mysqldump\s*FAILED/i', $trimmedLine) === 1;
     }
 
-    /**
-     * Verifica si una línea termina con el delimitador actual (por defecto ';').
-     */
     private function endsWithDelimiter(string $line, string $delimiter): bool
     {
         $r = rtrim($line);
         return substr($r, -strlen($delimiter)) === $delimiter;
     }
 
-    /**
-     * Elimina BOM UTF-8 si está presente en la primera línea del archivo.
-     */
     private function stripUtf8Bom(string $line): string
     {
         $bom = "\xEF\xBB\xBF";
@@ -558,10 +490,8 @@ class AdminBackupController extends Controller
     }
 
     /**
-     * Cuenta registros de un conjunto de tablas de muestra si existen.
-     *
      * @param  string[] $tables
-     * @return array<string,int>|null  [tabla => conteo] o null si no se midió nada
+     * @return array<string,int>|null
      */
     private function sampleTablesCount(array $tables): ?array
     {
@@ -581,12 +511,6 @@ class AdminBackupController extends Controller
         return $out === [] ? null : $out;
     }
 
-    /**
-     * Crea un mensaje " (tabla1: a → b, tabla2: c → d)" con los difs de conteo.
-     *
-     * @param  array<string,int>|null $before
-     * @param  array<string,int>|null $after
-     */
     private function formatSampleDiffMsg(?array $before, ?array $after): string
     {
         if ($before === null || $after === null) {
