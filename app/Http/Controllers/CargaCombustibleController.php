@@ -40,7 +40,7 @@ class CargaCombustibleController extends Controller
             'km_ini_min','km_ini_max',
             'km_fin_min','km_fin_max',
             'destino','custodio',
-            'estado',                
+            'estado',
             'sort_by','sort_dir',
         ]);
 
@@ -76,6 +76,7 @@ class CargaCombustibleController extends Controller
             'precio'           => ['required', 'numeric', 'min:0'],
             'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
             'litros'           => ['required', 'numeric', 'min:0.001'],
+            'total'            => ['required', 'numeric', 'min:0.01'], // ⬅ CAMBIO: total es obligatorio (manual)
             'custodio'         => ['nullable', 'string', 'max:255'],
             'operador_id'      => ['required', 'exists:operadores,id'],
             'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
@@ -98,7 +99,7 @@ class CargaCombustibleController extends Controller
                 ]);
             }
 
-            $this->applyDerived($data, $kmInicial);
+            $this->applyDerived($data, $kmInicial); // ⬅ NO recalcula total
 
             $carga = new CargaCombustible();
             $carga->forceFill($data)->save();
@@ -135,6 +136,7 @@ class CargaCombustibleController extends Controller
             'precio'           => ['required', 'numeric', 'min:0'],
             'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
             'litros'           => ['required', 'numeric', 'min:0.001'],
+            'total'            => ['required', 'numeric', 'min:0.01'], // ⬅ CAMBIO: total obligatorio (manual)
             'custodio'         => ['nullable', 'string', 'max:255'],
             'operador_id'      => ['required', 'exists:operadores,id'],
             'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
@@ -167,7 +169,7 @@ class CargaCombustibleController extends Controller
                 ]);
             }
 
-            $this->applyDerived($data, $kmInicial);
+            $this->applyDerived($data, $kmInicial); // ⬅ NO recalcula total
 
             // $data incluye 'estado', por lo que se guardará
             $carga->forceFill($data)->save();
@@ -243,8 +245,12 @@ class CargaCombustibleController extends Controller
 
     protected function applyDerived(array &$data, ?int $kmInicial): void
     {
-        $data['mes']   = ucfirst(Carbon::parse($data['fecha'])->locale('es')->translatedFormat('F'));
-        $data['total'] = round(((float)$data['precio']) * ((float)$data['litros']), 2);
+        $data['mes'] = ucfirst(Carbon::parse($data['fecha'])->locale('es')->translatedFormat('F'));
+
+        // ⬅ CAMBIO: NO calcular total. Solo normalizar si viene.
+        if (isset($data['total'])) {
+            $data['total'] = round((float) $data['total'], 2);
+        }
 
         $data['km_inicial'] = $kmInicial;
 
@@ -258,6 +264,7 @@ class CargaCombustibleController extends Controller
             ? round($recorrido / (float)$data['litros'], 2)
             : null;
 
+        // Mantén tu lógica de diferencia (usa precio si lo tienes)
         if (!is_null($recorrido) && isset($data['litros'], $data['precio'])) {
             $data['diferencia'] = round(-(((float)$data['litros'] - ($recorrido / 14)) * (float)$data['precio']), 2);
         } else {
@@ -279,6 +286,7 @@ class CargaCombustibleController extends Controller
             'precio'           => ['required', 'numeric', 'min:0'],
             'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
             'litros'           => ['required', 'numeric', 'min:0.001'],
+            'total'            => ['required', 'numeric', 'min:0.01'], // ⬅ CAMBIO: total obligatorio en API
             'custodio'         => ['nullable', 'string', 'max:255'],
             'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
             'km_final'         => ['required', 'integer', 'min:0'],
@@ -315,7 +323,7 @@ class CargaCombustibleController extends Controller
             $payload = $data;
             $payload['operador_id'] = $operador->id;
 
-            $this->applyDerived($payload, $kmInicial);
+            $this->applyDerived($payload, $kmInicial); // ⬅ NO recalcula total
 
             $carga = new CargaCombustible();
             $carga->forceFill($payload)->save();
@@ -410,4 +418,3 @@ class CargaCombustibleController extends Controller
         }
     }
 }
-

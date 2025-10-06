@@ -29,7 +29,7 @@ class CargaCombustible extends Model
         'recorrido',
         'rendimiento',
         'diferencia',
-        'total',
+        'total',            // ← el usuario lo captura; no se calcula
         'destino',
         'observaciones',
         // nuevos para revisión
@@ -54,6 +54,24 @@ class CargaCombustible extends Model
     ];
 
     public const TIPOS_COMBUSTIBLE = ['Magna', 'Diesel', 'Premium'];
+
+    /* ===================== Reglas: total manual ===================== */
+    protected static function booted()
+    {
+        static::saving(function (self $c) {
+            // En modo rápido: NO calcular nada. El total es el que el usuario capturó.
+            if (is_null($c->total) || (float) $c->total <= 0) {
+                throw new \InvalidArgumentException('El campo "total" es obligatorio y debe ser mayor a 0.');
+            }
+
+            // Normaliza a 2 decimales para evitar basura de floats.
+            $c->total = round((float) $c->total, 2);
+
+            // Importante: NO tocar precio, litros, subtotal/iva, etc.
+            // Si en algún lugar del código se intentara recalcular total a partir de litros*precio,
+            // este hook lo deja intacto (no hay lógica de cálculo aquí).
+        });
+    }
 
     /* ===================== Relaciones ===================== */
 
@@ -161,6 +179,7 @@ class CargaCombustible extends Model
 
         if (!empty($filters['from'])) $query->whereDate('cargas_combustible.fecha', '>=', $filters['from']);
         if (!empty($filters['to']))   $query->whereDate('cargas_combustible.fecha', '<=', $filters['to']);
+
 
         $ranges = [
             ['litros', 'litros_min', '>='], ['litros', 'litros_max', '<='],

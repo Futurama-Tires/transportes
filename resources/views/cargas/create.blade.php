@@ -1,4 +1,4 @@
-{{-- resources/views/cargas_combustible/create.blade.php — versión Tabler ejecutiva --}}
+{{-- resources/views/cargas/create.blade.php — versión Tabler sencilla (total auto y editable) --}}
 <x-app-layout>
     @php
         /** @var \App\Models\CargaCombustible|null $carga */
@@ -51,9 +51,7 @@
                 @csrf
                 @if($isEdit) @method('PUT') @endif
 
-                {{-- ⚠️ Para creaciones desde web, se pretende guardar como Aprobada.
-                    Este input oculto solo tendrá efecto si el controlador permite el campo 'estado'
-                    o si el controlador lo establece server-side. --}}
+                {{-- En creación web, el controlador ya forza "Aprobada"; este hidden es inofensivo --}}
                 @unless($isEdit)
                     <input type="hidden" name="estado" value="Aprobada">
                 @endunless
@@ -97,7 +95,7 @@
                                         <label class="form-label">Precio ($) <span class="text-danger">*</span></label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="ti ti-currency-dollar"></i></span>
-                                            <input type="number" step="0.01" min="0" name="precio"
+                                            <input id="precioInput" type="number" step="0.01" min="0" name="precio"
                                                    value="{{ old('precio', $carga->precio ?? null) }}"
                                                    class="form-control @error('precio') is-invalid @enderror"
                                                    required>
@@ -111,12 +109,26 @@
                                         <label class="form-label">Litros <span class="text-danger">*</span></label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="ti ti-gas-station"></i></span>
-                                            <input type="number" step="0.001" min="0.001" name="litros"
+                                            <input id="litrosInput" type="number" step="0.001" min="0.001" name="litros"
                                                    value="{{ old('litros', $carga->litros ?? null) }}"
                                                    class="form-control @error('litros') is-invalid @enderror"
                                                    required>
                                             @error('litros')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                         </div>
+                                    </div>
+
+                                    {{-- Total (auto-llenado tras teclear precio/litros, pero editable siempre) --}}
+                                    <div class="col-12 col-md-4">
+                                        <label class="form-label">Total ($) <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="ti ti-receipt-2"></i></span>
+                                            <input id="totalInput" type="number" step="0.01" min="0.01" name="total"
+                                                   value="{{ old('total', $carga->total ?? null) }}"
+                                                   class="form-control @error('total') is-invalid @enderror"
+                                                   required>
+                                            @error('total')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        </div>
+
                                     </div>
 
                                     {{-- Custodio --}}
@@ -148,7 +160,7 @@
 
                                     {{-- Vehículo --}}
                                     <div class="col-12 col-lg-8">
-                                        <label class="form-label">Vehículo<span class="text-danger">*</span></label>
+                                        <label class="form-label">Vehículo <span class="text-danger">*</span></label>
                                         <select id="vehiculoSelect" name="vehiculo_id" class="form-select @error('vehiculo_id') is-invalid @enderror" required>
                                             <option value="">Seleccione…</option>
                                             @foreach($vehiculos as $v)
@@ -173,7 +185,7 @@
                                                    readonly>
                                             @error('km_inicial')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                         </div>
-                                        <div class="form-hint">Se calcula desde el odómetro del vehículo o de la carga previa.</div>
+                                        <div class="form-hint">Se toma del odómetro del vehículo o de la carga previa.</div>
                                     </div>
 
                                     {{-- KM Final --}}
@@ -187,7 +199,7 @@
                                                    inputmode="numeric" min="0">
                                             @error('km_final')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                         </div>
-                                        <div class="form-hint">Al guardar, este valor actualizará el odómetro del vehículo si esta carga es la más reciente.</div>
+                                        <div class="form-hint">Si esta carga es la más reciente, actualizará el odómetro.</div>
                                     </div>
 
                                     {{-- Destino --}}
@@ -240,19 +252,15 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="row g-3">
-                                        <div class="col-12 col-sm-6 col-lg-3">
-                                            <label class="form-label">Total ($)</label>
-                                            <input type="text" class="form-control" value="{{ number_format((float)($carga->total ?? 0), 2) }}" disabled>
-                                        </div>
-                                        <div class="col-12 col-sm-6 col-lg-3">
+                                        <div class="col-12 col-sm-6 col-lg-4">
                                             <label class="form-label">Recorrido (km)</label>
                                             <input type="text" class="form-control" value="{{ $carga->recorrido ?? '' }}" disabled>
                                         </div>
-                                        <div class="col-12 col-sm-6 col-lg-3">
+                                        <div class="col-12 col-sm-6 col-lg-4">
                                             <label class="form-label">Rendimiento (km/L)</label>
                                             <input type="text" class="form-control" value="{{ $carga->rendimiento ?? '' }}" disabled>
                                         </div>
-                                        <div class="col-12 col-sm-6 col-lg-3">
+                                        <div class="col-12 col-sm-6 col-lg-4">
                                             <label class="form-label">Diferencia ($)</label>
                                             <input type="text" class="form-control" value="{{ isset($carga->diferencia) ? number_format((float)$carga->diferencia, 2) : '' }}" disabled>
                                         </div>
@@ -276,7 +284,7 @@
         </div>
     </div>
 
-    {{-- JS: Autorrelleno de KM Inicial con el odómetro del vehículo (solo en creación) --}}
+    {{-- JS: KM Inicial desde el vehículo (solo en creación) --}}
     @if(!$isEdit)
     <script>
       (function () {
@@ -292,9 +300,83 @@
         }
 
         sel.addEventListener('change', setKmInicialFromSelect);
-        // Inicializa si ya viene un vehículo seleccionado por old(...)
         setKmInicialFromSelect();
       })();
     </script>
     @endif
+
+    {{-- JS: Total = Litros × Precio (auto-llenado simple, editable por el usuario) --}}
+    <script>
+      (function () {
+        const precio = document.getElementById('precioInput');
+        const litros = document.getElementById('litrosInput');
+        const total  = document.getElementById('totalInput');
+        if (!precio || !litros || !total) return;
+
+        // Si el usuario escribe en "total", no lo sobreescribimos a menos que "coincida" con el último auto.
+        let lastAuto = null;
+        const tol = 0.005; // tolerancia para comparar
+
+        const toMoney = (n) => (Math.round(n * 100) / 100).toFixed(2);
+        const fnum = (v) => {
+          const x = parseFloat(String(v).replace(',', '.'));
+          return isFinite(x) ? x : NaN;
+        };
+        const approxEq = (a, b) => Math.abs(a - b) <= tol;
+
+        function recalcIfAppropriate() {
+          const p = fnum(precio.value);
+          const l = fnum(litros.value);
+          if (isNaN(p) || isNaN(l) || p < 0 || l < 0) return;
+
+          const cand = parseFloat(toMoney(p * l));
+
+          const tVal = fnum(total.value);
+          // Regla:
+          // - Si total está vacío, siempre autollenar.
+          // - Si total == último auto (≈), actualizar al nuevo cálc.
+          // - Si total difiere de último auto (usuario ya lo ajustó), NO tocar.
+          if (total.value === '' || (lastAuto !== null && approxEq(tVal, lastAuto))) {
+            total.value = toMoney(cand);
+            lastAuto = cand;
+          }
+        }
+
+        // Inicial: si total viene vacío, proponlo
+        if (!total.value) {
+          recalcIfAppropriate();
+        } else {
+          // Si el total coincide con el cálculo actual, registrar lastAuto
+          const p0 = fnum(precio.value);
+          const l0 = fnum(litros.value);
+          if (!isNaN(p0) && !isNaN(l0)) {
+            const cand0 = parseFloat(toMoney(p0 * l0));
+            const t0 = fnum(total.value);
+            if (!isNaN(t0) && approxEq(t0, cand0)) {
+              lastAuto = t0;
+            }
+          }
+        }
+
+        // Eventos de entrada en precio/litros -> intentar autollenar/actualizar
+        precio.addEventListener('input', recalcIfAppropriate);
+        litros.addEventListener('input', recalcIfAppropriate);
+
+        // Si el usuario modifica manualmente total, ya no forzamos cambios a menos que vuelva a igualar
+        total.addEventListener('input', function () {
+          const tVal = fnum(total.value);
+          if (!isNaN(tVal)) {
+            // Si coincide con el auto actual, permite seguir autollenando
+            if (lastAuto !== null && approxEq(tVal, lastAuto)) {
+              // mantener lastAuto
+            } else {
+              // marca que ahora es edición del usuario
+              lastAuto = null;
+            }
+          } else {
+            lastAuto = null;
+          }
+        });
+      })();
+    </script>
 </x-app-layout>

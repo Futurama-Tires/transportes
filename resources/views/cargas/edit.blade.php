@@ -1,4 +1,4 @@
-{{-- resources/views/cargas/edit.blade.php — versión Tabler ejecutiva (con estado como desplegable en el formulario principal) --}}
+{{-- resources/views/cargas/edit.blade.php — versión Tabler ejecutiva (total auto y editable) --}}
 <x-app-layout>
     @vite(['resources/js/app.js'])
 
@@ -122,7 +122,7 @@
                                                 <option value="{{ $t }}" @selected(old('tipo_combustible', $carga->tipo_combustible ?? null) === $t)>{{ $t }}</option>
                                             @endforeach
                                         </select>
-                                        @error('tipo_combustible')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                            @error('tipo_combustible')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                     </div>
 
                                     {{-- Precio --}}
@@ -130,7 +130,7 @@
                                         <label class="form-label">Precio ($) <span class="text-danger">*</span></label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="ti ti-currency-dollar"></i></span>
-                                            <input type="number" step="0.01" min="0" name="precio"
+                                            <input id="precioInput" type="number" step="0.01" min="0" name="precio"
                                                    value="{{ old('precio', $carga->precio ?? null) }}"
                                                    class="form-control @error('precio') is-invalid @enderror"
                                                    required>
@@ -144,11 +144,28 @@
                                         <label class="form-label">Litros <span class="text-danger">*</span></label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="ti ti-gas-station"></i></span>
-                                            <input type="number" step="0.001" min="0.001" name="litros"
+                                            <input id="litrosInput" type="number" step="0.001" min="0.001" name="litros"
                                                    value="{{ old('litros', $carga->litros ?? null) }}"
                                                    class="form-control @error('litros') is-invalid @enderror"
                                                    required>
                                             @error('litros')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        </div>
+                                    </div>
+
+                                    {{-- Total (auto-llenado tras teclear precio/litros, pero editable) --}}
+                                    <div class="col-12 col-md-4">
+                                        <label class="form-label">Total ($) <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="ti ti-receipt-2"></i></span>
+                                            <input id="totalInput" type="number" step="0.01" min="0.01" name="total"
+                                                   value="{{ old('total', $carga->total ?? null) }}"
+                                                   class="form-control @error('total') is-invalid @enderror"
+                                                   required>
+                                            @error('total')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        </div>
+                                        <div class="form-hint">
+                                            Se propone automáticamente como <em>Litros × Precio</em>;
+                                            puedes modificarlo manualmente si el ticket dice otra cosa.
                                         </div>
                                     </div>
 
@@ -433,14 +450,12 @@
         }
     </style>
 
-    {{-- (Se eliminaron HTML/CSS/JS del modal de galería) --}}
-
     {{-- ===== SCRIPTS ===== --}}
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         // Estado UI (select coloreado + badges en tiempo real)
         const estadoSelect = document.getElementById('estadoSelect');
-        const headerBadge  = document.getElementById('headerEstadoBadge');
+        const headerBadge  = document.getElementById('headerEstadoBadge'); // puede no existir
         const inlineBadge  = document.getElementById('inlineEstadoBadge');
 
         function applyEstadoStyles() {
@@ -466,7 +481,65 @@
             applyEstadoStyles();
             estadoSelect.addEventListener('change', applyEstadoStyles, { passive: true });
         }
-        // No se intercepta el clic de .carga-photo-link; abre en nueva pestaña (target _blank)
     });
+    </script>
+
+    {{-- Total = Litros × Precio (auto-llenado simple, editable por el usuario) --}}
+    <script>
+      (function () {
+        const precio = document.getElementById('precioInput');
+        const litros = document.getElementById('litrosInput');
+        const total  = document.getElementById('totalInput');
+        if (!precio || !litros || !total) return;
+
+        let lastAuto = null;
+        const tol = 0.005; // tolerancia
+        const toMoney = (n) => (Math.round(n * 100) / 100).toFixed(2);
+        const fnum = (v) => {
+          const x = parseFloat(String(v).replace(',', '.'));
+          return isFinite(x) ? x : NaN;
+        };
+        const approxEq = (a, b) => Math.abs(a - b) <= tol;
+
+        function recalcIfAppropriate() {
+          const p = fnum(precio.value);
+          const l = fnum(litros.value);
+          if (isNaN(p) || isNaN(l) || p < 0 || l < 0) return;
+
+          const cand = parseFloat(toMoney(p * l));
+          const tVal = fnum(total.value);
+
+          if (total.value === '' || (lastAuto !== null && approxEq(tVal, lastAuto))) {
+            total.value = toMoney(cand);
+            lastAuto = cand;
+          }
+        }
+
+        // Inicial
+        if (!total.value) {
+          recalcIfAppropriate();
+        } else {
+          const p0 = fnum(precio.value);
+          const l0 = fnum(litros.value);
+          if (!isNaN(p0) && !isNaN(l0)) {
+            const cand0 = parseFloat(toMoney(p0 * l0));
+            const t0 = fnum(total.value);
+            if (!isNaN(t0) && approxEq(t0, cand0)) lastAuto = t0;
+          }
+        }
+
+        // Eventos
+        precio.addEventListener('input', recalcIfAppropriate);
+        litros.addEventListener('input', recalcIfAppropriate);
+        total.addEventListener('input', function () {
+          const tVal = fnum(total.value);
+          if (lastAuto !== null && approxEq(tVal, lastAuto)) {
+            // sigue coincidiendo, mantener autocompletado
+          } else {
+            // usuario lo modificó; deja de autollenar
+            lastAuto = null;
+          }
+        });
+      })();
     </script>
 </x-app-layout>
