@@ -19,6 +19,7 @@ class Operador extends Model
 
         // Contacto / datos existentes
         'telefono',
+        'domicilio',
         'contacto_emergencia_nombre',
         'contacto_emergencia_tel',
         'tipo_sangre',
@@ -42,10 +43,9 @@ class Operador extends Model
     }
 
     public function licencias()
-{
-    return $this->hasMany(LicenciaConducir::class);
-}
-
+    {
+        return $this->hasMany(LicenciaConducir::class);
+    }
 
     /**
      * Relación: fotos asociadas al operador (para galería).
@@ -76,6 +76,7 @@ class Operador extends Model
      * - estado_civil → minúsculas (coincide con ENUM de la migración)
      * - CURP/RFC → mayúsculas y sin espacios extras
      * - Parentesco/Uso de ubicación → trim
+     * - Domicilio → colapsa espacios y trim
      */
     public function setEstadoCivilAttribute($value): void
     {
@@ -112,6 +113,13 @@ class Operador extends Model
             : null;
     }
 
+    public function setDomicilioAttribute($value): void
+    {
+        $this->attributes['domicilio'] = $value !== null
+            ? trim(preg_replace('/\s+/', ' ', $value))
+            : null;
+    }
+
     /**
      * Filtro principal: búsqueda global + ordenamiento.
      *
@@ -135,6 +143,7 @@ class Operador extends Model
 
                    // Contacto existentes
                    ->orWhere('operadores.telefono', 'like', $like)
+                   ->orWhere('operadores.domicilio', 'like', $like)
                    ->orWhere('operadores.contacto_emergencia_nombre', 'like', $like)
                    ->orWhere('operadores.contacto_emergencia_tel', 'like', $like)
                    ->orWhere('operadores.tipo_sangre', 'like', $like)

@@ -88,16 +88,16 @@
                                                 </div>
                                             </div>
 
-                                            <div class="col-12 col-md-6">
-                                                <label for="apellido_materno" class="form-label">Apellido materno</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
-                                                    <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
-                                                           class="form-control @error('apellido_materno') is-invalid @enderror"
-                                                           value="{{ old('apellido_materno') }}" placeholder="(opcional)">
-                                                    @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
+                        <div class="col-12 col-md-6">
+                            <label for="apellido_materno" class="form-label">Apellido materno</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
+                                <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
+                                       class="form-control @error('apellido_materno') is-invalid @enderror"
+                                       value="{{ old('apellido_materno') }}" placeholder="(opcional)">
+                                @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
                                         </div>
                                     </div>
 
@@ -127,6 +127,19 @@
                                                            class="form-control @error('telefono') is-invalid @enderror"
                                                            value="{{ old('telefono') }}" placeholder="+52 777 123 4567">
                                                     @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            {{-- ===== NUEVO: DOMICILIO ===== --}}
+                                            <div class="col-12">
+                                                <label for="domicilio" class="form-label">Domicilio</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">home_pin</span></span>
+                                                    <input id="domicilio" name="domicilio" type="text"
+                                                           class="form-control @error('domicilio') is-invalid @enderror"
+                                                           value="{{ old('domicilio') }}"
+                                                           placeholder="Calle, número, colonia, ciudad, estado, C.P.">
+                                                    @error('domicilio') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                                 </div>
                                             </div>
                                         </div>
@@ -322,58 +335,7 @@
         </div>
     </div>
 
-    {{-- MODAL DE CREDENCIALES (se muestra si viene en sesión) --}}
-    @if(session('created') && session('email') && session('password'))
-        <div class="modal fade" id="createdModal" tabindex="-1" aria-labelledby="createdModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 class="modal-title h4" id="createdModalLabel">
-                            <span class="material-symbols-outlined me-2 text-success align-middle">check_circle</span>Operador creado exitosamente
-                        </h3>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="mb-3">Guarda estas credenciales de acceso:</p>
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="fw-semibold">Correo:</span>
-                                    <code class="select-all">{{ session('email') }}</code>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="fw-semibold">Contraseña:</span>
-                                    <code id="gen-pass" class="select-all">{{ session('password') }}</code>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary"
-                                onclick="navigator.clipboard.writeText(document.getElementById('gen-pass').innerText)">
-                            <span class="material-symbols-outlined me-1 align-middle">content_copy</span>Copiar contraseña
-                        </button>
-                        <a href="{{ route('dashboard') }}" class="btn btn-primary">Aceptar</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Auto mostrar el modal al cargar --}}
-        <script>
-            document.addEventListener('DOMContentLoaded', function(){
-                try {
-                    var modalEl = document.getElementById('createdModal');
-                    if (modalEl) {
-                        var modal = new bootstrap.Modal(modalEl);
-                        modal.show();
-                    }
-                } catch (e) {}
-            });
-        </script>
-    @endif
-
-    {{-- =============== JS: manejo de selección y previsualización de fotos =============== --}}
+    {{-- ===== JS: selección y previsualización de fotos ===== --}}
     <script>
         (function () {
             const MAX_FILES = 12;
@@ -385,7 +347,6 @@
             const count = document.getElementById('fotos-count');
             const btnClear = document.getElementById('btn-clear-fotos');
 
-            /** Lista viva de archivos seleccionados (mutable) */
             let selectedFiles = [];
 
             function updateInputFiles() {
@@ -402,7 +363,7 @@
                     const url = URL.createObjectURL(file);
 
                     const col = document.createElement('div');
-                    col.className = 'col-6 col-md-6 col-xl-12'; // mejor ajuste en columna derecha angosta
+                    col.className = 'col-6 col-md-6 col-xl-12';
 
                     const card = document.createElement('div');
                     card.className = 'card card-sm';
@@ -448,10 +409,10 @@
                     const typeOk = /^image\//i.test(f.type);
                     const sizeOk = f.size <= MAX_SIZE;
 
-                    if (!typeOk || !sizeOk) { continue; }
+                    if (!typeOk || !sizeOk) continue;
 
                     const dup = selectedFiles.some(sf => sf.name === f.name && sf.size === f.size && sf.lastModified === f.lastModified);
-                    if (dup) { continue; }
+                    if (dup) continue;
 
                     accepted.push(f);
                 }
@@ -477,7 +438,6 @@
                 renderPreviews();
             });
 
-            // Soporte drag & drop al grid
             grid?.addEventListener('dragover', (e) => { e.preventDefault(); grid.classList.add('border', 'border-primary'); });
             grid?.addEventListener('dragleave', () => grid.classList.remove('border', 'border-primary'));
             grid?.addEventListener('drop', (e) => {
@@ -487,4 +447,16 @@
             });
         })();
     </script>
+
+    {{-- ===== NUEVO: abrir confirmación en nueva pestaña (sin modal) ===== --}}
+    @if(session('created') && session('email') && session('password'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function(){
+                try {
+                    // Ajusta el nombre de ruta si tu ruta difiere
+                    window.open(@json(route('operadores.confirmacion')), '_blank');
+                } catch (e) {}
+            });
+        </script>
+    @endif
 </x-app-layout>

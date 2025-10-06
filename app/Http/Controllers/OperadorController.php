@@ -8,7 +8,6 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
@@ -87,17 +86,20 @@ class OperadorController extends Controller
      * Persiste un operador nuevo (crea también el User ligado) y guarda sus fotos.
      *
      * Flujo:
-     *   1) Valida datos, email único y (opcionalmente) fotos.
+     *   1) Normaliza mayúsculas y valida datos.
      *   2) Crea User + Operador dentro de transacción.
      *   3) Guarda fotos (fuera de transacción).
      *   4) Redirige con modal de credenciales.
      */
     public function store(Request $request)
     {
-        // (1) Validación de campos del Operador
+        // (0) Normaliza a MAYÚSCULAS (antes de validar) — incluye ESTADO_CIVIL
+        $this->normalizeRequestToUpper($request);
+
+        // (1) Validación de campos del Operador (incluye DOMICILIO)
         $data = $this->validateOperador($request, isUpdate: false, operador: null);
 
-        // CAMBIO: Aceptar cualquier correo electrónico válido (sin restringir dominio)
+        // Email: aceptar cualquier dominio válido. No se fuerza a mayúsculas.
         $request->validate([
             'email' => ['required', 'string', 'email:rfc', Rule::unique('users', 'email')],
         ]);
@@ -107,11 +109,12 @@ class OperadorController extends Controller
 
         // (2) Crear User + Operador dentro de transacción
         $payload = DB::transaction(function () use ($request, $data) {
-            $passwordPlain = Str::password(12);
+            $passwordPlain = Str::password(8, letters: true, numbers: true, symbols: false);
 
             $user = User::create([
-                'name'     => trim(($data['nombre'] ?? '') . ' ' . ($data['apellido_paterno'] ?? '') . ' ' . ($data['apellido_materno'] ?? '')),
-                'email'    => $request->string('email')->toString(),
+                // Nombre visible en User también en MAYÚSCULAS
+                'name'     => Str::upper(trim(($data['nombre'] ?? '') . ' ' . ($data['apellido_paterno'] ?? '') . ' ' . ($data['apellido_materno'] ?? ''))),
+                'email'    => $request->string('email')->toString(), // sin tocar mayúsculas/minúsculas
                 'password' => \Hash::make($passwordPlain),
             ]);
 
@@ -130,14 +133,17 @@ class OperadorController extends Controller
         $this->saveUploadedPhotos($request, $payload['operador']->id);
 
         // (4) Redirección con modal de credenciales
-        return redirect()
-            ->route('operadores.create')
-            ->with([
-                'success'  => 'Operador creado correctamente.',
-                'created'  => true,
-                'email'    => $payload['user']->email,
-                'password' => $payload['passwordPlain'],
-            ]);
+        // (4) Redirección: la pestaña NUEVA irá a confirmación
+return redirect()
+    ->route('operadores.confirmacion')
+    ->with([
+        'created'  => true,
+        'email'    => $payload['user']->email,
+        'password' => $payload['passwordPlain'],
+        // opcional:
+        'success'  => 'Operador creado correctamente.',
+    ]);
+
     }
 
     /**
@@ -162,23 +168,25 @@ class OperadorController extends Controller
      * Actualiza datos del Operador, permite borrar fotos marcadas y subir nuevas.
      *
      * Flujo:
-     *   1) Validar datos del operador.
-     *   2) Actualizar operador.
-     *   3) (Opcional) actualizar email del User ligado.
+     *   1) Normaliza mayúsculas y valida datos.
+     *   2) Actualiza operador.
+     *   3) (Opcional) actualiza email del User ligado.
      *   4) Borrar fotos marcadas (BD + archivo).
      *   5) Validar/subir nuevas fotos.
      */
     public function update(Request $request, Operador $operador)
     {
-        // (1) Validación de campos (ignorando unique de CURP/RFC en este operador)
+        // (0) Normaliza a MAYÚSCULAS (antes de validar) — incluye ESTADO_CIVIL
+        $this->normalizeRequestToUpper($request);
+
+        // (1) Validación de campos (ignorando unique de CURP/RFC en este operador) — incluye DOMICILIO
         $data = $this->validateOperador($request, isUpdate: true, operador: $operador);
 
         // (2) Actualizar modelo
         $operador->update($data);
 
-        // (3) Actualizar correo del User (opcional)
+        // (3) Actualizar correo del User (opcional, sin cambiar mayúsculas/minúsculas)
         if ($request->filled('email') && $operador->user) {
-            // CAMBIO: Aceptar cualquier correo válido, sin dominio específico
             $request->validate([
                 'email' => ['nullable', 'string', 'email:rfc', Rule::unique('users', 'email')->ignore($operador->user->id)],
             ]);
@@ -213,11 +221,6 @@ class OperadorController extends Controller
 
     /**
      * Elimina al Operador, su User asociado y todas sus fotos con limpieza de carpetas.
-     *
-     * Flujo:
-     *   1) Cargar relaciones y captar rutas/ID para limpieza posterior.
-     *   2) Transacción: borrar filas de fotos, operador y usuario.
-     *   3) Fuera de transacción: borrar archivos y directorios vacíos.
      */
     public function destroy(Operador $operador)
     {
@@ -245,7 +248,54 @@ class OperadorController extends Controller
 
         return redirect()
             ->route('operadores.index')
-            ->with('success', 'Operador, usuario y carpetas de fotos eliminados correctamente.');
+            ->with('success', 'Operador eliminado correctamente.');
+    }
+
+    /**
+     * Normaliza el Request para que ciertos campos queden en MAYÚSCULAS (y con espacios colapsados).
+     * No altera email ni teléfonos.
+     */
+    private function normalizeRequestToUpper(Request $request): void
+    {
+        // Llaves a forzar MAYÚSCULAS (agrega/quita según tu modelo)
+        // OJO: ESTADO_CIVIL se normaliza a MAYÚSCULAS aquí.
+        $upperKeys = [
+            'nombre',
+            'apellido_paterno',
+            'apellido_materno',
+            'contacto_emergencia_nombre',
+            'contacto_emergencia_parentesco',
+            'contacto_emergencia_ubicacion',
+            'tipo_sangre',
+            'estado_civil',
+            'curp',
+            'rfc',
+            // NOTA: "domicilio" lo dejamos sin upper por si quieres respetar minúsculas/mayúsculas del usuario.
+            // Si deseas que sea en mayúsculas, agrega 'domicilio' aquí.
+        ];
+
+        $normalize = [];
+        foreach ($upperKeys as $key) {
+            if ($request->has($key)) {
+                $val = (string) $request->input($key);
+                // Trim y colapsar espacios múltiples
+                $val = trim(preg_replace('/\s+/u', ' ', $val) ?? '');
+                // MAYÚSCULAS UTF-8
+                $val = Str::upper($val);
+                $normalize[$key] = $val;
+            }
+        }
+
+        // También limpiamos domicilio (sin upper): trim + colapsar espacios
+        if ($request->has('domicilio')) {
+            $dom = (string) $request->input('domicilio');
+            $dom = trim(preg_replace('/\s+/u', ' ', $dom) ?? '');
+            $normalize['domicilio'] = $dom;
+        }
+
+        if (!empty($normalize)) {
+            $request->merge($normalize);
+        }
     }
 
     /**
@@ -258,28 +308,6 @@ class OperadorController extends Controller
      */
     private function validateOperador(Request $request, bool $isUpdate, ?Operador $operador = null): array
     {
-        // --- Normalización ligera antes de validar ---
-        $normalize = [];
-
-        if ($request->has('curp')) {
-            $normalize['curp'] = strtoupper(trim((string) $request->input('curp')));
-        }
-        if ($request->has('rfc')) {
-            $normalize['rfc'] = strtoupper(trim((string) $request->input('rfc')));
-        }
-        if ($request->has('estado_civil')) {
-            $normalize['estado_civil'] = strtolower(trim((string) $request->input('estado_civil')));
-        }
-        if ($request->has('contacto_emergencia_parentesco')) {
-            $normalize['contacto_emergencia_parentesco'] = trim((string) $request->input('contacto_emergencia_parentesco'));
-        }
-        if ($request->has('contacto_emergencia_ubicacion')) {
-            $normalize['contacto_emergencia_ubicacion'] = trim((string) $request->input('contacto_emergencia_ubicacion'));
-        }
-        if (!empty($normalize)) {
-            $request->merge($normalize);
-        }
-
         $ignoreId = $operador?->id;
 
         // Nota: el email se valida aparte (en store/update) porque pertenece al User.
@@ -289,22 +317,25 @@ class OperadorController extends Controller
             'apellido_paterno'            => ['required', 'string', 'max:255'],
             'apellido_materno'            => ['nullable', 'string', 'max:255'],
 
-            // Campos adicionales (opcionales existentes)
+            // Contacto / datos existentes
             'telefono'                    => ['nullable', 'string', 'max:20'],
             'contacto_emergencia_nombre'  => ['nullable', 'string', 'max:255'],
             'contacto_emergencia_tel'     => ['nullable', 'string', 'max:20'],
             'tipo_sangre'                 => ['nullable', 'string', 'max:5'],
 
-            // ===== Nuevos campos =====
+            // ===== NUEVO: DOMICILIO =====
+            'domicilio'                   => ['nullable', 'string', 'max:255'],
+
+            // ===== Nuevos campos (validados en MAYÚSCULAS) =====
             'estado_civil' => [
                 'nullable',
-                Rule::in(['soltero','casado','viudo','divorciado']),
+                Rule::in(['SOLTERO','CASADO','VIUDO','DIVORCIADO']),
             ],
             'curp' => [
                 'nullable',
                 'string',
                 'size:18',
-                // Patrón simple (18 alfanumérico en mayúsculas); evitamos uno ultra-estricto para no bloquear casos reales.
+                // 18 alfanumérico en MAYÚSCULAS
                 'regex:/^[A-ZÑ0-9]{18}$/',
                 Rule::unique('operadores', 'curp')->ignore($ignoreId),
             ],
@@ -313,7 +344,7 @@ class OperadorController extends Controller
                 'string',
                 'min:12',
                 'max:13',
-                // RFC PM (12) o PF (13): 3-4 letras (&/Ñ permitidas) + 6 dígitos fecha + 3 alfanum.
+                // RFC PM (12) o PF (13) en MAYÚSCULAS: 3-4 letras (&/Ñ permitidas) + 6 dígitos fecha + 3 alfanum.
                 'regex:/^([A-ZÑ&]{3,4})\d{6}[A-Z0-9]{3}$/',
                 Rule::unique('operadores', 'rfc')->ignore($ignoreId),
             ],
@@ -323,13 +354,13 @@ class OperadorController extends Controller
             'user_id.exists'                => 'El usuario seleccionado no es válido.',
             'nombre.required'               => 'El nombre es obligatorio.',
             'apellido_paterno.required'     => 'El apellido paterno es obligatorio.',
-            'estado_civil.in'               => 'El estado civil debe ser: soltero, casado, viudo o divorciado.',
+            'estado_civil.in'               => 'El estado civil debe ser: SOLTERO, CASADO, VIUDO o DIVORCIADO.',
             'curp.size'                     => 'La CURP debe tener 18 caracteres.',
             'curp.regex'                    => 'La CURP debe ser alfanumérica en mayúsculas (18 chars).',
             'curp.unique'                   => 'La CURP ya está registrada para otro operador.',
             'rfc.min'                       => 'El RFC debe tener entre 12 y 13 caracteres.',
             'rfc.max'                       => 'El RFC debe tener entre 12 y 13 caracteres.',
-            'rfc.regex'                     => 'El RFC no cumple el formato esperado.',
+            'rfc.regex'                     => 'El RFC no cumple el formato esperado (usa mayúsculas).',
             'rfc.unique'                    => 'El RFC ya está registrado para otro operador.',
         ]);
     }
@@ -400,7 +431,7 @@ class OperadorController extends Controller
         $ext       = $file->getClientOriginalExtension();
 
         return $timestamp . '_' . $operadorId . '_' . $uuid . '.' . $ext;
-    }
+        }
 
     /**
      * Elimina el usuario completamente, limpiando tokens y roles si están disponibles.

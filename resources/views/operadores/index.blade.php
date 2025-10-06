@@ -64,7 +64,7 @@
             // 1) Identidad
             'nombre','apellido_paterno','apellido_materno',
             // 2) Contacto básico
-            'telefono',
+            'telefono','domicilio',
             // 3) Datos personales
             'estado_civil','tipo_sangre',
             // 4) Identificadores oficiales
@@ -88,6 +88,7 @@
             'apellido_paterno'               => 'Apellido paterno',
             'apellido_materno'               => 'Apellido materno',
             'telefono'                       => 'Teléfono',
+            'domicilio'                      => 'Domicilio',
             'contacto_emergencia_nombre'     => 'Contacto de emergencia',
             'contacto_emergencia_tel'        => 'Tel. emergencia',
             'tipo_sangre'                    => 'Tipo de sangre',

@@ -134,6 +134,19 @@
                                                     @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                                 </div>
                                             </div>
+
+                                            {{-- ===== NUEVO: DOMICILIO ===== --}}
+                                            <div class="col-12">
+                                                <label for="domicilio" class="form-label">Domicilio</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">home_pin</span></span>
+                                                    <input id="domicilio" name="domicilio" type="text"
+                                                           class="form-control @error('domicilio') is-invalid @enderror"
+                                                           value="{{ old('domicilio', $operador->domicilio) }}"
+                                                           placeholder="Calle, número, colonia, ciudad, estado, C.P.">
+                                                    @error('domicilio') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 

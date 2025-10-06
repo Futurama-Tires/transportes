@@ -296,6 +296,9 @@ Route::middleware('auth')->group(function () {
     // (Opcional) Recalcular costo_tanque_lleno después de cambiar precios
     Route::post('/precios-combustible/recalcular-tanques', [PrecioCombustibleController::class, 'recalc'])
         ->name('precios-combustible.recalc');
+
+    Route::view('/operadores/confirmacion', 'operadores.confirmacion')
+    ->name('operadores.confirmacion');
     });
 });
 

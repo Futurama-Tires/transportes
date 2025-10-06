@@ -1,14 +1,20 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
+    <meta charset="utf-8">
     <title>Credenciales del operador</title>
+    <meta name="robots" content="noindex">
 </head>
 <body>
     <h1>Operador creado exitosamente</h1>
 
-    <p><strong>Correo:</strong> {{ $email }}</p>
-    <p><strong>Contraseña generada:</strong> {{ $password }}</p>
+    @if(session('email') && session('password'))
+        <p><strong>Correo:</strong> {{ session('email') }}</p>
+        <p><strong>Contraseña generada:</strong> {{ session('password') }}</p>
+    @else
+        <p>No hay datos de confirmación disponibles.</p>
+    @endif
 
-    <a href="{{ route('operadores.create') }}">Crear otro operador</a>
+    <p><a href="{{ route('operadores.create') }}">Crear otro operador</a></p>
 </body>
 </html>
