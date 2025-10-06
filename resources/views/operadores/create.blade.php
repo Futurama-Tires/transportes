@@ -57,7 +57,6 @@
                                 <h3 class="card-title mb-0 d-flex align-items-center gap-2">
                                     <span class="material-symbols-outlined">badge</span> Datos del operador
                                 </h3>
-                                <div class="card-subtitle">&nbsp;Completa la información requerida.</div>
                             </div>
 
                             <div class="card-body pt-3">
@@ -271,7 +270,7 @@
                             </div>
 
                             <div class="card-body">
-                                <div class="form-hint mb-3">Máx 5&nbsp;MB por archivo. Máx 12 archivos.</div>
+                                <div class="form-hint mb-3">Máx 5&nbsp;MB por archivo.</div>
 
                                 <div class="row g-3 align-items-end">
                                     <div class="col-12">

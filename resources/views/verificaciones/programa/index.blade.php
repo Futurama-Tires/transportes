@@ -18,12 +18,15 @@
         <div class="page-header d-print-none mb-3">
             <div class="row align-items-end">
                 <div class="col">
+                    <br>
                     <h2 class="page-title text-dark">Programa de verificaciones</h2>
                     <div class="page-subtitle text-dark">
                         Separado por <strong>semestre</strong> y <strong>terminación de placa</strong>.
                     </div>
                 </div>
+                
                 <div class="col-auto ms-auto">
+                    <br>
                     <form method="get" class="row g-2">
                         <div class="col-auto">
                             <label class="form-label text-dark">Año</label>
@@ -305,4 +308,8 @@
             document.getElementById('mv-comentarios').value = comentarios;
         });
     </script>
+
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
 </x-app-layout>

@@ -10,12 +10,8 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <h2 class="page-title mb-0 d-flex align-items-center gap-2">
-                            <i class="ti ti-steering-wheel"></i>
                             Agregar Vehículo
                         </h2>
-                        <div class="text-secondary small mt-1">
-                            Completa la información del vehículo. Los campos con <span class="text-danger">*</span> son obligatorios.
-                        </div>
                     </div>
                     <div class="col-auto ms-auto">
                         <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-secondary">
@@ -48,10 +44,6 @@
                             <i class="ti ti-car"></i>
                             Datos del vehículo
                         </h3>
-                        <span class="badge bg-primary-lt">
-                            <i class="ti ti-file-description me-1"></i>
-                            Alta de registro
-                        </span>
                     </div>
 
                     <div class="card-body">
@@ -219,7 +211,7 @@
                                 <label for="poliza_hdi" class="form-label">Póliza HDI</label>
                                 <div class="input-icon">
                                     <span class="input-icon-addon">
-                                        <i class="ti ti-shield-check"></i>
+                                        <i class="ti ti-shield"></i>
                                     </span>
                                     <input id="poliza_hdi" type="text" name="poliza_hdi" value="{{ old('poliza_hdi') }}" class="form-control @error('poliza_hdi') is-invalid @enderror" placeholder="Número de póliza">
                                 </div>
@@ -256,9 +248,9 @@
                     <div class="card-body border-top">
                         <h3 class="card-title d-flex align-items-center gap-2">
                             <i class="ti ti-photo"></i>
-                            Fotos (opcional)
+                            Fotografías
                         </h3>
-                        <div class="form-hint mb-2">Puedes seleccionar varias. JPG, JPEG, PNG o WEBP. Máx 8MB c/u.</div>
+                        <div class="form-hint mb-2">Máx 8MB c/u.</div>
                         <div class="input-group">
                             <span class="input-group-text"><i class="ti ti-upload"></i></span>
                             <input type="file" name="fotos[]" accept="image/*" multiple class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror">
@@ -280,12 +272,6 @@
                     </div>
                 </div>
             </form>
-
-            <div class="text-secondary small mt-3">
-                <i class="ti ti-info-circle me-1"></i>
-                Nota: si los campos de fecha están almacenados como texto, el selector enviará el valor en formato <code>YYYY-MM-DD</code>.
-                Considera migrarlos a tipo <code>DATE</code> para validaciones y reportes más consistentes.
-            </div>
 
             {{-- FOOTER --}}
             <div class="text-center text-secondary small py-4">

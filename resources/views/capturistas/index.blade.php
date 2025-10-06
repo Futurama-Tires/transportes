@@ -61,7 +61,6 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <h2 class="page-title mb-0">Gestión de Capturistas</h2>
-                        <div class="text-secondary small mt-1">Busca, filtra y administra a tus capturistas.</div>
                     </div>
                     <div class="col-auto ms-auto">
                         <a href="{{ route('capturistas.create') }}" class="btn btn-primary">
@@ -103,7 +102,7 @@
                                         name="search"
                                         value="{{ $search }}"
                                         class="form-control"
-                                        placeholder="Buscar por nombre, apellidos o correo…"
+                                        placeholder="Buscar…"
                                         aria-label="Término de búsqueda"
                                         aria-describedby="icon-search"
                                     >

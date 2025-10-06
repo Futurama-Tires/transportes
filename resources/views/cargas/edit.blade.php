@@ -9,7 +9,7 @@
         $estadoActual = $carga->estado ?? 'Pendiente';
         $estadoValue  = old('estado', $estadoActual);
 
-        // ✅ Precomputar items de galería (sin arrow functions ni coalesce) para evitar errores de compilación de Blade/PHP
+        // (Preparado por si luego quieres revivir una galería; actualmente no se usa)
         $galleryItems = [];
         $fotosCol = isset($carga->fotos) ? $carga->fotos : collect();
         $fotosCol = method_exists($fotosCol, 'values') ? $fotosCol->values() : $fotosCol;
@@ -30,16 +30,8 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <h2 class="page-title mb-0">Editar Carga de Combustible</h2>
-                        <div class="text-secondary small mt-1">Actualiza los datos y guarda los cambios.</div>
                     </div>
                     <div class="col-auto ms-auto d-flex align-items-center gap-2">
-                        {{-- Badge de estado visible en header (se actualizará en vivo cuando cambie el select) --}}
-                        @if($estadoActual === 'Aprobada')
-                            <span id="headerEstadoBadge" class="badge bg-green-lt">Aprobada</span>
-                        @else
-                            <span id="headerEstadoBadge" class="badge bg-yellow-lt">Pendiente</span>
-                        @endif
-
                         <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">
                             <i class="ti ti-arrow-left me-1"></i> Volver a la lista
                         </a>
@@ -80,11 +72,11 @@
                         <div class="card">
                             <div class="card-header justify-content-between">
                                 <h3 class="card-title">Datos de la carga #{{ $carga->id }}</h3>
-                                {{-- ❌ Se eliminó el botón/form de "Aprobar" para evitar formularios anidados --}}
+                                {{-- (Sin botón extra de aprobar aquí) --}}
                             </div>
                             <div class="card-body">
                                 <div class="row g-3">
-                                    {{-- Estado (select dentro del formulario principal, con colores) --}}
+                                    {{-- Estado --}}
                                     <div class="col-12 col-md-4">
                                         <label class="form-label d-flex align-items-center gap-2">
                                             Estado
@@ -189,7 +181,7 @@
 
                                     {{-- Vehículo --}}
                                     <div class="col-12 col-lg-8">
-                                        <label class="form-label">Vehículo (Unidad / Placa) <span class="text-danger">*</span></label>
+                                        <label class="form-label">Vehículo<span class="text-danger">*</span></label>
                                         <select name="vehiculo_id" class="form-select @error('vehiculo_id') is-invalid @enderror" required>
                                             <option value="">Seleccione…</option>
                                             @foreach($vehiculos as $v)
@@ -310,7 +302,7 @@
                 </div>
             </form>
 
-            {{-- DELETE oculto --}}
+            {{-- DELETE oculto (CORREGIDO: apunta a cargas.destroy) --}}
             <form id="delete-carga-{{ $carga->id }}"
                   action="{{ route('cargas.destroy', $carga) }}"
                   method="POST" class="d-none">
@@ -318,16 +310,14 @@
                 @method('DELETE')
             </form>
 
-            {{-- ===== GALERÍA DE FOTOS DE LA CARGA ===== --}}
+            {{-- ===== FOTOS DE LA CARGA (sin galería flotante) ===== --}}
             <div class="row row-cards mt-3">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
                             <div class="d-flex align-items-center gap-2">
-                                <h3 class="card-title mb-0">Fotos de la carga #{{ $carga->id }}</h3>
-                                <button id="openGalleryBtn" type="button" class="btn btn-dark btn-sm d-none">
-                                    <i class="ti ti-slideshow me-1"></i> Ver galería
-                                </button>
+                                <h3 class="card-title mb-0">Fotografías</h3>
+                                {{-- (Se eliminó el botón "Ver galería") --}}
                             </div>
 
                             <div class="d-none d-md-block">
@@ -369,7 +359,7 @@
                             </div>
 
                             @if ($fotos->isEmpty())
-                                <div class="text-secondary">No hay fotos asociadas todavía.</div>
+                                <div class="text-secondary">No hay fotografías asociadas todavía.</div>
                             @else
                                 <div id="cargaPhotosGrid" class="row g-3">
                                     @foreach ($fotos as $idx => $foto)
@@ -380,9 +370,8 @@
                                                     <div class="ratio ratio-4x3 rounded overflow-hidden border">
                                                         <a href="{{ $url }}"
                                                            class="carga-photo-link"
-                                                           data-gallery-index="{{ $idx }}"
-                                                           title="Ver imagen ({{ strtoupper($foto->tipo) }})"
-                                                           target="_blank">
+                                                           title="Abrir imagen ({{ strtoupper($foto->tipo) }})"
+                                                           target="_blank" rel="noopener">
                                                             <img src="{{ $url }}"
                                                                  alt="{{ $foto->tipo }}"
                                                                  class="w-100 h-100"
@@ -417,12 +406,6 @@
                                 </div>
                             @endif
                         </div>
-
-                        <div class="card-footer text-muted small">
-                            Las imágenes se sirven a través de una ruta protegida. 
-                            Si no se muestran, verifica que la sesión esté activa y que la ruta <code>cargas.fotos.show</code> tenga middleware de autenticación.
-                        </div>
-
                     </div>
                 </div>
             </div>
@@ -436,7 +419,6 @@
 
     {{-- ===== ESTILOS PARA EL SELECT DE ESTADO ===== --}}
     <style>
-        /* Realza el select según el estado seleccionado */
         .estado-select.pendiente {
             background-color: var(--tblr-yellow-lt, #fff7e6) !important;
             border-color: var(--tblr-yellow, #f59f00) !important;
@@ -451,76 +433,12 @@
         }
     </style>
 
-    {{-- ===== MODAL GALERÍA ===== --}}
-    <style>
-        #galleryModal .modal-dialog { max-width: min(96vw, 1200px); }
-        #galleryModal .modal-content { background: #0b0b0b; color: #fff; border: 0; }
-        #galleryModal .modal-header { border: 0; background: transparent; }
-        #galleryModal .btn-close { filter: invert(1); opacity: .9; }
-        #galleryModal .modal-body { padding: 0; background: #000; }
-        #galleryModal .carousel,
-        #galleryModal .carousel-inner { height: 82vh; }
-        @media (max-width: 768px){
-            #galleryModal .carousel,
-            #galleryModal .carousel-inner { height: 75vh; }
-        }
-        #galleryModal .carousel-item { height: 100%; }
-        #galleryModal .carousel-item.active,
-        #galleryModal .carousel-item-next,
-        #galleryModal .carousel-item-prev,
-        #galleryModal .carousel-item-start,
-        #galleryModal .carousel-item-end {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        #galleryModal .lightbox-img {
-          max-height: 80vh; width: auto; max-width: 100%;
-          object-fit: contain; user-select: none;
-        }
-        #galleryModal .carousel-control-prev,
-        #galleryModal .carousel-control-next { filter: drop-shadow(0 0 6px rgba(0,0,0,.6)); }
-        #galleryModal .carousel-control-prev-icon,
-        #galleryModal .carousel-control-next-icon { width: 3rem; height: 3rem; }
-        #galleryModal .thumbs { display:flex; gap:.5rem; overflow-x:auto; scrollbar-width:thin; padding:.75rem 1rem 1rem; background:#0b0b0b; }
-        #galleryModal .thumb { flex:0 0 auto; width:76px; height:56px; border-radius:.5rem; overflow:hidden; border:2px solid transparent; cursor:pointer; opacity:.9; }
-        #galleryModal .thumb:hover { opacity:1; }
-        #galleryModal .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-        #galleryModal .thumb.active { border-color:#5b9cff; }
-        #galleryModal .caption-badge{ position:absolute; left:1rem; top:1rem; z-index:2; }
-    </style>
-
-    <div class="modal modal-blur fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title h4" id="galleryModalLabel">
-                        <i class="ti ti-photo me-2"></i>Galería de fotos
-                    </h3>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body position-relative">
-                    <div id="galleryCarousel" class="carousel slide" data-bs-interval="false" data-bs-touch="true">
-                        <div class="carousel-inner" id="galleryInner"></div>
-                        <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
-                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Anterior</span>
-                        </button>
-                        <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
-                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Siguiente</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="thumbs" id="galleryThumbs"></div>
-            </div>
-        </div>
-    </div>
+    {{-- (Se eliminaron HTML/CSS/JS del modal de galería) --}}
 
     {{-- ===== SCRIPTS ===== --}}
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // ====== Estado UI (select coloreado + badges en tiempo real) ======
+        // Estado UI (select coloreado + badges en tiempo real)
         const estadoSelect = document.getElementById('estadoSelect');
         const headerBadge  = document.getElementById('headerEstadoBadge');
         const inlineBadge  = document.getElementById('inlineEstadoBadge');
@@ -529,11 +447,9 @@
             if (!estadoSelect) return;
             const v = estadoSelect.value === 'Aprobada' ? 'Aprobada' : 'Pendiente';
 
-            // Select coloreado
             estadoSelect.classList.remove('aprobada', 'pendiente');
             estadoSelect.classList.add(v === 'Aprobada' ? 'aprobada' : 'pendiente');
 
-            // Badges
             if (headerBadge) {
                 headerBadge.textContent = v;
                 headerBadge.classList.remove('bg-green-lt','bg-yellow-lt');
@@ -550,97 +466,7 @@
             applyEstadoStyles();
             estadoSelect.addEventListener('change', applyEstadoStyles, { passive: true });
         }
-
-        // ====== Galería ======
-        const getCarouselCtor = () => (window.bootstrap && window.bootstrap.Carousel) ? window.bootstrap.Carousel : (window.Carousel || null);
-        const getModalCtor    = () => (window.bootstrap && window.bootstrap.Modal)    ? window.bootstrap.Modal    : (window.Modal || null);
-
-        const openGalleryBtn    = document.getElementById('openGalleryBtn');
-        const galleryModalEl    = document.getElementById('galleryModal');
-        const galleryCarouselEl = document.getElementById('galleryCarousel');
-        const galleryInner      = document.getElementById('galleryInner');
-        const galleryThumbs     = document.getElementById('galleryThumbs');
-
-        // JSON seguro desde PHP (sin closures ni sintaxis moderna en Blade)
-        const galleryItems = @json($galleryItems);
-
-        if (Array.isArray(galleryItems) && galleryItems.length > 0) {
-            if (openGalleryBtn) openGalleryBtn.classList.remove('d-none');
-        }
-
-        function updateThumbsActive(i){
-            Array.prototype.forEach.call(galleryThumbs.querySelectorAll('.thumb'), function(el, idx){
-                if (idx === i) el.classList.add('active'); else el.classList.remove('active');
-            });
-        }
-
-        function buildCarouselSlides(startIndex){
-            if (typeof startIndex !== 'number') startIndex = 0;
-            galleryInner.innerHTML = '';
-            galleryThumbs.innerHTML = '';
-
-            galleryItems.forEach(function(it, i){
-                var item = document.createElement('div');
-                item.className = 'carousel-item' + (i === startIndex ? ' active' : '');
-                item.setAttribute('data-index', i);
-                item.innerHTML =
-                    '<div class="position-relative h-100 w-100 d-flex align-items-center justify-content-center">' +
-                        '<span class="badge bg-primary caption-badge">' + (it.tipo || '') + '</span>' +
-                        '<img src="' + it.src + '" class="lightbox-img" alt="Foto ' + (i+1) + ' — ' + (it.tipo || '') + '">' +
-                    '</div>';
-                galleryInner.appendChild(item);
-
-                var th = document.createElement('button');
-                th.type = 'button';
-                th.className = 'thumb' + (i === startIndex ? ' active' : '');
-                th.setAttribute('data-index', i);
-                th.innerHTML = '<img src="' + it.src + '" alt="Miniatura ' + (i+1) + '">';
-                th.addEventListener('click', function(){
-                    var Carousel = getCarouselCtor();
-                    if (!Carousel) return;
-                    var car = Carousel.getInstance(galleryCarouselEl);
-                    if (car && typeof car.to === 'function') { car.to(i); }
-                    updateThumbsActive(i);
-                });
-                galleryThumbs.appendChild(th);
-            });
-
-            var Carousel = getCarouselCtor();
-            if (Carousel) {
-                var existing = Carousel.getInstance(galleryCarouselEl);
-                if (existing && typeof existing.dispose === 'function') existing.dispose();
-                var carousel = new Carousel(galleryCarouselEl, { interval: false, ride: false, wrap: true, keyboard: true, touch: true });
-
-                galleryCarouselEl.addEventListener('slid.bs.carousel', function(){
-                    var children = Array.prototype.slice.call(galleryInner.children);
-                    var idx = children.findIndex(function(el){ return el.classList.contains('active'); });
-                    updateThumbsActive(idx);
-                }, { passive: true });
-
-                if (startIndex > 0 && typeof carousel.to === 'function') carousel.to(startIndex);
-            }
-        }
-
-        function openGallery(startIndex){
-            if (!Array.isArray(galleryItems) || !galleryItems.length) return;
-            buildCarouselSlides(startIndex || 0);
-            var Modal = getModalCtor();
-            if (!Modal) return;
-            var modal = new Modal(galleryModalEl);
-            modal.show();
-        }
-
-        document.addEventListener('click', function(e){
-            var link = e.target.closest ? e.target.closest('.carga-photo-link[data-gallery-index]') : null;
-            if (!link) return;
-            e.preventDefault();
-            var idx = parseInt(link.getAttribute('data-gallery-index'), 10) || 0;
-            openGallery(idx);
-        });
-
-        if (openGalleryBtn) {
-            openGalleryBtn.addEventListener('click', function(){ openGallery(0); });
-        }
+        // No se intercepta el clic de .carga-photo-link; abre en nueva pestaña (target _blank)
     });
     </script>
 </x-app-layout>

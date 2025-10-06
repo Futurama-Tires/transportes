@@ -11,12 +11,11 @@
                         <h2 class="page-title mb-0 d-flex align-items-center gap-2">
                             Editar Vehículo
                         </h2>
-                        <div class="text-secondary small mt-1">Actualiza la información general del vehículo.</div>
                     </div>
                     <div class="col-auto ms-auto d-flex gap-2">
                         <a href="{{ route('vehiculos.tanques.index', $vehiculo) }}" class="btn btn-warning">
                             <i class="ti ti-gas-station me-1"></i>
-                            Editar capacidad del tanque
+                            Tanques de combustible
                         </a>
                         <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-secondary">
                             <i class="ti ti-arrow-left me-1"></i>
@@ -50,9 +49,6 @@
                             <i class="ti ti-car"></i>
                             Datos del vehículo
                         </h3>
-                        <span class="badge bg-azure-lt">
-                            <i class="ti ti-pencil me-1"></i> Edición
-                        </span>
                     </div>
 
                     <div class="card-body">
@@ -228,9 +224,9 @@
                     <div class="card-body border-top">
                         <h3 class="card-title d-flex align-items-center gap-2">
                             <i class="ti ti-photo-plus"></i>
-                            Agregar nuevas fotos
+                            Agregar fotografías
                         </h3>
-                        <div class="form-hint mb-2">JPG, JPEG, PNG o WEBP. Máx 8MB c/u.</div>
+                        <div class="form-hint mb-2">Máx 8MB c/u.</div>
                         <div class="input-group">
                             <span class="input-group-text"><i class="ti ti-upload"></i></span>
                             <input type="file" name="fotos[]" accept="image/*" multiple class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror">
@@ -256,7 +252,7 @@
                 <div class="card-header justify-content-between">
                     <h3 class="card-title d-flex align-items-center gap-2 mb-0">
                         <i class="ti ti-photo"></i>
-                        Fotos actuales
+                        Fotografías actuales
                     </h3>
                     <span class="badge bg-secondary-lt">
                         {{ $vehiculo->fotos->count() }} foto(s)
@@ -266,8 +262,7 @@
                     @if($vehiculo->fotos->isEmpty())
                         <div class="empty">
                             <div class="empty-icon"><i class="ti ti-photo-off"></i></div>
-                            <p class="empty-title">Este vehículo aún no tiene fotos</p>
-                            <p class="empty-subtitle text-secondary">Puedes subirlas desde la sección “Agregar nuevas fotos”.</p>
+                            <p class="empty-title">Este vehículo aún no tiene fotografías</p>
                         </div>
                     @else
                         <div class="row g-2">

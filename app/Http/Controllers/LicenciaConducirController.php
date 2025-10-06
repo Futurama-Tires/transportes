@@ -65,6 +65,7 @@ class LicenciaConducirController extends Controller
 
     /**
      * Crear licencia.
+     * Al finalizar, redirige al edit del Operador.
      */
     public function store(Request $request)
     {
@@ -73,9 +74,8 @@ class LicenciaConducirController extends Controller
         $licencia = LicenciaConducir::create($data);
 
         return redirect()
-            ->back()
-            ->with('success', 'Licencia creada correctamente.')
-            ->with('licencia_id', $licencia->id);
+            ->route('operadores.edit', $licencia->operador_id)
+            ->with('success', 'Licencia creada correctamente.');
     }
 
     /**
@@ -98,6 +98,7 @@ class LicenciaConducirController extends Controller
 
     /**
      * Actualizar licencia.
+     * Al finalizar, redirige al edit del Operador.
      */
     public function update(Request $request, LicenciaConducir $licencia)
     {
@@ -105,18 +106,20 @@ class LicenciaConducirController extends Controller
         $licencia->update($data);
 
         return redirect()
-            ->back()
+            ->route('operadores.edit', $licencia->operador_id)
             ->with('success', 'Licencia actualizada correctamente.');
     }
 
     /**
      * Eliminar licencia + archivos físicos.
+     * (Opcional) Tras eliminar, volvemos al edit del Operador.
      */
     public function destroy(LicenciaConducir $licencia)
     {
         $licencia->load('archivos');
         $paths = $licencia->archivos->pluck('ruta')->all();
         $dir   = self::BASE_DIR . '/' . $licencia->id;
+        $operadorId = $licencia->operador_id;
 
         DB::transaction(function () use ($licencia) {
             // Borra primero filas de archivos (por si tu FK no tiene cascade)
@@ -131,7 +134,9 @@ class LicenciaConducirController extends Controller
         }
         try { $disk->deleteDirectory($dir); } catch (\Throwable $e) {}
 
-        return redirect()->back()->with('success', 'Licencia y archivos asociados eliminados correctamente.');
+        return redirect()
+            ->route('operadores.edit', $operadorId)
+            ->with('success', 'Licencia y archivos asociados eliminados correctamente.');
     }
 
     /**

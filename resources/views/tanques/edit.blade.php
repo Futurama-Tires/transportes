@@ -9,11 +9,7 @@
             <div class="container-xl">
                 <div class="row g-2 align-items-center">
                     <div class="col">
-                        <div class="page-pretitle">
-                            <i class="ti ti-gas-station me-1"></i> Tanques de combustible
-                        </div>
                         <h2 class="page-title d-flex align-items-center gap-2 mb-0">
-                            <i class="ti ti-edit"></i>
                             Editar tanque de combustible
                         </h2>
 
@@ -37,10 +33,7 @@
                                 <i class="ti ti-arrow-left me-1"></i>
                                 Volver
                             </a>
-                            <a href="{{ route('vehiculos.edit', $vehiculo) }}" class="btn btn-outline-primary">
-                                <i class="ti ti-car me-1"></i>
-                                Editar vehículo
-                            </a>
+
                         </div>
                     </div>
                 </div>
@@ -50,16 +43,6 @@
                     <div class="col-auto">
                         <span class="badge bg-blue-lt">
                             <i class="ti ti-hash me-1"></i> Unidad: {{ $vehiculo->unidad ?? '—' }}
-                        </span>
-                    </div>
-                    <div class="col-auto">
-                        <span class="badge bg-azure-lt">
-                            <i class="ti ti-license me-1"></i> Placa: {{ $vehiculo->placa ?? '—' }}
-                        </span>
-                    </div>
-                    <div class="col-auto">
-                        <span class="badge bg-teal-lt">
-                            <i class="ti ti-map-pin me-1"></i> Ubicación: {{ $vehiculo->ubicacion ?? '—' }}
                         </span>
                     </div>
                 </div>
@@ -98,9 +81,6 @@
                                     <i class="ti ti-gauge"></i>
                                     Datos del tanque
                                 </h3>
-                                <span class="badge bg-amber-lt">
-                                    <i class="ti ti-pencil me-1"></i> Edición
-                                </span>
                             </div>
 
                             <div class="card-body">
@@ -129,7 +109,7 @@
                                                 $combActual = old('tipo_combustible', $tanque->tipo_combustible);
                                                 $combList = [
                                                     ['label'=>'Magna',   'icon'=>'flame'],
-                                                    ['label'=>'Diesel',  'icon'=>'engine'],
+                                                    ['label'=>'Diesel',  'icon'=>'flame'],
                                                     ['label'=>'Premium', 'icon'=>'flame'],
                                                 ];
                                             @endphp
@@ -150,7 +130,6 @@
                                             @endforeach
                                         </div>
                                         @error('tipo_combustible') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                        <div class="form-hint">Selecciona el combustible que carga este vehículo.</div>
                                     </div>
 
                                     {{-- Capacidad total (L) --}}
@@ -172,7 +151,7 @@
                                     {{-- Rendimiento (km/L) --}}
                                     <div class="col-md-6">
                                         <label for="rendimiento_estimado" class="form-label">
-                                            Rendimiento estimado (km/L)
+                                            Rendimiento
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="ti ti-road"></i></span>
@@ -215,7 +194,6 @@
                                                    readonly>
                                             <span class="input-group-text">km</span>
                                         </div>
-                                        <div class="form-hint">Se recalcula automáticamente al editar capacidad o rendimiento.</div>
                                     </div>
 
                                 </div>
@@ -228,33 +206,6 @@
                                 <button type="submit" class="btn btn-primary">
                                     <i class="ti ti-device-floppy me-1"></i> Guardar cambios
                                 </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Panel lateral con tips --}}
-                    <div class="col-12 col-lg-4">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title d-flex align-items-center gap-2 mb-0">
-                                    <i class="ti ti-bulb"></i> Consejos
-                                </h3>
-                            </div>
-                            <div class="card-body">
-                                <ul class="list-unstyled">
-                                    <li class="mb-3 d-flex">
-                                        <i class="ti ti-check me-2 text-teal"></i>
-                                        Usa el rendimiento promedio real cuando tengas historial suficiente.
-                                    </li>
-                                    <li class="mb-3 d-flex">
-                                        <i class="ti ti-check me-2 text-teal"></i>
-                                        Si cambias el tipo de combustible, revisa políticas y rutas.
-                                    </li>
-                                    <li class="mb-0 d-flex">
-                                        <i class="ti ti-check me-2 text-teal"></i>
-                                        El costo de tanque lleno ayuda a estimar presupuesto mensual.
-                                    </li>
-                                </ul>
                             </div>
                         </div>
                     </div>

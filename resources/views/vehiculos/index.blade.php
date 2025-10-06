@@ -42,7 +42,6 @@
                     <div class="row g-2 align-items-center">
                         <div class="col">
                             <h2 class="page-title mb-0">Gestión de Vehículos</h2>
-                            <div class="text-secondary small mt-1">Consulta, filtra y administra tu flota.</div>
                         </div>
                         <div class="col-auto ms-auto">
                             <a href="{{ route('vehiculos.create') }}" class="btn btn-primary">
@@ -81,7 +80,7 @@
                                             name="search"
                                             value="{{ request('search') }}"
                                             class="form-control"
-                                            placeholder="Buscar por: ID, Unidad, Placa, Serie, Año, Propietario, Pólizas…"
+                                            placeholder="Buscar..."
                                             aria-label="Término de búsqueda"
                                             aria-describedby="icon-search"
                                         >
@@ -287,7 +286,7 @@
                                         ];
                                     @endphp
                                     <tr>
-                                        <td class="text-nowrap text-center">{{ $loop->iteration }}</td>
+                                        <td class="text-nowrap text-center">{{ $vehiculos->firstItem() + $loop->index }}</td>
                                         <td class="text-nowrap">{{ $v->unidad ?? '—' }}</td>
                                         <td class="text-nowrap">{{ $v->placa ?? '—' }}</td>
                                         <td class="text-nowrap">{{ $v->serie ?? '—' }}</td>
@@ -600,5 +599,3 @@
     })();
     </script>
 </x-app-layout>
-
-

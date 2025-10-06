@@ -36,7 +36,6 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <h2 class="page-title mb-0">Cargas de Combustible</h2>
-                        <div class="text-secondary small mt-1">Consulta y analiza rendimientos.</div>
                     </div>
 
                     {{-- CTA principal --}}

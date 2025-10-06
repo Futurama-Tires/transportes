@@ -9,12 +9,8 @@
             <div class="container-xl">
                 <div class="row g-2 align-items-center">
                     <div class="col">
-                        <div class="page-pretitle">
-                            <i class="ti ti-gas-station me-1"></i> Tanque
-                        </div>
                         <h2 class="page-title d-flex align-items-center gap-2 mb-0">
-                            <i class="ti ti-circle-plus"></i>
-                            Agregar tanque — Vehículo {{ $vehiculo->unidad ?? '#'.$vehiculo->id }}
+                            Agregar tanque de combustible
                         </h2>
 
                         {{-- Breadcrumbs --}}
@@ -37,10 +33,6 @@
                                 <i class="ti ti-arrow-left me-1"></i>
                                 Volver
                             </a>
-                            <a href="{{ route('vehiculos.edit', $vehiculo) }}" class="btn btn-outline-primary">
-                                <i class="ti ti-car me-1"></i>
-                                Editar vehículo
-                            </a>
                         </div>
                     </div>
                 </div>
@@ -50,16 +42,6 @@
                     <div class="col-auto">
                         <span class="badge bg-blue-lt">
                             <i class="ti ti-hash me-1"></i> Unidad: {{ $vehiculo->unidad ?? '—' }}
-                        </span>
-                    </div>
-                    <div class="col-auto">
-                        <span class="badge bg-azure-lt">
-                            <i class="ti ti-license me-1"></i> Placa: {{ $vehiculo->placa ?? '—' }}
-                        </span>
-                    </div>
-                    <div class="col-auto">
-                        <span class="badge bg-teal-lt">
-                            <i class="ti ti-map-pin me-1"></i> Ubicación: {{ $vehiculo->ubicacion ?? '—' }}
                         </span>
                     </div>
                 </div>
@@ -97,9 +79,6 @@
                                     <i class="ti ti-gauge"></i>
                                     Datos del tanque
                                 </h3>
-                                <span class="badge bg-green-lt">
-                                    <i class="ti ti-circle-plus me-1"></i> Nuevo
-                                </span>
                             </div>
 
                             <div class="card-body">
@@ -118,7 +97,6 @@
                                                    placeholder="1" required>
                                         </div>
                                         @error('cantidad_tanques') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                        <div class="form-hint">Número de tanques físicos que tiene la unidad (1 o más).</div>
                                     </div>
 
                                     {{-- Tipo de combustible (selectgroup) --}}
@@ -129,7 +107,7 @@
                                                 $combActual = old('tipo_combustible');
                                                 $combList = [
                                                     ['label'=>'Magna',   'icon'=>'flame'],
-                                                    ['label'=>'Diesel',  'icon'=>'engine'],
+                                                    ['label'=>'Diesel',  'icon'=>'flame'],
                                                     ['label'=>'Premium', 'icon'=>'flame'],
                                                 ];
                                             @endphp
@@ -150,7 +128,6 @@
                                             @endforeach
                                         </div>
                                         @error('tipo_combustible') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                        <div class="form-hint">Selecciona el combustible que carga este vehículo.</div>
                                     </div>
 
                                     {{-- Capacidad total (L) --}}
@@ -172,8 +149,7 @@
                                     {{-- Rendimiento (km/L) --}}
                                     <div class="col-md-6">
                                         <label for="rendimiento_estimado" class="form-label">
-                                            Rendimiento estimado (km/L)
-                                            <i class="ti ti-info-circle text-secondary ms-1" data-bs-toggle="tooltip" title="Promedio histórico o estimado de la unidad."></i>
+                                            Rendimiento
                                         </label>
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="ti ti-road"></i></span>
@@ -215,7 +191,6 @@
                                                    value="{{ number_format((float) (old('capacidad_litros',0) * old('rendimiento_estimado',0)), 2) }}" readonly>
                                             <span class="input-group-text">km</span>
                                         </div>
-                                        <div class="form-hint">Se recalcula automáticamente al editar capacidad o rendimiento.</div>
                                     </div>
 
                                 </div>
@@ -231,64 +206,8 @@
                             </div>
                         </div>
                     </div>
-
-                    {{-- Panel lateral con tips --}}
-                    <div class="col-12 col-lg-4">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title d-flex align-items-center gap-2 mb-0">
-                                    <i class="ti ti-bulb"></i> Consejos
-                                </h3>
-                            </div>
-                            <div class="card-body">
-                                <ul class="list-unstyled">
-                                    <li class="mb-3 d-flex">
-                                        <i class="ti ti-check me-2 text-teal"></i>
-                                        Registra la <strong>cantidad de tanques físicos</strong> aunque sea 1.
-                                    </li>
-                                    <li class="mb-3 d-flex">
-                                        <i class="ti ti-check me-2 text-teal"></i>
-                                        La <strong>capacidad total</strong> es la suma manual de todos los tanques.
-                                    </li>
-                                    <li class="mb-0 d-flex">
-                                        <i class="ti ti-check me-2 text-teal"></i>
-                                        El campo “Km que recorre” es informativo (se guarda el valor calculado).
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-
-                        {{-- Estado rápido del vehículo --}}
-                        <div class="card mt-3">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center">
-                                    <span class="avatar me-3">
-                                        <i class="ti ti-truck"></i>
-                                    </span>
-                                    <div>
-                                        <div class="strong">Vehículo</div>
-                                        <div class="text-secondary">
-                                            {{ $vehiculo->marca ?? '—' }} {{ $vehiculo->anio ?? '' }}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="mt-3 d-flex flex-wrap gap-2">
-                                    <span class="badge bg-gray-lt"><i class="ti ti-id me-1"></i> ID: {{ $vehiculo->id }}</span>
-                                    @if(!empty($vehiculo->placa))
-                                        <span class="badge bg-azure-lt"><i class="ti ti-license me-1"></i> {{ $vehiculo->placa }}</span>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
                 </div>
             </form>
-
-            <div class="text-secondary small mt-3">
-                <i class="ti ti-info-circle me-1"></i>
-                Los valores se guardarán tal como se muestran. El campo “Km que recorre” es informativo.
-            </div>
 
             {{-- Footer --}}
             <div class="text-center text-secondary small py-4">

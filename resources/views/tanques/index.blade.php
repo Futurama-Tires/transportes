@@ -5,7 +5,7 @@
             <div>
                 <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Tanque</p>
                 <h2 class="mt-1 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                    Vehículo #{{ $vehiculo->id }} — {{ $vehiculo->unidad ?? 's/u' }} ({{ $vehiculo->placa ?? 's/p' }})
+                    Vehículo: {{ $vehiculo->unidad ?? 's/u' }} ({{ $vehiculo->placa ?? 's/p' }})
                 </h2>
             </div>
             <div class="flex items-center gap-2">

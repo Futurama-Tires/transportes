@@ -62,7 +62,6 @@
                                 <h3 class="card-title mb-0 d-flex align-items-center gap-2">
                                     <span class="material-symbols-outlined">badge</span> Datos del operador
                                 </h3>
-                                <div class="card-subtitle">&nbsp;Completa o corrige la información requerida.</div>
                             </div>
 
                             <div class="card-body pt-3">
@@ -258,7 +257,6 @@
                                                            value="{{ old('contacto_emergencia_ubicacion', $operador->contacto_emergencia_ubicacion) }}" placeholder="Ej. Cuernavaca, Morelos">
                                                     @error('contacto_emergencia_ubicacion') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                                 </div>
-                                                <div class="form-hint">Puedes capturar ciudad/estado o una dirección breve.</div>
                                             </div>
                                         </div>
                                     </div>
@@ -282,7 +280,7 @@
 
                             {{-- Subir nuevas --}}
                             <div class="card-body">
-                                <div class="form-hint mb-3">JPG, JPEG, PNG o WEBP. Máx 8&nbsp;MB por archivo.</div>
+                                <div class="form-hint mb-3">Máx 8&nbsp;MB por archivo.</div>
 
                                 <div class="row g-3 align-items-end">
                                     <div class="col-12">
@@ -309,9 +307,8 @@
                                     </div>
                                     <div class="d-flex align-items-center gap-3">
                                         <span class="small text-secondary">
-                                            Marcadas para borrar: <strong id="delCount">0</strong>
+                                            Marcadas: <strong id="delCount">0</strong>
                                         </span>
-                                        <span class="small text-secondary d-none d-xl-inline">Tip: haz clic en una foto para abrirla en otra pestaña.</span>
                                     </div>
                                 </div>
 
@@ -321,7 +318,6 @@
                                             <span class="material-symbols-outlined">image_not_supported</span>
                                         </div>
                                         <p class="empty-title">Este operador aún no tiene fotos</p>
-                                        <p class="empty-subtitle text-secondary">Puedes subirlas en la sección “Agregar nuevas fotos”.</p>
                                     </div>
                                 @else
                                     <div class="row g-3" id="photosGrid">
