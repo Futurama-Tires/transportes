@@ -329,7 +329,7 @@ return redirect()
             // ===== Nuevos campos (validados en MAYÚSCULAS) =====
             'estado_civil' => [
                 'nullable',
-                Rule::in(['SOLTERO','CASADO','VIUDO','DIVORCIADO']),
+                Rule::in(['SOLTERO','CASADO','VIUDO','DIVORCIADO','UNION LIBRE']),
             ],
             'curp' => [
                 'nullable',
@@ -342,10 +342,8 @@ return redirect()
             'rfc' => [
                 'nullable',
                 'string',
-                'min:12',
+                'min:10',
                 'max:13',
-                // RFC PM (12) o PF (13) en MAYÚSCULAS: 3-4 letras (&/Ñ permitidas) + 6 dígitos fecha + 3 alfanum.
-                'regex:/^([A-ZÑ&]{3,4})\d{6}[A-Z0-9]{3}$/',
                 Rule::unique('operadores', 'rfc')->ignore($ignoreId),
             ],
             'contacto_emergencia_parentesco' => ['nullable', 'string', 'max:100'],

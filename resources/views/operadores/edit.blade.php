@@ -163,7 +163,7 @@
                                                     <select id="estado_civil" name="estado_civil"
                                                             class="form-select @error('estado_civil') is-invalid @enderror">
                                                         <option value="">(sin especificar)</option>
-                                                        @foreach(['soltero'=>'Soltero','casado'=>'Casado','viudo'=>'Viudo','divorciado'=>'Divorciado'] as $val=>$label)
+                                                        @foreach(['soltero'=>'Soltero','casado'=>'Casado','viudo'=>'Viudo','divorciado'=>'Divorciado','union libre'=>'Union libre'] as $val=>$label)
                                                             <option value="{{ $val }}" {{ old('estado_civil', $operador->estado_civil)===$val ? 'selected' : '' }}>{{ $label }}</option>
                                                         @endforeach
                                                     </select>
