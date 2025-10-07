@@ -95,11 +95,11 @@ class TarjetaSiValeController extends Controller
         $table = (new TarjetaSiVale())->getTable();
 
         $data = $request->validate([
-            'numero_tarjeta'    => ['required', 'digits:16', Rule::unique($table)->ignore($id)],
+            'numero_tarjeta' => ['required', 'digits_between:4,16', Rule::unique($table)->ignore($id)],
             'nip'               => ['nullable', 'digits:4'],
-            'fecha_vencimiento' => ['required', 'date_format:Y-m'],
+            'fecha_vencimiento' => ['nullable', 'date_format:Y-m'],
         ], [
-            'numero_tarjeta.digits'         => 'El número de tarjeta debe tener exactamente 16 dígitos.',
+            'numero_tarjeta.digits'         => 'El número de tarjeta debe tener entre 4 y 16.',
             'nip.digits'                    => 'El NIP debe tener exactamente 4 dígitos.',
             'fecha_vencimiento.date_format' => 'El formato de fecha debe ser Mes/Año (YYYY-MM).',
         ]);

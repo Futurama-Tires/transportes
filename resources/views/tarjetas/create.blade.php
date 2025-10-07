@@ -28,8 +28,8 @@
                         <label class="block text-gray-700 dark:text-gray-300">Número de Tarjeta (16 dígitos) *</label>
                         <input type="text" name="numero_tarjeta"
                                value="{{ old('numero_tarjeta') }}"
-                               maxlength="16" minlength="16"
-                               pattern="[0-9]{16}"
+                               maxlength="16" minlength="4"
+
                                title="Debe contener exactamente 16 números"
                                class="w-full border-gray-300 rounded"
                                required>
@@ -58,7 +58,7 @@
                         <input type="month" name="fecha_vencimiento"
                                value="{{ old('fecha_vencimiento') }}"
                                class="w-full border-gray-300 rounded"
-                               required>
+                               >
                         @error('fecha_vencimiento')
                             <span class="text-red-500 text-sm">{{ $message }}</span>
                         @enderror
