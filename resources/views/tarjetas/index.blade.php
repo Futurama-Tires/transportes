@@ -21,7 +21,6 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <h2 class="page-title mb-0">Tarjetas SiVale</h2>
-                        <div class="text-secondary small mt-1">Consulta, filtra y administra tus tarjetas.</div>
                     </div>
                     <div class="col-auto ms-auto">
                         <a href="{{ route('tarjetas.create') }}" class="btn btn-primary">
@@ -222,6 +221,7 @@
                     <table class="table table-vcenter table-striped table-hover">
                         <thead>
                             <tr class="text-uppercase text-secondary small">
+                                <th style="width:1%; white-space:nowrap;">#</th>
                                 <th>Número de tarjeta</th>
                                 <th>NIP</th>
                                 <th>Fecha de vencimiento</th>
@@ -231,6 +231,12 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                // Inicio de numeración continuo entre páginas:
+                                $startIndex = method_exists($tarjetas, 'firstItem') && !is_null($tarjetas->firstItem())
+                                    ? $tarjetas->firstItem()
+                                    : 1;
+                            @endphp
                             @forelse ($tarjetas as $tarjeta)
                                 @php
                                     $fv = $tarjeta->fecha_vencimiento ? \Carbon\Carbon::parse($tarjeta->fecha_vencimiento) : null;
@@ -249,10 +255,25 @@
                                     }
                                     $nip = $tarjeta->nip ?? '—';
                                     $hasNip = $nip !== '—' && $nip !== '';
+
+                                    // Formato de número de tarjeta:
+                                    $rawNumero = trim((string)($tarjeta->numero_tarjeta ?? ''));
+                                    $digits    = preg_replace('/\D+/', '', $rawNumero ?? '');
+                                    if ($digits !== '' && strlen($digits) === 4) {
+                                        // Si sólo vienen 4 dígitos, mostrar 12 puntos a la izquierda
+                                        // Agrupados en 4-4-4 para legibilidad: "•••• •••• •••• 1234"
+                                        $numeroFormateado = '••••••••••••' . $digits;
+                                    } else {
+                                        // Mostrar como viene (ya puede incluir guiones/espacios)
+                                        $numeroFormateado = $rawNumero !== '' ? $rawNumero : '—';
+                                    }
                                 @endphp
                                 <tr>
-                                    {{-- Número --}}
-                                    <td class="font-monospace">{{ $tarjeta->numero_tarjeta }}</td>
+                                    {{-- # consecutivo (no se reinicia entre páginas) --}}
+                                    <td class="text-secondary">{{ $startIndex + $loop->index }}</td>
+
+                                    {{-- Número (con enmascarado si sólo hay 4 dígitos) --}}
+                                    <td class="font-monospace">{{ $numeroFormateado }}</td>
 
                                     {{-- NIP con toggle por fila --}}
                                     <td>
@@ -324,7 +345,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="py-6">
+                                    <td colspan="7" class="py-6">
                                         <div class="empty">
                                             <div class="empty-icon">
                                                 <i class="ti ti-credit-card-off"></i>
