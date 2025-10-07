@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\TarjetaSiVale;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Carbon\Carbon;
 
 class TarjetaSiValeController extends Controller
 {
@@ -42,13 +43,12 @@ class TarjetaSiValeController extends Controller
         // Cargamos vehículos asociados (por si quieres mostrarlos)
         $tarjeta->load('vehiculos');
 
-        // Query base de cargas (relación hasManyThrough definida en el modelo TarjetaSiVale)
+        // Query base de cargas
         $cargasQuery = $tarjeta->cargas()
             ->with(['vehiculo:id,unidad,placa,serie'])
-            // ajusta el orden según tus columnas (fecha o created_at)
             ->orderByDesc('fecha');
 
-        // Totales (se hacen sobre la misma query)
+        // Totales
         $stats = [
             'total_cargas'  => (clone $cargasQuery)->count(),
             'total_litros'  => (clone $cargasQuery)->sum('litros'),
@@ -89,24 +89,28 @@ class TarjetaSiValeController extends Controller
     /**
      * Valida y normaliza datos. Usa dinámicamente el nombre real de la tabla del modelo
      * para evitar desajustes si cambias $table en el modelo.
+     *
+     * Nota: si 'fecha_vencimiento' viene como 'YYYY-MM', se guardará como el ÚLTIMO día del mes.
      */
     private function validateData(Request $request, $id = null)
     {
         $table = (new TarjetaSiVale())->getTable();
 
         $data = $request->validate([
-            'numero_tarjeta' => ['required', 'digits_between:4,16', Rule::unique($table)->ignore($id)],
+            'numero_tarjeta'    => ['required', 'digits_between:4,16', Rule::unique($table)->ignore($id)],
             'nip'               => ['nullable', 'digits:4'],
             'fecha_vencimiento' => ['nullable', 'date_format:Y-m'],
         ], [
-            'numero_tarjeta.digits'         => 'El número de tarjeta debe tener entre 4 y 16.',
+            'numero_tarjeta.digits_between' => 'El número de tarjeta debe tener entre 4 y 16 dígitos.',
             'nip.digits'                    => 'El NIP debe tener exactamente 4 dígitos.',
             'fecha_vencimiento.date_format' => 'El formato de fecha debe ser Mes/Año (YYYY-MM).',
         ]);
 
-        // Convertimos YYYY-MM → YYYY-MM-01 para guardarlo en DATE
+        // Normalizar fecha: de 'YYYY-MM' -> último día del mes ('YYYY-MM-DD')
         if (!empty($data['fecha_vencimiento'])) {
-            $data['fecha_vencimiento'] = $data['fecha_vencimiento'] . '-01';
+            $data['fecha_vencimiento'] = Carbon::createFromFormat('Y-m', $data['fecha_vencimiento'])
+                ->endOfMonth()
+                ->format('Y-m-d');
         }
 
         return $data;
