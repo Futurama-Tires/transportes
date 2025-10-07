@@ -14,9 +14,7 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('verificacion:digest')
             ->timezone(config('verificacion.timezone','America/Mexico_City'))
-            ->dailyAt('09:00')
-            ->withoutOverlapping()
-            ->onOneServer();
+            ->dailyAt('9:00');
     }
 
     /**

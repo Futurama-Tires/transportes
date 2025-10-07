@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\TarjetaSiVale;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use Carbon\Carbon;
 
 class TarjetaSiValeController extends Controller
 {
@@ -28,6 +28,7 @@ class TarjetaSiValeController extends Controller
     public function store(Request $request)
     {
         $data = $this->validateData($request);
+        // La normalización final (quitar guiones, fecha fin de mes, etc.) la hace el Modelo
         TarjetaSiVale::create($data);
 
         return redirect()
@@ -87,31 +88,48 @@ class TarjetaSiValeController extends Controller
     }
 
     /**
-     * Valida y normaliza datos. Usa dinámicamente el nombre real de la tabla del modelo.
-     * Nota: si 'fecha_vencimiento' viene como 'YYYY-MM', se guarda como el ÚLTIMO día del mes.
+     * Valida datos (tolerante a guiones/espacios) y asegura UNIQUE sobre el valor normalizado (solo dígitos).
+     * La normalización definitiva vive en los mutators del Modelo.
      */
-    private function validateData(Request $request, $id = null)
+    private function validateData(Request $request, $id = null): array
     {
         $table = (new TarjetaSiVale())->getTable();
 
-        $data = $request->validate([
-            'numero_tarjeta'    => ['required', 'digits_between:4,16', Rule::unique($table)->ignore($id)],
-            'nip'               => ['nullable', 'digits:4'],
-            'fecha_vencimiento' => ['nullable', 'date_format:Y-m'],
+        $rules = [
+            // Permitimos dígitos, espacios y guiones en input; el largo real (4-16) se valida sobre la versión "solo dígitos"
+            'numero_tarjeta' => [
+                'required',
+                'regex:/^[\d\-\s]{4,25}$/',
+                function ($attribute, $value, $fail) use ($table, $id) {
+                    $normalized = preg_replace('/\D+/', '', (string) $value);
+                    $len = strlen($normalized);
+                    if ($len < 4 || $len > 16) {
+                        $fail('El número de tarjeta debe tener entre 4 y 16 dígitos (sin contar guiones/espacios).');
+                        return;
+                    }
+                    $exists = DB::table($table)
+                        ->where('numero_tarjeta', $normalized)
+                        ->when($id, fn($q) => $q->where('id', '!=', $id))
+                        ->exists();
+                    if ($exists) {
+                        $fail('Ya existe una tarjeta con ese número.');
+                    }
+                },
+            ],
+            'nip' => ['nullable', 'digits:4'],
+            // Distintos formatos aceptados; el modelo hará la normalización final
+            'fecha_vencimiento' => ['nullable', 'string', 'max:20'],
             'descripcion'       => ['nullable', 'string', 'max:1000'],
-        ], [
-            'numero_tarjeta.digits_between' => 'El número de tarjeta debe tener entre 4 y 16 dígitos.',
-            'nip.digits'                    => 'El NIP debe tener exactamente 4 dígitos.',
-            'fecha_vencimiento.date_format' => 'El formato de fecha debe ser Mes/Año (YYYY-MM).',
-        ]);
+        ];
 
-        // Normalizar fecha: de 'YYYY-MM' -> último día del mes ('YYYY-MM-DD')
-        if (!empty($data['fecha_vencimiento'])) {
-            $data['fecha_vencimiento'] = Carbon::createFromFormat('Y-m', $data['fecha_vencimiento'])
-                ->endOfMonth()
-                ->format('Y-m-d');
-        }
+        $messages = [
+            'numero_tarjeta.required' => 'El número de tarjeta es obligatorio.',
+            'numero_tarjeta.regex'    => 'El número de tarjeta solo puede contener dígitos, espacios y guiones.',
+            'nip.digits'              => 'El NIP debe tener exactamente 4 dígitos.',
+            'fecha_vencimiento.max'   => 'La fecha de vencimiento es demasiado larga.',
+            'descripcion.max'         => 'La descripción no puede exceder 1000 caracteres.',
+        ];
 
-        return $data;
+        return $request->validate($rules, $messages);
     }
 }

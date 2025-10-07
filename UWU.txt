@@ -1,1077 +1,197 @@
-package com.example.transportes
+¿Lo del que debe ir en el controlador está en el contrlador, y lo que debe de ir en el modelo, está en el modelo? Si no es asi,
+corrigelo y dame los códigos completos.
 
-import android.content.Intent
-import android.os.Bundle
-import android.widget.Button
-import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.lifecycle.lifecycleScope
-import com.example.transportes.data.local.TokenStorage
-import com.example.transportes.data.remote.ApiClient
-import com.example.transportes.ui.cargas.RegistrarCargaActivity
-import kotlinx.coroutines.launch
+<?php
 
-class HomeActivity : AppCompatActivity() {
+namespace App\Http\Controllers;
 
-    private lateinit var tvWelcome: TextView
-    private lateinit var tvEmail: TextView
-    private lateinit var btnLogout: Button
-    private lateinit var btnRegistrarCarga: Button
+use App\Models\TarjetaSiVale;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Carbon\Carbon;
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        setContentView(R.layout.activity_home)
-
-        tvWelcome = findViewById(R.id.tvWelcome)
-        tvEmail = findViewById(R.id.tvEmail)
-        btnLogout = findViewById(R.id.btnLogout)
-        btnRegistrarCarga = findViewById(R.id.btnRegistrarCarga)
-
-        val tokenStorage = TokenStorage(this)
-        val api = ApiClient.createService(this)
-
-        // Carga datos del usuario con /api/me
-        lifecycleScope.launch {
-            try {
-                val me = api.me()
-                tvWelcome.text = "Hola, ${me.name}!"
-                tvEmail.text = "Email: ${me.email}"
-            } catch (e: Exception) {
-                Toast.makeText(this@HomeActivity, "Debes iniciar sesión", Toast.LENGTH_SHORT).show()
-                goLogin()
-            }
-        }
-
-        // Abrir formulario de registro de carga
-        btnRegistrarCarga.setOnClickListener {
-            startActivity(Intent(this, com.example.transportes.ui.ocr.OcrTicketActivity::class.java))
-
-        }
-
-        // Logout
-        btnLogout.setOnClickListener {
-            lifecycleScope.launch {
-                try {
-                    api.logout()
-                } catch (_: Exception) {
-                    // incluso si falla, limpiamos
-                }
-                tokenStorage.clear()
-                Toast.makeText(this@HomeActivity, "Sesión cerrada", Toast.LENGTH_SHORT).show()
-                goLogin()
-            }
-        }
+class TarjetaSiValeController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware(['auth', 'role:administrador|capturista']);
     }
 
-    private fun goLogin() {
-        startActivity(Intent(this, MainActivity::class.java))
-        finish()
+    public function index()
+    {
+        $tarjetas = TarjetaSiVale::latest()->paginate(10);
+        return view('tarjetas.index', compact('tarjetas'));
+    }
+
+    public function create()
+    {
+        return view('tarjetas.create');
+    }
+
+    public function store(Request $request)
+    {
+        $data = $this->validateData($request);
+        TarjetaSiVale::create($data);
+
+        return redirect()
+            ->route('tarjetas.index')
+            ->with('success', 'Tarjeta SiVale creada correctamente.');
+    }
+
+    /**
+     * Muestra la tarjeta + sus vehículos y sus cargas (paginadas) con totales.
+     */
+    public function show(TarjetaSiVale $tarjeta, Request $request)
+    {
+        // Cargamos vehículos asociados
+        $tarjeta->load('vehiculos');
+
+        // Query base de cargas
+        $cargasQuery = $tarjeta->cargas()
+            ->with(['vehiculo:id,unidad,placa,serie'])
+            ->orderByDesc('fecha');
+
+        // Totales
+        $stats = [
+            'total_cargas'  => (clone $cargasQuery)->count(),
+            'total_litros'  => (clone $cargasQuery)->sum('litros'),
+            'total_gastado' => (clone $cargasQuery)->sum('total'),
+        ];
+
+        // Paginación
+        $perPage = (int) $request->get('per_page', 15);
+        $cargas  = $cargasQuery->paginate($perPage)->withQueryString();
+
+        return view('tarjetas.show', compact('tarjeta', 'cargas', 'stats'));
+    }
+
+    public function edit(TarjetaSiVale $tarjeta)
+    {
+        return view('tarjetas.edit', compact('tarjeta'));
+    }
+
+    public function update(Request $request, TarjetaSiVale $tarjeta)
+    {
+        $data = $this->validateData($request, $tarjeta->id);
+        $tarjeta->update($data);
+
+        return redirect()
+            ->route('tarjetas.index')
+            ->with('success', 'Tarjeta SiVale actualizada correctamente.');
+    }
+
+    public function destroy(TarjetaSiVale $tarjeta)
+    {
+        $tarjeta->delete();
+
+        return redirect()
+            ->route('tarjetas.index')
+            ->with('success', 'Tarjeta SiVale eliminada correctamente.');
+    }
+
+    /**
+     * Valida y normaliza datos. Usa dinámicamente el nombre real de la tabla del modelo.
+     * Nota: si 'fecha_vencimiento' viene como 'YYYY-MM', se guarda como el ÚLTIMO día del mes.
+     */
+    private function validateData(Request $request, $id = null)
+    {
+        $table = (new TarjetaSiVale())->getTable();
+
+        $data = $request->validate([
+            'numero_tarjeta'    => ['required', 'digits_between:4,16', Rule::unique($table)->ignore($id)],
+            'nip'               => ['nullable', 'digits:4'],
+            'fecha_vencimiento' => ['nullable', 'date_format:Y-m'],
+            'descripcion'       => ['nullable', 'string', 'max:1000'],
+        ], [
+            'numero_tarjeta.digits_between' => 'El número de tarjeta debe tener entre 4 y 16 dígitos.',
+            'nip.digits'                    => 'El NIP debe tener exactamente 4 dígitos.',
+            'fecha_vencimiento.date_format' => 'El formato de fecha debe ser Mes/Año (YYYY-MM).',
+        ]);
+
+        // Normalizar fecha: de 'YYYY-MM' -> último día del mes ('YYYY-MM-DD')
+        if (!empty($data['fecha_vencimiento'])) {
+            $data['fecha_vencimiento'] = Carbon::createFromFormat('Y-m', $data['fecha_vencimiento'])
+                ->endOfMonth()
+                ->format('Y-m-d');
+        }
+
+        return $data;
     }
 }
 
-package com.example.transportes.ui.ocr
+<?php
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Bundle
-import android.provider.OpenableColumns
-import android.view.View
-import android.widget.*
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import com.example.transportes.R
-import com.example.transportes.data.remote.ApiClient
-import com.example.transportes.data.remote.OcrTicketResponse
-import com.example.transportes.util.ImageUtils
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+namespace App\Models;
 
-class OcrTicketActivity : AppCompatActivity() {
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use App\Models\Vehiculo;
+use App\Models\CargaCombustible;
 
-    // Views del estado de archivo (nuevo layout)
-    private lateinit var tvNombreArchivo: TextView
-    private lateinit var badgeCargado: TextView
-    private lateinit var ivEstadoArchivo: ImageView
+/**
+ * Class TarjetaSiVale
+ *
+ * Representa una tarjeta SiVale asignada a uno o varios vehículos.
+ * Desde aquí podemos llegar a todas las cargas realizadas por esos vehículos.
+ */
+class TarjetaSiVale extends Model
+{
+    use HasFactory;
 
-    // Inputs
-    private lateinit var etFecha: EditText
-    private lateinit var etTipo: EditText
-    private lateinit var etLitros: EditText
-    private lateinit var etPrecioUnit: EditText
-    private lateinit var etImporte: EditText
+    /**
+     * OJO: Ajusta este nombre si tu tabla real es snake_case.
+     * Recomendado: 'tarjetas_sivale'
+     */
+    protected $table = 'tarjetasSiVale';
 
-    // Botones y progreso
-    private lateinit var btnGaleria: Button
-    private lateinit var btnCamara: Button
-    private lateinit var btnEnviar: Button
-    private lateinit var btnContinuar: Button
-    private lateinit var progress: ProgressBar
+    protected $fillable = [
+        'numero_tarjeta',
+        'nip',
+        'fecha_vencimiento',
+        'descripcion',
+    ];
 
-    private var imageUri: Uri? = null
-    private var draft = OcrDraft()
+    protected $casts = [
+        'fecha_vencimiento' => 'date',
+    ];
 
-    private val pickGallery = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            imageUri = uri
-            updateFileUI(uri)
-            btnContinuar.isEnabled = false
-        } else {
-            clearFileUI()
-        }
+    /**
+     * Relación: una tarjeta puede estar asociada a varios vehículos (o a uno).
+     * FK en vehiculos: vehiculos.tarjeta_si_vale_id
+     */
+    public function vehiculos()
+    {
+        return $this->hasMany(Vehiculo::class, 'tarjeta_si_vale_id');
     }
 
-    private val takePicture = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success && imageUri != null) {
-            updateFileUI(imageUri!!)
-            btnContinuar.isEnabled = false
-        } else {
-            clearFileUI()
-        }
+    /**
+     * Relación indirecta: Tarjeta → Vehículo(s) → Cargas de Combustible.
+     * Esto permite $tarjeta->cargas para listar TODAS las cargas ligadas a la tarjeta.
+     *
+     * Claves:
+     * - firstKey (en Vehiculo):      'tarjeta_si_vale_id' → referencia a TarjetaSiVale.id
+     * - secondKey (en CargaComb.):   'vehiculo_id'        → referencia a Vehiculo.id
+     * - localKey (en TarjetaSiVale): 'id'
+     * - secondLocalKey (en Vehiculo):'id'
+     */
+    public function cargas()
+    {
+        return $this->hasManyThrough(
+            CargaCombustible::class, // Modelo final
+            Vehiculo::class,         // Modelo intermedio
+            'tarjeta_si_vale_id',    // FK en Vehiculo que apunta a TarjetaSiVale
+            'vehiculo_id',           // FK en CargaCombustible que apunta a Vehiculo
+            'id',                    // PK local en TarjetaSiVale
+            'id'                     // PK local en Vehiculo
+        );
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        // Asegúrate que este layout es el mismo XML que pegaste (ids coinciden)
-        setContentView(R.layout.activity_ocr_ticket)
-
-        // Estado de archivo
-        tvNombreArchivo = findViewById(R.id.tvNombreArchivo)
-        badgeCargado = findViewById(R.id.badgeCargado)
-        ivEstadoArchivo = findViewById(R.id.ivEstadoArchivo)
-
-        // Inputs
-        etFecha = findViewById(R.id.etFecha)
-        etTipo = findViewById(R.id.etTipo)
-        etLitros = findViewById(R.id.etLitros)
-        etPrecioUnit = findViewById(R.id.etPrecioUnit)
-        etImporte = findViewById(R.id.etImporte)
-
-        // Botones y progreso
-        btnGaleria = findViewById(R.id.btnGaleria)
-        btnCamara = findViewById(R.id.btnCamara)
-        btnEnviar = findViewById(R.id.btnEnviar)
-        btnContinuar = findViewById(R.id.btnContinuar)
-        progress = findViewById(R.id.progress)
-
-        // Estado inicial UI de archivo
-        clearFileUI()
-
-        btnGaleria.setOnClickListener { pickGallery.launch("image/*") }
-        btnCamara.setOnClickListener { openCamera() }
-        btnEnviar.setOnClickListener { enviarOcr() }
-        btnContinuar.setOnClickListener {
-            draft.fecha = etFecha.text.toString().ifBlank { null }
-            draft.tipo_combustible = etTipo.text.toString().ifBlank { null }
-            draft.litros = etLitros.text.toString().toDoubleOrNull()
-            draft.precio_por_litro = etPrecioUnit.text.toString().toDoubleOrNull()
-            draft.importeTicket = etImporte.text.toString().toDoubleOrNull()
-            OcrVoucherActivity.start(this, draft)
-        }
-    }
-
-    private fun openCamera() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), REQ_CAMERA)
-            return
-        }
-        imageUri = ImageUtils.createCameraUri(this)
-        imageUri?.let { takePicture.launch(it) }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQ_CAMERA &&
-            grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
-        ) {
-            openCamera()
-        } else if (requestCode == REQ_CAMERA) {
-            Toast.makeText(this, "Permiso de cámara denegado.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun setLoading(loading: Boolean) {
-        progress.visibility = if (loading) View.VISIBLE else View.GONE
-        btnEnviar.isEnabled = !loading
-        btnGaleria.isEnabled = !loading
-        btnCamara.isEnabled = !loading
-        if (loading) {
-            btnContinuar.isEnabled = false
-        }
-    }
-
-    private fun enviarOcr() {
-        val uri = imageUri
-        if (uri == null) {
-            Toast.makeText(this, "Primero selecciona o toma la foto del ticket.", Toast.LENGTH_LONG).show()
-            return
-        }
-
-        setLoading(true)
-        lifecycleScope.launch {
-            try {
-                val api = ApiClient.createService(this@OcrTicketActivity)
-                val part = withContext(Dispatchers.IO) { ImageUtils.uriToMultipart(this@OcrTicketActivity, uri) }
-                val resp: OcrTicketResponse = withContext(Dispatchers.IO) { api.ocrTicket(part) }
-
-                draft.tmpTicketPath = resp.tmp_path
-                etFecha.setText(resp.data.fecha ?: "")
-                etTipo.setText(resp.data.tipo_combustible ?: "")
-                etLitros.setText(resp.data.litros?.toString() ?: "")
-                etPrecioUnit.setText(resp.data.precio_por_litro?.toString() ?: "")
-                etImporte.setText(resp.data.importe?.toString() ?: "")
-
-                btnContinuar.isEnabled = true
-
-            } catch (e: Exception) {
-                Toast.makeText(this@OcrTicketActivity, e.message ?: "Error OCR", Toast.LENGTH_LONG).show()
-            } finally {
-                setLoading(false)
-            }
-        }
-    }
-
-    // ===================== Helpers UI archivo =====================
-
-    private fun updateFileUI(uri: Uri) {
-        val name = getDisplayName(uri) ?: uri.lastPathSegment ?: "archivo.jpg"
-        tvNombreArchivo.text = name
-        badgeCargado.visibility = View.VISIBLE
-        ivEstadoArchivo.setImageResource(android.R.drawable.checkbox_on_background)
-    }
-
-    private fun clearFileUI() {
-        tvNombreArchivo.text = "Ningún archivo seleccionado"
-        badgeCargado.visibility = View.GONE
-        ivEstadoArchivo.setImageResource(android.R.drawable.ic_menu_gallery)
-    }
-
-    private fun getDisplayName(uri: Uri): String? {
-        return try {
-            if ("content".equals(uri.scheme, ignoreCase = true)) {
-                contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                    ?.use { c ->
-                        if (c.moveToFirst()) c.getString(0) else null
-                    }
-            } else {
-                uri.lastPathSegment?.substringAfterLast('/')
-            }
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    companion object {
-        private const val REQ_CAMERA = 1001
-    }
-}
-package com.example.transportes.ui.ocr
-
-import android.Manifest
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Bundle
-import android.provider.OpenableColumns
-import android.text.Editable
-import android.text.TextWatcher
-import android.view.View
-import android.widget.*
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import com.example.transportes.R
-import com.example.transportes.data.remote.ApiClient
-import com.example.transportes.data.remote.OcrVoucherResponse
-import com.example.transportes.util.ImageUtils
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlin.math.abs
-
-class OcrVoucherActivity : AppCompatActivity() {
-
-    // Estado de archivo (según tu XML nuevo)
-    private lateinit var tvNombreArchivoVoucher: TextView
-    private lateinit var badgeCargadoVoucher: TextView
-    private lateinit var ivEstadoArchivoVoucher: ImageView
-
-    // Resto de vistas
-    private lateinit var etImporteVoucher: EditText
-    private lateinit var tvEstado: TextView
-    private lateinit var tvComparacion: TextView
-    private lateinit var btnGaleria: Button
-    private lateinit var btnCamara: Button
-    private lateinit var btnEnviar: Button
-    private lateinit var btnContinuar: Button
-    private lateinit var progress: ProgressBar
-
-    private var imageUri: Uri? = null
-    private lateinit var draft: OcrDraft
-
-    private val pickGallery = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            imageUri = uri
-            updateFileUI(uri)
-            btnContinuar.isEnabled = false
-            tvEstado.text = ""
-        } else {
-            clearFileUI()
-        }
-    }
-
-    private val takePicture = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success && imageUri != null) {
-            updateFileUI(imageUri!!)
-            btnContinuar.isEnabled = false
-            tvEstado.text = ""
-        } else {
-            clearFileUI()
-        }
-    }
-
-    companion object {
-        private const val EXTRA_DRAFT = "extra_draft"
-        private const val REQ_CAMERA = 1002
-
-        fun start(ctx: Context, draft: OcrDraft) {
-            val i = Intent(ctx, OcrVoucherActivity::class.java)
-            i.putExtra(EXTRA_DRAFT, draft)
-            ctx.startActivity(i)
-        }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        draft = intent.getParcelableExtra(EXTRA_DRAFT) ?: OcrDraft()
-        setContentView(R.layout.activity_ocr_voucher)
-
-        // === Bind views (ids según tu XML) ===
-        tvNombreArchivoVoucher = findViewById(R.id.tvNombreArchivoVoucher)
-        badgeCargadoVoucher = findViewById(R.id.badgeCargadoVoucher)
-        ivEstadoArchivoVoucher = findViewById(R.id.ivEstadoArchivoVoucher)
-
-        etImporteVoucher = findViewById(R.id.etImporteVoucher)
-        tvEstado = findViewById(R.id.tvEstado)
-        tvComparacion = findViewById(R.id.tvComparacion)
-        btnGaleria = findViewById(R.id.btnGaleria)
-        btnCamara = findViewById(R.id.btnCamara)
-        btnEnviar = findViewById(R.id.btnEnviar)
-        btnContinuar = findViewById(R.id.btnContinuar)
-        progress = findViewById(R.id.progress)
-
-        // Muestra también el importe del ticket en la ayuda
-        val baseMsg = tvComparacion.text?.toString()?.trim().orEmpty()
-        tvComparacion.text = if (baseMsg.isBlank()) {
-            "Importe ticket: ${draft.importeTicket ?: "—"}"
-        } else {
-            "$baseMsg\nImporte ticket: ${draft.importeTicket ?: "—"}"
-        }
-
-        clearFileUI()
-
-        // Listeners
-        btnGaleria.setOnClickListener { pickGallery.launch("image/*") }
-        btnCamara.setOnClickListener { openCamera() }
-        btnEnviar.setOnClickListener { enviarOcr() }
-        btnContinuar.setOnClickListener { OcrOdometroActivity.start(this, draft) }
-
-        // Revalidar coincidencia cuando el usuario edita el importe
-        etImporteVoucher.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                checkMatch()
-            }
-        })
-    }
-
-    private fun openCamera() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), REQ_CAMERA)
-            return
-        }
-        imageUri = ImageUtils.createCameraUri(this)
-        imageUri?.let { takePicture.launch(it) }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQ_CAMERA &&
-            grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
-        ) {
-            openCamera()
-        } else if (requestCode == REQ_CAMERA) {
-            Toast.makeText(this, "Permiso de cámara denegado.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun setLoading(loading: Boolean) {
-        progress.visibility = if (loading) View.VISIBLE else View.GONE
-        btnEnviar.isEnabled = !loading
-        btnGaleria.isEnabled = !loading
-        btnCamara.isEnabled = !loading
-        if (loading) {
-            btnContinuar.isEnabled = false
-        } else {
-            // Reevalúa al terminar
-            checkMatch()
-        }
-    }
-
-    private fun checkMatch(): Boolean {
-        val iTicket = draft.importeTicket
-        val iVoucher = etImporteVoucher.text.toString().toDoubleOrNull()
-        return if (iTicket != null && iVoucher != null) {
-            val match = abs(iTicket - iVoucher) < 0.01
-            tvEstado.text = if (match) "✔ Coincide con el ticket" else "✖ No coincide con el ticket"
-            btnContinuar.isEnabled = match
-            match
-        } else {
-            tvEstado.text = "Captura/extrae el importe del voucher."
-            btnContinuar.isEnabled = false
-            false
-        }
-    }
-
-    private fun enviarOcr() {
-        val uri = imageUri
-        if (uri == null) {
-            Toast.makeText(this, "Selecciona o toma la foto del voucher.", Toast.LENGTH_LONG).show()
-            return
-        }
-
-        setLoading(true)
-        lifecycleScope.launch {
-            try {
-                val api = ApiClient.createService(this@OcrVoucherActivity)
-                val part = withContext(Dispatchers.IO) { ImageUtils.uriToMultipart(this@OcrVoucherActivity, uri) }
-                val resp: OcrVoucherResponse = withContext(Dispatchers.IO) { api.ocrVoucher(part) }
-
-                draft.tmpVoucherPath = resp.tmp_path
-                val importe = resp.data.importe
-                etImporteVoucher.setText(importe?.toString() ?: "")
-                draft.importeVoucher = importe
-
-                checkMatch()
-
-            } catch (e: Exception) {
-                Toast.makeText(this@OcrVoucherActivity, e.message ?: "Error OCR", Toast.LENGTH_LONG).show()
-            } finally {
-                setLoading(false)
-            }
-        }
-    }
-
-    // ===================== Helpers UI archivo =====================
-
-    private fun updateFileUI(uri: Uri) {
-        val name = getDisplayName(uri) ?: uri.lastPathSegment?.substringAfterLast('/') ?: "archivo.jpg"
-        tvNombreArchivoVoucher.text = name
-        badgeCargadoVoucher.visibility = View.VISIBLE
-        ivEstadoArchivoVoucher.setImageResource(android.R.drawable.checkbox_on_background)
-    }
-
-    private fun clearFileUI() {
-        tvNombreArchivoVoucher.text = "Ningún archivo seleccionado"
-        badgeCargadoVoucher.visibility = View.GONE
-        ivEstadoArchivoVoucher.setImageResource(android.R.drawable.ic_menu_gallery)
-    }
-
-    private fun getDisplayName(uri: Uri): String? {
-        return try {
-            if ("content".equals(uri.scheme, ignoreCase = true)) {
-                contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                    ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
-            } else {
-                uri.lastPathSegment?.substringAfterLast('/')
-            }
-        } catch (_: Exception) {
-            null
-        }
-    }
-}
-package com.example.transportes.ui.cargas
-
-import android.app.DatePickerDialog
-import android.content.Intent
-import android.os.Bundle
-import android.view.View
-import android.widget.*
-import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
-import com.example.transportes.HomeActivity
-import com.example.transportes.R
-import com.example.transportes.data.remote.ApiClient
-import com.example.transportes.data.remote.CargaRequest
-import com.example.transportes.data.remote.ImagenTmp
-import com.example.transportes.data.remote.VehiculoMin
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import retrofit2.HttpException
-import java.text.SimpleDateFormat
-import java.util.*
-
-class RegistrarCargaActivity : AppCompatActivity() {
-
-    // Spinners
-    private lateinit var spVehiculo: Spinner
-    // private lateinit var spUbicacion: Spinner  // ❌ eliminado
-    private lateinit var spTipo: Spinner
-
-    // Inputs
-    private lateinit var etFecha: EditText
-    private lateinit var etPrecio: EditText
-    private lateinit var etLitros: EditText
-    private lateinit var etCustodio: EditText
-    private lateinit var etKmInicial: EditText
-    private lateinit var etKmFinal: EditText
-    private lateinit var etDestino: EditText
-    private lateinit var etObservaciones: EditText
-
-    // UI
-    private lateinit var btnGuardar: Button
-    private lateinit var progress: ProgressBar
-    private lateinit var overlay: View
-
-    // Datos cargados desde API
-    private var vehiculos: List<VehiculoMin> = emptyList()
-    // private var ubicaciones: List<String> = emptyList() // ❌ eliminado
-    private var tipos: List<String> = emptyList()
-
-    // ----- Prefill OCR -----
-    private var ocrFecha: String? = null
-    private var ocrTipo: String? = null
-    private var ocrLitros: Double? = null
-    private var ocrPrecioUnit: Double? = null
-    private var ocrImporte: Double? = null
-    private var ocrImporteVoucher: Double? = null
-    private var ocrKmFinal: Int? = null
-    private var pendingTipoToSelect: String? = null
-
-    // Rutas temporales
-    private var ocrTmpTicket: String? = null
-    private var ocrTmpVoucher: String? = null
-    private var ocrTmpOdom: String? = null
-    // ------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_registrar_carga)
-
-        bindViews()
-        readOcrExtras()
-        setDefaultDate()
-        wireDatePicker()
-        wireVehiculoListener()
-        loadCatalogs()
-
-        btnGuardar.setOnClickListener { onGuardar() }
-    }
-
-    private fun bindViews() {
-        spVehiculo = findViewById(R.id.spVehiculo)
-        // spUbicacion = findViewById(R.id.spUbicacion) // ❌ elimina la referencia (quita también del XML)
-        spTipo = findViewById(R.id.spTipo)
-
-        etFecha = findViewById(R.id.etFecha)
-        etPrecio = findViewById(R.id.etPrecio)
-        etLitros = findViewById(R.id.etLitros)
-        etCustodio = findViewById(R.id.etCustodio)
-        etKmInicial = findViewById(R.id.etKmInicial)
-        etKmFinal = findViewById(R.id.etKmFinal)
-        etDestino = findViewById(R.id.etDestino)
-        etObservaciones = findViewById(R.id.etObservaciones)
-
-        btnGuardar = findViewById(R.id.btnGuardar)
-        progress = findViewById(R.id.progress)
-        overlay = findViewById(R.id.overlay)
-
-        etKmInicial.isEnabled = false
-        etKmInicial.isFocusable = false
-        etKmInicial.isClickable = false
-    }
-
-    private fun readOcrExtras() {
-        ocrFecha = intent.getStringExtra("OCR_fecha")
-        ocrTipo = intent.getStringExtra("OCR_tipo")
-        ocrLitros = intent.getDoubleExtra("OCR_litros", Double.NaN).let { if (it.isNaN()) null else it }
-        ocrPrecioUnit = intent.getDoubleExtra("OCR_precio_unit", Double.NaN).let { if (it.isNaN()) null else it }
-        ocrImporte = intent.getDoubleExtra("OCR_importe_ticket", Double.NaN).let { if (it.isNaN()) null else it }
-        ocrImporteVoucher = intent.getDoubleExtra("OCR_importe_voucher", Double.NaN).let { if (it.isNaN()) null else it }
-        ocrKmFinal = if (intent.hasExtra("OCR_km_final")) intent.getIntExtra("OCR_km_final", -1).let { if (it >= 0) it else null } else null
-
-        ocrTmpTicket = intent.getStringExtra("OCR_tmp_ticket")
-        ocrTmpVoucher = intent.getStringExtra("OCR_tmp_voucher")
-        ocrTmpOdom = intent.getStringExtra("OCR_tmp_odometro")
-    }
-
-    private fun setDefaultDate() {
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        etFecha.setText(ocrFecha ?: sdf.format(Date()))
-    }
-
-    private fun wireDatePicker() {
-        etFecha.setOnClickListener {
-            val cal = Calendar.getInstance()
-            val parts = etFecha.text.toString().split("-")
-            if (parts.size == 3) {
-                cal.set(Calendar.YEAR, parts[0].toInt())
-                cal.set(Calendar.MONTH, parts[1].toInt() - 1)
-                cal.set(Calendar.DAY_OF_MONTH, parts[2].toInt())
-            }
-            DatePickerDialog(
-                this,
-                { _, y, m, d ->
-                    val mm = (m + 1).toString().padStart(2, '0')
-                    val dd = d.toString().padStart(2, '0')
-                    etFecha.setText("$y-$mm-$dd")
-                },
-                cal.get(Calendar.YEAR),
-                cal.get(Calendar.MONTH),
-                cal.get(Calendar.DAY_OF_MONTH)
-            ).show()
-        }
-    }
-
-    private fun wireVehiculoListener() {
-        spVehiculo.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
-                updateKmInicialFromSelection()
-            }
-            override fun onNothingSelected(parent: AdapterView<*>) {}
-        }
-    }
-
-    private fun loadCatalogs() {
-        setLoading(true)
-        lifecycleScope.launch {
-            try {
-                val api = ApiClient.createService(this@RegistrarCargaActivity)
-                val vehiculosResp = withContext(Dispatchers.IO) { api.vehiculosMin() }
-                val catalogosResp = withContext(Dispatchers.IO) { api.catalogosCargas() }
-
-                vehiculos = vehiculosResp
-                // ubicaciones = catalogosResp.ubicaciones // ❌ ya no se usa
-                tipos = catalogosResp.tipos
-
-                fillVehiculos()
-                // fillUbicaciones() // ❌
-                fillTipos()
-
-                updateKmInicialFromSelection()
-
-                // ------ PREFILL OCR -------
-                ocrLitros?.let { etLitros.setText(it.toString()) }
-                ocrPrecioUnit?.let { etPrecio.setText(it.toString()) }
-                ocrKmFinal?.let { etKmFinal.setText(it.toString()) }
-
-                pendingTipoToSelect = ocrTipo
-                selectTipoIfPending()
-                // --------------------------
-
-            } catch (e: Exception) {
-                showError(parseError(e))
-            } finally {
-                setLoading(false)
-            }
-        }
-    }
-
-    private fun fillVehiculos() {
-        val labels = vehiculos.map { v ->
-            val unidad = v.unidad ?: "Unidad ${v.id}"
-            val placa = v.placa ?: "—"
-            "$unidad · $placa"
-        }
-        spVehiculo.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
-    }
-
-    // private fun fillUbicaciones() { ... } // ❌ método eliminado
-
-    private fun fillTipos() {
-        spTipo.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, tipos)
-    }
-
-    private fun selectTipoIfPending() {
-        val wanted = pendingTipoToSelect?.trim() ?: return
-        val idx = tipos.indexOfFirst { it.equals(wanted, ignoreCase = true) }
-        if (idx >= 0) {
-            spTipo.setSelection(idx)
-        }
-        pendingTipoToSelect = null
-    }
-
-    private fun updateKmInicialFromSelection() {
-        val pos = spVehiculo.selectedItemPosition
-        val km = if (pos in vehiculos.indices) vehiculos[pos].kilometros else null
-        etKmInicial.setText(km?.toString() ?: "")
-    }
-
-    private fun onGuardar() {
-        val fecha = etFecha.text.toString().trim()
-        val precio = etPrecio.text.toString().trim().toDoubleOrNull()
-        val litros = etLitros.text.toString().trim().toDoubleOrNull()
-
-        if (fecha.isEmpty()) {
-            etFecha.error = "Requerido"; etFecha.requestFocus(); return
-        }
-        if (precio == null || precio < 0) {
-            etPrecio.error = "Precio inválido"; etPrecio.requestFocus(); return
-        }
-        if (litros == null || litros <= 0) {
-            etLitros.error = "Litros inválidos"; etLitros.requestFocus(); return
-        }
-        if (vehiculos.isEmpty()) {
-            showError("No hay vehículos disponibles."); return
-        }
-
-        val vehiculoPos = spVehiculo.selectedItemPosition
-        if (vehiculoPos !in vehiculos.indices) {
-            showError("Selecciona un vehículo."); return
-        }
-        val vehiculoId = vehiculos[vehiculoPos].id
-
-        // val ubicacion = spUbicacion.selectedItem?.toString()?.let { if (it.startsWith("—")) null else it } // ❌
-
-        val tipo = spTipo.selectedItem?.toString()
-        if (tipo.isNullOrBlank()) {
-            showError("Selecciona el tipo de combustible."); return
-        }
-
-        val kmInicial = etKmInicial.text.toString().trim().toIntOrNull()
-        val kmFinal = etKmFinal.text.toString().trim().toIntOrNull()
-        if (kmFinal == null || kmFinal < 0) {
-            etKmFinal.error = "KM final inválido"; etKmFinal.requestFocus(); return
-        }
-        if (kmInicial != null && kmFinal < kmInicial) {
-            etKmFinal.error = "KM final no puede ser menor que el odómetro ($kmInicial)"
-            etKmFinal.requestFocus(); return
-        }
-
-        val destino = etDestino.text.toString().trim().ifEmpty { null }
-        val custodio = etCustodio.text.toString().trim().ifEmpty { null }
-        val observaciones = etObservaciones.text.toString().trim().ifEmpty { null }
-
-        // Arma lista de imágenes tmp para que el backend las mueva
-        val imgs = mutableListOf<ImagenTmp>()
-        if (!ocrTmpTicket.isNullOrBlank())   imgs.add(ImagenTmp("ticket",   ocrTmpTicket!!))
-        if (!ocrTmpVoucher.isNullOrBlank())  imgs.add(ImagenTmp("voucher",  ocrTmpVoucher!!))
-        if (!ocrTmpOdom.isNullOrBlank())     imgs.add(ImagenTmp("odometro", ocrTmpOdom!!))
-
-        val body = CargaRequest(
-            // ubicacion = null, // ❌ quitado del DTO
-            fecha = fecha,
-            precio = precio,
-            tipo_combustible = tipo,
-            litros = litros,
-            custodio = custodio,
-            vehiculo_id = vehiculoId,
-            km_final = kmFinal,
-            destino = destino,
-            observaciones = observaciones,
-            importe_ticket = ocrImporte,
-            importe_voucher = ocrImporteVoucher,
-            imagenes = if (imgs.isEmpty()) null else imgs
-        )
-
-        setLoading(true)
-        lifecycleScope.launch {
-            try {
-                val api = ApiClient.createService(this@RegistrarCargaActivity)
-                val resp = withContext(Dispatchers.IO) { api.registrarCarga(body) }
-
-                Toast.makeText(
-                    this@RegistrarCargaActivity,
-                    "Carga registrada (ID ${resp.id}).",
-                    Toast.LENGTH_LONG
-                ).show()
-
-                val intent = Intent(this@RegistrarCargaActivity, HomeActivity::class.java)
-                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-                finish()
-
-            } catch (e: Exception) {
-                showError(parseError(e))
-            } finally {
-                setLoading(false)
-            }
-        }
-    }
-
-    private fun setLoading(loading: Boolean) {
-        overlay.visibility = if (loading) View.VISIBLE else View.GONE
-        progress.visibility = if (loading) View.VISIBLE else View.GONE
-        btnGuardar.isEnabled = !loading
-    }
-
-    private fun showError(msg: String) {
-        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-    }
-
-    private fun parseError(e: Exception): String {
-        return when (e) {
-            is HttpException -> {
-                when (e.code()) {
-                    401 -> "Sesión expirada. Vuelve a iniciar sesión."
-                    422 -> "Datos inválidos (verifica KM final y que tu usuario tenga operador)."
-                    else -> "Error ${e.code()}: ${e.message()}"
-                }
-            }
-            else -> e.message ?: "Error inesperado"
-        }
-    }
-}
-
-
-package com.example.transportes.ui.ocr
-
-import android.Manifest
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Bundle
-import android.provider.OpenableColumns
-import android.text.Editable
-import android.text.TextWatcher
-import android.view.View
-import android.widget.*
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import com.example.transportes.R
-import com.example.transportes.data.remote.ApiClient
-import com.example.transportes.data.remote.OcrOdometroResponse
-import com.example.transportes.ui.cargas.RegistrarCargaActivity
-import com.example.transportes.util.ImageUtils
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-
-class OcrOdometroActivity : AppCompatActivity() {
-
-    // --- Bloque estado de archivo ---
-    private lateinit var tvNombreArchivoOdom: TextView
-    private lateinit var badgeCargadoOdom: TextView
-    private lateinit var ivEstadoArchivoOdom: ImageView
-
-    // --- Inputs / botones / progreso ---
-    private lateinit var etKmFinal: EditText
-    private lateinit var btnGaleria: Button
-    private lateinit var btnCamara: Button
-    private lateinit var btnEnviar: Button
-    private lateinit var btnContinuar: Button
-    private lateinit var progress: ProgressBar
-
-    private var imageUri: Uri? = null
-    private lateinit var draft: OcrDraft
-
-    private val pickGallery = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            imageUri = uri
-            updateFileUI(uri)
-            btnContinuar.isEnabled = false
-        } else {
-            clearFileUI()
-        }
-    }
-
-    private val takePicture = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success && imageUri != null) {
-            updateFileUI(imageUri!!)
-            btnContinuar.isEnabled = false
-        } else {
-            clearFileUI()
-        }
-    }
-
-    companion object {
-        private const val EXTRA_DRAFT = "extra_draft"
-        private const val REQ_CAMERA = 1003
-
-        fun start(ctx: Context, draft: OcrDraft) {
-            val i = Intent(ctx, OcrOdometroActivity::class.java)
-            i.putExtra(EXTRA_DRAFT, draft)
-            ctx.startActivity(i)
-        }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        draft = intent.getParcelableExtra(EXTRA_DRAFT) ?: OcrDraft()
-        setContentView(R.layout.activity_ocr_odometro)
-
-        // Estado de archivo (IDs del layout nuevo)
-        tvNombreArchivoOdom = findViewById(R.id.tvNombreArchivoOdom)
-        badgeCargadoOdom = findViewById(R.id.badgeCargadoOdom)
-        ivEstadoArchivoOdom = findViewById(R.id.ivEstadoArchivoOdom)
-
-        // Inputs / botones / progreso
-        etKmFinal = findViewById(R.id.etKmFinal)
-        btnGaleria = findViewById(R.id.btnGaleria)
-        btnCamara = findViewById(R.id.btnCamara)
-        btnEnviar = findViewById(R.id.btnEnviar)
-        btnContinuar = findViewById(R.id.btnContinuar)
-        progress = findViewById(R.id.progress)
-
-        clearFileUI()
-
-        btnGaleria.setOnClickListener { pickGallery.launch("image/*") }
-        btnCamara.setOnClickListener { openCamera() }
-        btnEnviar.setOnClickListener { enviarOcr() }
-        btnContinuar.setOnClickListener { goRegistrar() }
-
-        // Habilita Continuar si el usuario escribe KM manualmente (como Int)
-        etKmFinal.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                val km: Int? = s?.toString()?.toIntOrNull()
-                draft.km_final = km
-                btnContinuar.isEnabled = km != null
-            }
-        })
-    }
-
-    private fun openCamera() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), REQ_CAMERA)
-            return
-        }
-        imageUri = ImageUtils.createCameraUri(this)
-        imageUri?.let { takePicture.launch(it) }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQ_CAMERA &&
-            grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
-        ) {
-            openCamera()
-        } else if (requestCode == REQ_CAMERA) {
-            Toast.makeText(this, "Permiso de cámara denegado.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun setLoading(loading: Boolean) {
-        progress.visibility = if (loading) View.VISIBLE else View.GONE
-        btnEnviar.isEnabled = !loading
-        btnGaleria.isEnabled = !loading
-        btnCamara.isEnabled = !loading
-        if (loading) btnContinuar.isEnabled = false
-    }
-
-    private fun enviarOcr() {
-        val uri = imageUri
-        if (uri == null) {
-            Toast.makeText(this, "Selecciona o toma la foto del odómetro.", Toast.LENGTH_LONG).show()
-            return
-        }
-
-        setLoading(true)
-        lifecycleScope.launch {
-            try {
-                val api = ApiClient.createService(this@OcrOdometroActivity)
-                val part = withContext(Dispatchers.IO) {
-                    ImageUtils.uriToMultipart(this@OcrOdometroActivity, uri)
-                }
-                val resp: OcrOdometroResponse = withContext(Dispatchers.IO) {
-                    api.ocrOdometro(part)
-                }
-
-                draft.tmpOdomPath = resp.tmp_path
-
-                // Si el backend envía Long? o Int?, conviértelo a Int? para el draft
-                val km: Int? = when (val v = resp.data.km_final) {
-                    is Long -> v.toInt()
-                    is Int -> v
-                    else -> (v?.toString())?.toIntOrNull() // fallback por si llega como String
-                }
-
-                etKmFinal.setText(km?.toString() ?: "")
-                draft.km_final = km
-                btnContinuar.isEnabled = km != null
-
-            } catch (e: Exception) {
-                Toast.makeText(this@OcrOdometroActivity, e.message ?: "Error OCR", Toast.LENGTH_LONG).show()
-            } finally {
-                setLoading(false)
-            }
-        }
-    }
-
-    private fun goRegistrar() {
-        val i = Intent(this, RegistrarCargaActivity::class.java).apply {
-            // Datos extraídos
-            putExtra("OCR_fecha", draft.fecha)
-            putExtra("OCR_tipo", draft.tipo_combustible)
-            putExtra("OCR_litros", draft.litros)
-            putExtra("OCR_precio_unit", draft.precio_por_litro)
-            putExtra("OCR_importe_ticket", draft.importeTicket)
-            putExtra("OCR_importe_voucher", draft.importeVoucher)
-            putExtra("OCR_km_final", draft.km_final)
-
-            // Paths temporales
-            putExtra("OCR_tmp_ticket", draft.tmpTicketPath)
-            putExtra("OCR_tmp_voucher", draft.tmpVoucherPath)
-            putExtra("OCR_tmp_odometro", draft.tmpOdomPath)
-        }
-        startActivity(i)
-        finish()
-    }
-
-    // ---------------- Helpers UI de archivo ----------------
-
-    private fun updateFileUI(uri: Uri) {
-        val name = getDisplayName(uri) ?: uri.lastPathSegment?.substringAfterLast('/') ?: "archivo.jpg"
-        tvNombreArchivoOdom.text = name
-        badgeCargadoOdom.visibility = View.VISIBLE
-        ivEstadoArchivoOdom.setImageResource(android.R.drawable.checkbox_on_background)
-    }
-
-    private fun clearFileUI() {
-        tvNombreArchivoOdom.text = "Ningún archivo seleccionado"
-        badgeCargadoOdom.visibility = View.GONE
-        ivEstadoArchivoOdom.setImageResource(android.R.drawable.ic_menu_gallery)
-    }
-
-    private fun getDisplayName(uri: Uri): String? {
-        return try {
-            if ("content".equals(uri.scheme, ignoreCase = true)) {
-                contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                    ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
-            } else {
-                uri.lastPathSegment?.substringAfterLast('/')
-            }
-        } catch (_: Exception) {
-            null
-        }
+    /**
+     * (Opcional) Atajo si manejas 1:1 a nivel de negocio:
+     * Devuelve el primer vehículo asociado (si solo hubiera uno).
+     */
+    public function vehiculo()
+    {
+        return $this->hasOne(Vehiculo::class, 'tarjeta_si_vale_id');
     }
 }
