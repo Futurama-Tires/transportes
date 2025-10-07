@@ -27,6 +27,7 @@ class TarjetaSiVale extends Model
         'numero_tarjeta',
         'nip',
         'fecha_vencimiento',
+        'descripcion',
     ];
 
     protected $casts = [

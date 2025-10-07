@@ -1,3 +1,4 @@
+{{-- resources/views/tarjetas/create.blade.php --}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 leading-tight">
@@ -25,12 +26,13 @@
 
                     {{-- Número de tarjeta --}}
                     <div class="mb-4">
-                        <label class="block text-gray-700 dark:text-gray-300">Número de Tarjeta (16 dígitos) *</label>
+                        <label class="block text-gray-700 dark:text-gray-300">Número de Tarjeta (4–16 dígitos) *</label>
                         <input type="text" name="numero_tarjeta"
                                value="{{ old('numero_tarjeta') }}"
                                maxlength="16" minlength="4"
-
-                               title="Debe contener exactamente 16 números"
+                               pattern="[0-9]{4,16}"
+                               inputmode="numeric"
+                               title="Debe contener entre 4 y 16 números"
                                class="w-full border-gray-300 rounded"
                                required>
                         @error('numero_tarjeta')
@@ -54,15 +56,24 @@
 
                     {{-- Fecha de vencimiento --}}
                     <div class="mb-4">
-                        <label class="block text-gray-700 dark:text-gray-300">Fecha de Vencimiento *</label>
+                        <label class="block text-gray-700 dark:text-gray-300">Fecha de Vencimiento</label>
                         <input type="month" name="fecha_vencimiento"
                                value="{{ old('fecha_vencimiento') }}"
-                               class="w-full border-gray-300 rounded"
-                               >
+                               class="w-full border-gray-300 rounded">
                         @error('fecha_vencimiento')
                             <span class="text-red-500 text-sm">{{ $message }}</span>
                         @enderror
-                        <small class="text-gray-500">Ejemplo: Febrero 2026</small>
+                        <small class="text-gray-500">Se guardará como el último día del mes que elijas.</small>
+                    </div>
+
+                    {{-- Descripción (opcional) --}}
+                    <div class="mb-4">
+                        <label class="block text-gray-700 dark:text-gray-300">Descripción (opcional)</label>
+                        <textarea name="descripcion" rows="3" class="w-full border-gray-300 rounded" maxlength="1000">{{ old('descripcion') }}</textarea>
+                        <small class="text-gray-500">Máx. 1000 caracteres.</small>
+                        @error('descripcion')
+                            <span class="text-red-500 text-sm">{{ $message }}</span>
+                        @enderror
                     </div>
 
                     {{-- Botón guardar --}}

@@ -235,6 +235,7 @@
                                 <th>NIP</th>
                                 <th>Fecha de vencimiento</th>
                                 <th>Estado</th>
+                                <th>Descripción</th>
                                 <th class="text-end">Acciones</th>
                             </tr>
                         </thead>
@@ -289,6 +290,18 @@
                                         </span>
                                     </td>
 
+                                    {{-- Descripción --}}
+                                    <td class="text-secondary">
+                                        @php $desc = trim((string)($tarjeta->descripcion ?? '')); @endphp
+                                        @if($desc === '')
+                                            —
+                                        @else
+                                            <div class="text-truncate" style="max-width: 340px" title="{{ $desc }}">
+                                                {{ $desc }}
+                                            </div>
+                                        @endif
+                                    </td>
+
                                     {{-- Acciones: Ver Gastos, Editar, Eliminar (separadas) --}}
                                     <td class="text-end">
                                         <div class="d-inline-flex gap-1">
@@ -322,7 +335,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="py-6">
+                                    <td colspan="6" class="py-6">
                                         <div class="empty">
                                             <div class="empty-icon">
                                                 <i class="ti ti-credit-card-off"></i>

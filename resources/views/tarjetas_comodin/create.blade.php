@@ -65,7 +65,7 @@
 
                                 {{-- Número de tarjeta --}}
                                 <div class="mb-3">
-                                    <label class="form-label">Número de Tarjeta (16 dígitos) <span class="text-danger">*</span></label>
+                                    <label class="form-label">Número de Tarjeta (4–16 dígitos) <span class="text-danger">*</span></label>
                                     <div class="input-icon">
                                         <span class="input-icon-addon">
                                             <i class="ti ti-credit-card"></i>
@@ -75,7 +75,7 @@
                                             name="numero_tarjeta"
                                             value="{{ old('numero_tarjeta') }}"
                                             maxlength="16" minlength="4"
-                                            pattern="[0-9]{16}"
+                                            pattern="[0-9]{4,16}"
                                             title="Debe contener entre 4 y 16 números"
                                             class="form-control @error('numero_tarjeta') is-invalid @enderror"
                                             placeholder="Ej. 1234567890123456"
@@ -119,7 +119,7 @@
 
                                 {{-- Fecha de vencimiento --}}
                                 <div class="mb-3">
-                                    <label class="form-label">Fecha de Vencimiento <span class="text-danger">*</span></label>
+                                    <label class="form-label">Fecha de Vencimiento</label>
                                     <div class="input-icon">
                                         <span class="input-icon-addon">
                                             <i class="ti ti-calendar"></i>
@@ -129,10 +129,20 @@
                                             name="fecha_vencimiento"
                                             value="{{ old('fecha_vencimiento') }}"
                                             class="form-control @error('fecha_vencimiento') is-invalid @enderror"
-                                            required
                                         >
                                     </div>
+                                    <div class="form-hint">Se guardará como el último día del mes seleccionado.</div>
                                     @error('fecha_vencimiento')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+                                </div>
+
+                                {{-- Descripción (opcional) --}}
+                                <div class="mb-3">
+                                    <label class="form-label">Descripción (opcional)</label>
+                                    <textarea name="descripcion" rows="3" maxlength="1000" class="form-control @error('descripcion') is-invalid @enderror">{{ old('descripcion') }}</textarea>
+                                    <div class="form-hint">Máx. 1000 caracteres.</div>
+                                    @error('descripcion')
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
                                 </div>
