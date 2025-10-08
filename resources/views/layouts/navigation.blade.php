@@ -13,7 +13,7 @@
         ['type' => 'route', 'value' => 'capturistas.index',      'label' => 'Capturistas'],
         ['type' => 'route', 'value' => 'tarjetas.index',         'label' => 'Tarjetas SiVale'],
         ['type' => 'route', 'value' => 'tarjetas-comodin.index', 'label' => 'Tarjetas Comodín'],
-        ['type' => 'route', 'value' => 'verificaciones.index',   'label' => 'Verificaciones'],
+        ['type' => 'route', 'value' => 'programa-verificacion.index',   'label' => 'Verificaciones'],
         ['type' => 'url',   'value' => '#',                      'label' => 'Bases de datos'],
         ['type' => 'url',   'value' => '#',                      'label' => 'Reportes y estadísticas'],
     ];
