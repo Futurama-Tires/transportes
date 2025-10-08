@@ -20,8 +20,31 @@ class VerificacionDigest extends Notification
      */
     public function __construct(public array $bloques) {}
 
+    /**
+     * Filtro duro: si el notifiable no tiene rol/permiso autorizado,
+     * no retornamos canales => no se envía nada.
+     */
     public function via($notifiable): array
     {
+        $rolesPermitidos   = (array) config('verificacion.recipient_roles', ['administrador','capturista']);
+        $permisoPermitido  = config('verificacion.recipient_permission'); // opcional
+
+        $autorizado = false;
+
+        // 1) Permiso (si lo configuraste) — Spatie
+        if ($permisoPermitido && method_exists($notifiable, 'hasPermissionTo')) {
+            $autorizado = $notifiable->hasPermissionTo($permisoPermitido);
+        }
+
+        // 2) Roles — Spatie
+        if (! $autorizado && method_exists($notifiable, 'hasAnyRole')) {
+            $autorizado = $notifiable->hasAnyRole($rolesPermitidos);
+        }
+
+        if (! $autorizado) {
+            return []; // <- bloqueo
+        }
+
         return config('verificacion.channels', ['database']);
     }
 
@@ -60,7 +83,8 @@ class VerificacionDigest extends Notification
         foreach ($etiquetas as $k => $titulo) {
             $list = $this->bloques[$k] ?? [];
             if ($list) {
-                $m->line("**{$titulo}** (".count($list).")");
+                // Nota: MailMessage no interpreta **markdown** en ->line()
+                $m->line($titulo.' ('.count($list).')');
                 foreach (array_slice($list, 0, 15) as $it) {
                     $m->line(sprintf(
                         "- %s (%s) · %s a %s %s",

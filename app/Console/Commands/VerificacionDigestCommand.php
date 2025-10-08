@@ -163,19 +163,28 @@ class VerificacionDigestCommand extends Command
             return self::SUCCESS;
         }
 
-        // Destinatarios: roles (Spatie)
-        $roles = (array) config('verificacion.recipient_roles', ['administrador','capturista']);
-        $destinatarios = method_exists(User::class, 'role')
-            ? User::role($roles)->get()
-            : User::query()->get();
+        // ===== Destinatarios: por permiso (si configuraste) o por roles =====
+        $roles   = (array) config('verificacion.recipient_roles', ['administrador','capturista']);
+        $permiso = config('verificacion.recipient_permission');
 
-        if ($destinatarios->isEmpty()) {
-            $this->warn('No hay destinatarios con los roles configurados.');
-            return self::SUCCESS;
+        $q = User::query();
+
+        if ($permiso) {
+            // Spatie: scope permission()
+            $q->permission($permiso);
+        } else {
+            // Spatie: scope role()
+            $q->role($roles);
         }
 
-        // DRY RUN (NO envía nada, solo tabla)
+        $q->whereNotNull('email')->where('email', '!=', '');
+
+        $count = 0;
+
+        // DRY RUN (NO envía nada, solo tabla + conteo de destinatarios)
         if ($this->option('dry-run')) {
+            $destPreview = (clone $q)->count();
+
             $this->table(
                 ['Bloque','Vehículo','Placa','Estado','Ventana','Días'],
                 collect($bloques)->flatMap(
@@ -184,6 +193,8 @@ class VerificacionDigestCommand extends Command
                     ])
                 )->all()
             );
+
+            $this->info("Destinatarios potenciales (dry-run): {$destPreview}");
             return self::SUCCESS;
         }
 
@@ -191,8 +202,17 @@ class VerificacionDigestCommand extends Command
         $this->sendTelegramDigest($bloques, $hoy);
 
         // =========== NOTIFICACIÓN (DB / mail, según config) ===========
-        Notification::send($destinatarios, new VerificacionDigest($bloques));
-        $this->info("Digest enviado a {$destinatarios->count()} usuario(s).");
+        $q->orderBy('id')->chunk(500, function ($chunk) use ($bloques, &$count) {
+            Notification::send($chunk, new VerificacionDigest($bloques));
+            $count += $chunk->count();
+        });
+
+        if ($count === 0) {
+            $this->warn('No hay destinatarios con los roles/permiso configurados.');
+        } else {
+            $this->info("Digest enviado a {$count} usuario(s).");
+        }
+
         return self::SUCCESS;
     }
 

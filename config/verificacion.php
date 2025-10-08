@@ -1,4 +1,5 @@
 <?php
+
 return [
     // Zona horaria operativa
     'timezone' => 'America/Mexico_City',
@@ -12,8 +13,13 @@ return [
     'notify_on_open_day'  => false,
     'notify_on_close_day' => false,
 
-    // A quién se envía (Spatie roles)
+    // === A QUIÉN SE ENVÍA ===
+    // Roles Spatie que pueden recibir
     'recipient_roles' => ['administrador','capturista'],
+
+    // Permiso Spatie opcional; si lo pones, tiene prioridad sobre roles
+    // (así puedes granular por usuario sin cambiar roles)
+    'recipient_permission' => env('VERIFICACION_DIGEST_PERMISSION', null),
 
     // Canales de Laravel Notification
     'channels' => ['database'], // añade 'mail' si ya tienes SMTP
@@ -21,9 +27,9 @@ return [
     // Ruta del tablero al que mandará el botón de la notificación
     'dashboard_route' => 'programa-verificacion.index',
 
+    // Telegram opcional
     'telegram' => [
-    'enabled'   => true,
-    'max_items' => 10,
-],
-
+        'enabled'   => true,
+        'max_items' => 10,
+    ],
 ];
