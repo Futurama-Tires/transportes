@@ -15,7 +15,7 @@
         @endif
 
         {{-- Header / Filtros --}}
-        <div class="page-header d-print-none mb-3">
+        <div class="page-header d-print-none mb-3 ">
             <div class="row align-items-end">
                 <div class="col">
                     <br>

@@ -21,12 +21,8 @@
                 <div class="row g-2 align-items-center">
                     <div class="col">
                         <h2 class="page-title mb-0 d-flex align-items-center gap-2">
-                            <i class="ti ti-credit-card"></i>
                             Tarjetas Comodín
                         </h2>
-                        <div class="text-secondary small mt-1">
-                            Administra las tarjetas para gastos del departamento.
-                        </div>
                     </div>
                     <div class="col-auto ms-auto">
                         <a href="{{ route('tarjetas-comodin.create') }}" class="btn btn-primary">

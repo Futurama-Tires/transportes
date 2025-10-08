@@ -67,9 +67,6 @@
                 <div class="col-sm-4">
                     <div class="card card-sm">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar me-3 d-inline-flex align-items-center justify-content-center">
-                                <span class="material-symbols-outlined">local_gas_station</span>
-                            </span>
                             <div class="row align-items-center flex-fill">
                                 <div class="col">
                                     <div class="font-weight-medium">Total de cargas</div>
@@ -86,9 +83,6 @@
                 <div class="col-sm-4">
                     <div class="card card-sm">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar me-3 d-inline-flex align-items-center justify-content-center">
-                                <span class="material-symbols-outlined">propane_tank</span>
-                            </span>
                             <div class="row align-items-center flex-fill">
                                 <div class="col">
                                     <div class="font-weight-medium">Litros cargados</div>
@@ -105,9 +99,6 @@
                 <div class="col-sm-4">
                     <div class="card card-sm">
                         <div class="card-body d-flex align-items-center">
-                            <span class="avatar me-3 d-inline-flex align-items-center justify-content-center">
-                                <span class="material-symbols-outlined">attach_money</span>
-                            </span>
                             <div class="row align-items-center flex-fill">
                                 <div class="col">
                                     <div class="font-weight-medium">Monto total</div>
@@ -128,29 +119,19 @@
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title d-flex align-items-center gap-2">
-                                <span class="material-symbols-outlined">credit_card</span>
                                 <span>Detalle de la tarjeta</span>
                             </h3>
                         </div>
                         <div class="card-body">
                             <dl class="row">
-                                <dt class="col-5 text-secondary">Número</dt>
+                                <dt class="col-5 text-secondary">Número de tarjeta:</dt>
                                 <dd class="col-7">
                                     <span class="font-monospace" title="Número completo">{{ $numeroFormateado }}</span>
                                 </dd>
 
-                                {{-- NIP eliminado según solicitud --}}
-
-                                <dt class="col-5 text-secondary">Vencimiento</dt>
+                                <dt class="col-5 text-secondary">Vencimiento:</dt>
                                 <dd class="col-7">{{ $mesAnio }}</dd>
 
-                                <dt class="col-5 text-secondary">Created / Updated</dt>
-                                <dd class="col-7">
-                                    <div class="text-secondary">
-                                        {{ optional($tarjeta->created_at)->format('Y-m-d H:i') }} /
-                                        {{ optional($tarjeta->updated_at)->format('Y-m-d H:i') }}
-                                    </div>
-                                </dd>
                             </dl>
                         </div>
                     </div>
@@ -160,7 +141,6 @@
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title d-flex align-items-center gap-2">
-                                <span class="material-symbols-outlined">local_shipping</span>
                                 <span>Unidad vinculada</span>
                             </h3>
                         </div>
@@ -172,7 +152,7 @@
                                     @foreach($tarjeta->vehiculos as $v)
                                         @php
                                             $label = $v->unidad
-                                                ? "#{$v->id} · {$v->unidad}"
+                                                ? "{$v->unidad}"
                                                 : "#{$v->id}";
                                             if ($v->placa) $label .= " · {$v->placa}";
                                         @endphp
@@ -195,19 +175,10 @@
                         <div class="card-header align-items-center">
                             <h3 class="card-title d-flex align-items-center gap-2">
                                 <span class="material-symbols-outlined">local_gas_station</span>
-                                <span>Cargas realizadas con esta tarjeta</span>
+                                <span>Cargas realizadas</span>
                             </h3>
 
                             <div class="ms-auto d-flex gap-2 align-items-center">
-                                {{-- Opción (no funcional aún) de Exportar a Excel --}}
-                                <a href="#"
-                                   class="btn btn-success disabled"
-                                   aria-disabled="true"
-                                   title="Próximamente">
-                                    <span class="material-symbols-outlined me-1 align-middle">table_view</span>
-                                    Exportar a Excel
-                                </a>
-
                                 <form method="GET" class="d-inline-flex align-items-center">
                                     {{-- Mantener otros query params si los agregas en el futuro --}}
                                     @foreach(request()->except('per_page', 'page') as $k => $v)

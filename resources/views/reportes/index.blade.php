@@ -33,7 +33,7 @@
         <div class="container-xl">
             <div class="row g-2 align-items-center">
                 <div class="col">
-                    <h2 class="page-title mb-0">Dashboard de Reportes</h2>
+                    <h2 class="page-title mb-0">Reportes - Dashboard</h2>
                 </div>
             </div>
         </div>

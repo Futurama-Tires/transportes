@@ -63,14 +63,12 @@
                         @error('fecha_vencimiento')
                             <span class="text-red-500 text-sm">{{ $message }}</span>
                         @enderror
-                        <small class="text-gray-500">Se guardará como el último día del mes que elijas.</small>
                     </div>
 
                     {{-- Descripción (opcional) --}}
                     <div class="mb-4">
                         <label class="block text-gray-700 dark:text-gray-300">Descripción (opcional)</label>
                         <textarea name="descripcion" rows="3" class="w-full border-gray-300 rounded" maxlength="1000">{{ old('descripcion') }}</textarea>
-                        <small class="text-gray-500">Máx. 1000 caracteres.</small>
                         @error('descripcion')
                             <span class="text-red-500 text-sm">{{ $message }}</span>
                         @enderror

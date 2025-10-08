@@ -7,16 +7,15 @@
         <div class="container-xl">
             <div class="row g-2 align-items-center">
                 <div class="col">
+                    <br>
                     <h2 class="page-title">
-                        <i class="ti ti-credit-card me-2"></i>
                         Editar Tarjeta Comodín
                     </h2>
-                    <div class="text-secondary small">
-                        Actualiza el número, NIP y fecha de vencimiento.
-                    </div>
                 </div>
                 <div class="col-auto ms-auto d-print-none">
+                    <br>
                     <div class="btn-list">
+                        
                         <a href="{{ route('tarjetas-comodin.index') }}" class="btn btn-outline-secondary">
                             <i class="ti ti-arrow-left me-1"></i>
                             Volver al listado
@@ -112,7 +111,6 @@
                                             <i class="ti ti-eye"></i>
                                         </button>
                                     </div>
-                                    <div class="form-hint">Deja en blanco para conservar el NIP actual.</div>
                                     @error('nip')
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
@@ -132,7 +130,6 @@
                                             class="form-control @error('fecha_vencimiento') is-invalid @enderror"
                                         >
                                     </div>
-                                    <div class="form-hint">Se guardará como el último día del mes seleccionado.</div>
                                     @error('fecha_vencimiento')
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
@@ -142,7 +139,6 @@
                                 <div class="mb-3">
                                     <label class="form-label">Descripción (opcional)</label>
                                     <textarea name="descripcion" rows="3" maxlength="1000" class="form-control @error('descripcion') is-invalid @enderror">{{ old('descripcion', $tarjeta->descripcion) }}</textarea>
-                                    <div class="form-hint">Máx. 1000 caracteres.</div>
                                     @error('descripcion')
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
@@ -160,12 +156,6 @@
                                 </a>
                             </div>
                         </form>
-                    </div>
-
-                    {{-- Nota de seguridad (opcional) --}}
-                    <div class="text-secondary small mt-2">
-                        <i class="ti ti-shield-lock me-1"></i>
-                        No compartas el NIP. Asegúrate de guardar los cambios solo en equipos de confianza.
                     </div>
 
                 </div>
