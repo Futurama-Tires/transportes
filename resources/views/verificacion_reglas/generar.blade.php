@@ -4,6 +4,7 @@
         <div class="page-header d-print-none mb-3">
             <div class="row align-items-center">
                 <div class="col">
+                    <br>
                     <h2 class="page-title">Regenerar periodos</h2>
                     <div class="page-subtitle text-secondary">
                         {{ $regla->nombre }} @if($regla->version) · {{ $regla->version }} @endif
@@ -90,5 +91,9 @@
                 </div>
             </form>
         </div>
+        {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
     </div>
 </x-app-layout>

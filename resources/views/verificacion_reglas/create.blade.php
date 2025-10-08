@@ -1,10 +1,41 @@
 {{-- resources/views/verificacion_reglas/create.blade.php --}}
 <x-app-layout>
+    @vite(['resources/js/app.js'])
+
+    <style>
+        /* Ajustes sutiles de layout y tabla */
+        .page-header .page-title { margin-bottom: .25rem; }
+        .card { border: 0; box-shadow: var(--tblr-shadow, 0 1px 2px rgba(0,0,0,.06)); }
+
+        .table-sticky thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: var(--tblr-bg-surface, #fff);
+        }
+        .table thead th { font-weight: 600; }
+        .table-nowrap { white-space: nowrap; }
+        .table-sm > :not(caption) > * > * { padding-top:.5rem; padding-bottom:.5rem; }
+
+        .col-nombre { max-width: 560px; }
+        @media (max-width: 992px) { .col-nombre { max-width: 420px; } }
+        @media (max-width: 576px) { .col-nombre { max-width: 100%; } }
+
+        .form-hint { margin-top: .25rem; display: inline-block; }
+
+        /* Grid de estados compacto y parejo */
+        #estados-wrap .row { --tblr-gutter-x: .75rem; --tblr-gutter-y: .5rem; }
+
+        /* Footer del form siempre bien alineado */
+        .card-footer { gap: .5rem; }
+    </style>
+
     <div class="container-xl">
         {{-- Header --}}
         <div class="page-header d-print-none mb-3">
-            <div class="row align-items-center">
+            <div class="row align-items-center g-2">
                 <div class="col">
+                    <br>
                     <h2 class="page-title text-dark">Nueva regla de verificación</h2>
                     <div class="page-subtitle text-dark">Define el año, estados y el calendario por terminación.</div>
                 </div>
@@ -18,7 +49,7 @@
 
         {{-- Errores --}}
         @if ($errors->any())
-            <div class="alert alert-danger">
+            <div class="alert alert-danger mb-3">
                 <ul class="mb-0">
                     @foreach ($errors->all() as $e)
                         <li>{{ $e }}</li>
@@ -31,32 +62,32 @@
         <form method="post" action="{{ route('verificacion-reglas.store') }}" class="card">
             @csrf
 
-            <div class="card-body">
+            <div class="card-body py-3">
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Nombre de la regla</label>
-                        <input type="text" name="nombre" class="form-control" required placeholder="Ej. Megalópolis {{ date('Y') }}" value="{{ old('nombre') }}">
+                    <div class="col-12 col-lg-5">
+                        <label class="form-label mb-1">Nombre de la regla</label>
+                        <input type="text" name="nombre" class="form-control col-nombre" required
+                               placeholder="Ej. Megalópolis {{ date('Y') }}" value="{{ old('nombre') }}">
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Versión (opcional)</label>
+                    <div class="col-6 col-lg-2">
+                        <label class="form-label mb-1">Versión (opcional)</label>
                         <input type="text" name="version" class="form-control" placeholder="v1.0" value="{{ old('version') }}">
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Frecuencia</label>
+                    <div class="col-6 col-lg-3">
+                        <label class="form-label mb-1">Frecuencia</label>
                         <select name="frecuencia" id="frecuencia" class="form-select" required>
                             <option value="Semestral" {{ old('frecuencia','Semestral')==='Semestral' ? 'selected' : '' }}>Semestral</option>
                             <option value="Anual" {{ old('frecuencia')==='Anual' ? 'selected' : '' }}>Anual</option>
                         </select>
                     </div>
-
-                    <div class="col-md-3">
-                        <label class="form-label">Año</label>
+                    <div class="col-6 col-lg-2">
+                        <label class="form-label mb-1">Año</label>
                         <input type="number" class="form-control" name="anio" id="anio"
                                min="2000" max="2999" value="{{ old('anio', $anioDefault ?? now()->year) }}" required>
                     </div>
 
                     {{-- ===== Estados con checkboxes dinámicos ===== --}}
-                    <div class="col-md-9">
+                    <div class="col-12">
                         <div class="d-flex align-items-center justify-content-between">
                             <label class="form-label mb-0">Estados (disponibles para el año)</label>
                             <div class="d-flex gap-2">
@@ -83,7 +114,7 @@
                     </div>
 
                     <div class="col-12">
-                        <label class="form-label">Notas (opcional)</label>
+                        <label class="form-label mb-1">Notas (opcional)</label>
                         <textarea class="form-control" name="notas" rows="2" placeholder="Observaciones...">{{ old('notas') }}</textarea>
                     </div>
                 </div>
@@ -94,7 +125,7 @@
                 <div id="tabla-semestral">
                     <h3 class="h4 text-dark mb-2">Calendario por terminación — Semestral</h3>
                     <div class="table-responsive">
-                        <table class="table table-vcenter">
+                        <table class="table table-vcenter table-sm table-sticky table-nowrap align-middle mb-0">
                             <thead>
                                 <tr>
                                     <th class="text-dark">Terminación</th>
@@ -135,28 +166,28 @@
                                     <tr>
                                         <td class="text-dark fw-bold">{{ $d }}</td>
                                         <td>
-                                            <select name="detalles[{{ $d }}][1][mes_inicio]" class="form-select">
+                                            <select name="detalles[{{ $d }}][1][mes_inicio]" class="form-select form-select-sm">
                                                 @foreach ($meses as $k=>$m)
                                                     <option value="{{ $k }}" {{ (int)$k===$s1i ? 'selected' : '' }}>{{ $m }}</option>
                                                 @endforeach
                                             </select>
                                         </td>
                                         <td>
-                                            <select name="detalles[{{ $d }}][1][mes_fin]" class="form-select">
+                                            <select name="detalles[{{ $d }}][1][mes_fin]" class="form-select form-select-sm">
                                                 @foreach ($meses as $k=>$m)
                                                     <option value="{{ $k }}" {{ (int)$k===$s1f ? 'selected' : '' }}>{{ $m }}</option>
                                                 @endforeach
                                             </select>
                                         </td>
                                         <td>
-                                            <select name="detalles[{{ $d }}][2][mes_inicio]" class="form-select">
+                                            <select name="detalles[{{ $d }}][2][mes_inicio]" class="form-select form-select-sm">
                                                 @foreach ($meses as $k=>$m)
                                                     <option value="{{ $k }}" {{ (int)$k===$s2i ? 'selected' : '' }}>{{ $m }}</option>
                                                 @endforeach
                                             </select>
                                         </td>
                                         <td>
-                                            <select name="detalles[{{ $d }}][2][mes_fin]" class="form-select">
+                                            <select name="detalles[{{ $d }}][2][mes_fin]" class="form-select form-select-sm">
                                                 @foreach ($meses as $k=>$m)
                                                     <option value="{{ $k }}" {{ (int)$k===$s2f ? 'selected' : '' }}>{{ $m }}</option>
                                                 @endforeach
@@ -174,7 +205,7 @@
                 <div id="tabla-anual" style="display:none;">
                     <h3 class="h4 text-dark mb-2">Calendario por terminación — Anual</h3>
                     <div class="table-responsive">
-                        <table class="table table-vcenter">
+                        <table class="table table-vcenter table-sm table-sticky table-nowrap align-middle mb-0">
                             <thead>
                                 <tr>
                                     <th class="text-dark">Terminación</th>
@@ -192,14 +223,14 @@
                                     <tr>
                                         <td class="text-dark fw-bold">{{ $d }}</td>
                                         <td>
-                                            <select name="detalles[{{ $d }}][0][mes_inicio]" class="form-select">
+                                            <select name="detalles[{{ $d }}][0][mes_inicio]" class="form-select form-select-sm">
                                                 @foreach ($meses as $k=>$m)
                                                     <option value="{{ $k }}" {{ (int)$k===$a0i ? 'selected' : '' }}>{{ $m }}</option>
                                                 @endforeach
                                             </select>
                                         </td>
                                         <td>
-                                            <select name="detalles[{{ $d }}][0][mes_fin]" class="form-select">
+                                            <select name="detalles[{{ $d }}][0][mes_fin]" class="form-select form-select-sm">
                                                 @foreach ($meses as $k=>$m)
                                                     <option value="{{ $k }}" {{ (int)$k===$a0f ? 'selected' : '' }}>{{ $m }}</option>
                                                 @endforeach
@@ -215,13 +246,18 @@
 
             </div>
 
-            <div class="card-footer d-flex justify-content-end gap-2">
+            <div class="card-footer d-flex justify-content-end">
                 <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-link">Cancelar</a>
                 <button id="btn-guardar" class="btn btn-primary" disabled>
                     <i class="ti ti-device-floppy"></i> Guardar regla
                 </button>
             </div>
         </form>
+        <br>
+        {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
     </div>
 
     <script>
@@ -237,11 +273,9 @@
                 return;
             }
 
-            // Grid responsivo de 3 columnas (md)
             const row = document.createElement('div');
             row.className = 'row g-2';
 
-            // old() para re-seleccionar
             const olds = @json(old('estados', []));
 
             disponibles.forEach((it, idx) => {
@@ -252,7 +286,7 @@
                 const checked = olds.includes(it.value) ? 'checked' : '';
 
                 col.innerHTML = `
-                    <label class="form-check">
+                    <label class="form-check w-100">
                         <input class="form-check-input estado-cb" type="checkbox" name="estados[]" value="${it.value}" id="${id}" ${checked}>
                         <span class="form-check-label">${it.label}</span>
                     </label>
@@ -262,10 +296,8 @@
 
             wrap.appendChild(row);
 
-            // Escucha cambios para habilitar/deshabilitar guardar
             document.querySelectorAll('.estado-cb').forEach(cb => cb.addEventListener('change', updateGuardarEnabled));
 
-            // Ocupados (chips)
             document.getElementById('estados-ocupados').style.display = (ocupados && ocupados.length) ? '' : 'none';
             renderOcupadosChips(ocupados);
             updateGuardarEnabled();
@@ -291,12 +323,10 @@
 
         function updateGuardarEnabled() {
             const btn = document.getElementById('btn-guardar');
-            // Habilita si hay al menos 1 checkbox y alguno marcado
             const hasCheckbox = document.querySelector('#estados-wrap input.estado-cb') !== null;
             btn.disabled = !(hasCheckbox && anyEstadoChecked());
         }
 
-        // Cargar estados disponibles por año
         async function cargarEstadosDisponibles() {
             const anio = document.getElementById('anio').value;
             const wrap = document.getElementById('estados-wrap');
@@ -335,14 +365,12 @@
             }
         }
 
-        // Mostrar/ocultar tablas según frecuencia
         function toggleFrecuencia() {
             const f = document.getElementById('frecuencia').value;
             document.getElementById('tabla-semestral').style.display = (f === 'Semestral') ? '' : 'none';
             document.getElementById('tabla-anual').style.display     = (f === 'Anual') ? '' : 'none';
         }
 
-        // Select all / clear all
         function selectAllEstados() {
             document.querySelectorAll('#estados-wrap input.estado-cb').forEach(cb => cb.checked = true);
             updateGuardarEnabled();
