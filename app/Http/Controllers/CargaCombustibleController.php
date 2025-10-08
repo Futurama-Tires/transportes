@@ -76,36 +76,51 @@ class CargaCombustibleController extends Controller
             'precio'           => ['required', 'numeric', 'min:0'],
             'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
             'litros'           => ['required', 'numeric', 'min:0.001'],
-            'total'            => ['required', 'numeric', 'min:0.01'], // ⬅ CAMBIO: total es obligatorio (manual)
+            'total'            => ['required', 'numeric', 'min:0.01'], // total obligatorio (manual)
             'custodio'         => ['nullable', 'string', 'max:255'],
             'operador_id'      => ['required', 'exists:operadores,id'],
             'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
             'km_final'         => ['required', 'integer', 'min:0'],
             'destino'          => ['nullable', 'string', 'max:255'],
             'observaciones'    => ['nullable', 'string', 'max:2000'],
-            // (no viene estado desde create web)
         ]);
 
         // ✅ Todo lo creado en web sale Aprobada
         $data['estado'] = 'Aprobada';
 
         return DB::transaction(function () use ($data) {
-            $vehiculo  = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
-            $kmInicial = $vehiculo->kilometros;
+            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+
+            // 🔎 Buscar la carga anterior cronológica (por fecha, luego id) a la NUEVA fecha
+            $previa = $this->findPrevCarga($vehiculo->id, $data['fecha'], null);
+
+            // KM inicial se toma de la carga anterior cronológica (no del odómetro actual del vehículo)
+            $kmInicial = $previa?->km_final;
 
             if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
                 throw ValidationException::withMessages([
-                    'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial}).",
+                    'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el KM inicial calculado ({$kmInicial}).",
                 ]);
             }
 
-            $this->applyDerived($data, $kmInicial); // ⬅ NO recalcula total
+            $this->applyDerived($data, $kmInicial); // NO recalcula total
 
             $carga = new CargaCombustible();
             $carga->forceFill($data)->save();
 
-            $vehiculo->update(['kilometros' => $data['km_final']]);
+            // 🔁 Recalcular en cadena desde esta carga hacia delante
+            $this->reflowFromCarga($carga);
 
+            // 🔚 Actualizar odómetro del vehículo SOLO si esta carga es la última cronológica
+            if ($this->isLatestCarga($vehiculo->id, $carga->fecha, $carga->id)) {
+                $vehiculo->update(['kilometros' => $carga->km_final]);
+            } else {
+                // Si no es la última, igual garantizamos que el vehiculo refleja la última carga
+                $ultima = $this->latestCarga($vehiculo->id);
+                $vehiculo->update(['kilometros' => $ultima?->km_final]);
+            }
+
+            // Notificación
             $carga->loadMissing('vehiculo','operador');
             DB::afterCommit(function () use ($carga) {
                 $destinatarios = User::role(['administrador','capturista'], 'web')->get();
@@ -113,7 +128,7 @@ class CargaCombustibleController extends Controller
             });
 
             return redirect()->route('cargas.index')
-                ->with('success', 'Carga registrada y odómetro del vehículo actualizado.');
+                ->with('success', 'Carga registrada y kilometraje recalculado correctamente.');
         });
     }
 
@@ -136,32 +151,22 @@ class CargaCombustibleController extends Controller
             'precio'           => ['required', 'numeric', 'min:0'],
             'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
             'litros'           => ['required', 'numeric', 'min:0.001'],
-            'total'            => ['required', 'numeric', 'min:0.01'], // ⬅ CAMBIO: total obligatorio (manual)
+            'total'            => ['required', 'numeric', 'min:0.01'], // total obligatorio (manual)
             'custodio'         => ['nullable', 'string', 'max:255'],
             'operador_id'      => ['required', 'exists:operadores,id'],
             'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
             'km_final'         => ['required', 'integer', 'min:0'],
             'destino'          => ['nullable', 'string', 'max:255'],
             'observaciones'    => ['nullable', 'string', 'max:2000'],
-            // ✅ AQUÍ ESTÁ LA CLAVE:
             'estado'           => ['required', 'in:Pendiente,Aprobada'],
         ]);
 
         return DB::transaction(function () use ($carga, $data) {
             $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
 
-            $previa = CargaCombustible::where('vehiculo_id', $vehiculo->id)
-                ->where(function($q) use ($carga, $data){
-                    $fechaNueva = $data['fecha'];
-                    $q->where('fecha','<', $fechaNueva)
-                    ->orWhere(function($q2) use ($fechaNueva, $carga){
-                        $q2->where('fecha', $fechaNueva)->where('id','<', $carga->id);
-                    });
-                })
-                ->orderBy('fecha','desc')->orderBy('id','desc')
-                ->first();
-
-            $kmInicial = $previa?->km_final ?? $vehiculo->kilometros;
+            // ⏱️ Calcula la carga previa con base en la NUEVA fecha+id (excluyendo la propia $carga)
+            $previa = $this->findPrevCarga($vehiculo->id, $data['fecha'], $carga->id);
+            $kmInicial = $previa?->km_final ?? null;
 
             if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
                 throw ValidationException::withMessages([
@@ -169,46 +174,46 @@ class CargaCombustibleController extends Controller
                 ]);
             }
 
-            $this->applyDerived($data, $kmInicial); // ⬅ NO recalcula total
+            $this->applyDerived($data, $kmInicial); // NO recalcula total
 
-            // $data incluye 'estado', por lo que se guardará
             $carga->forceFill($data)->save();
 
-            $ultima = CargaCombustible::where('vehiculo_id', $vehiculo->id)
-                ->orderBy('fecha','desc')->orderBy('id','desc')
-                ->first();
+            // 🔁 Recalcular hacia delante desde ESTA carga
+            $this->reflowFromCarga($carga);
 
-            if ($ultima && $ultima->id === $carga->id) {
-                $vehiculo->update(['kilometros' => $data['km_final']]);
-            }
+            // 🔚 Asegurar odómetro del vehículo según la última carga cronológica
+            $ultima = $this->latestCarga($vehiculo->id);
+            $vehiculo->update(['kilometros' => $ultima?->km_final]);
 
             return redirect()->route('cargas.index')
-                ->with('success', 'Carga actualizada correctamente.');
+                ->with('success', 'Carga actualizada y kilometraje recalculado correctamente.');
         });
     }
-
 
     public function destroy(CargaCombustible $carga)
     {
         return DB::transaction(function () use ($carga) {
             $vehiculoId = $carga->vehiculo_id;
 
-            $esUltima = CargaCombustible::where('vehiculo_id', $vehiculoId)
-                ->orderBy('fecha','desc')->orderBy('id','desc')->value('id') === $carga->id;
+            // Guardar referencia del primer "siguiente" para reflow después del borrado
+            $siguiente = $this->findNextCarga($vehiculoId, $carga->fecha, $carga->id);
 
             $deleted = $carga->delete();
 
-            if ($deleted && $esUltima) {
-                $vehiculo = Vehiculo::lockForUpdate()->find($vehiculoId);
-                if ($vehiculo) {
-                    $nuevaUltima = CargaCombustible::where('vehiculo_id', $vehiculoId)
-                        ->orderBy('fecha','desc')->orderBy('id','desc')->first();
-                    $vehiculo->update(['kilometros' => $nuevaUltima?->km_final]);
-                }
+            // 🔁 Si había cargas posteriores, recalcular desde la primera siguiente
+            if ($deleted && $siguiente) {
+                $this->reflowFromCarga($siguiente);
+            }
+
+            // 🔚 Actualizar odómetro del vehículo según la nueva última
+            $vehiculo = Vehiculo::lockForUpdate()->find($vehiculoId);
+            if ($vehiculo) {
+                $ultima = $this->latestCarga($vehiculoId);
+                $vehiculo->update(['kilometros' => $ultima?->km_final]);
             }
 
             return redirect()->route('cargas.index')
-                ->with('success', $deleted ? 'Carga eliminada correctamente.' : 'No se pudo eliminar la carga.');
+                ->with('success', $deleted ? 'Carga eliminada y kilometraje recalculado.' : 'No se pudo eliminar la carga.');
         });
     }
 
@@ -241,13 +246,13 @@ class CargaCombustibleController extends Controller
         return back()->with('success', "Carga #{$carga->id} aprobada.");
     }
 
-    // ===================== Helpers =====================
+    // ===================== Helpers de cálculo =====================
 
     protected function applyDerived(array &$data, ?int $kmInicial): void
     {
         $data['mes'] = ucfirst(Carbon::parse($data['fecha'])->locale('es')->translatedFormat('F'));
 
-        // ⬅ CAMBIO: NO calcular total. Solo normalizar si viene.
+        // NO calcular total. Solo normalizar si viene.
         if (isset($data['total'])) {
             $data['total'] = round((float) $data['total'], 2);
         }
@@ -272,6 +277,124 @@ class CargaCombustibleController extends Controller
         }
     }
 
+    /**
+     * Recalcula en cadena km_inicial/recorrido/rendimiento/diferencia
+     * desde $start (incluido) hacia adelante, con orden (fecha asc, id asc).
+     * También asegura que el odómetro del vehículo quede en la última carga.
+     */
+    protected function reflowFromCarga(CargaCombustible $start): void
+    {
+        $vehiculoId = $start->vehiculo_id;
+
+        // Carga inmediatamente anterior al inicio (para base de comparación)
+        $prev = $this->findPrevCarga($vehiculoId, $start->fecha, $start->id);
+
+        // Todas las cargas desde "start" en adelante (incluida "start")
+        $cadena = CargaCombustible::where('vehiculo_id', $vehiculoId)
+            ->where(function ($q) use ($start) {
+                $q->where('fecha', '>', $start->fecha)
+                  ->orWhere(function ($q2) use ($start) {
+                      $q2->where('fecha', $start->fecha)->where('id', '>=', $start->id);
+                  });
+            })
+            ->orderBy('fecha', 'asc')->orderBy('id', 'asc')
+            ->get();
+
+        // Procesar primero la propia $start para garantizar consistencia
+        $lista = collect([$start])->merge($cadena);
+
+        $anterior = $prev; // puede ser null
+        foreach ($lista as $c) {
+            $payload = [
+                'fecha'         => $c->fecha,
+                'precio'        => $c->precio,
+                'litros'        => $c->litros,
+                'total'         => $c->total,
+                'km_final'      => $c->km_final,
+                'tipo_combustible' => $c->tipo_combustible,
+            ];
+
+            $kmBase = $anterior?->km_final;
+            $this->applyDerived($payload, $kmBase);
+
+            // Actualiza SOLO los campos derivados para no tocar otros metadatos
+            $c->forceFill([
+                'mes'         => $payload['mes'],
+                'km_inicial'  => $payload['km_inicial'],
+                'recorrido'   => $payload['recorrido'],
+                'rendimiento' => $payload['rendimiento'],
+                'diferencia'  => $payload['diferencia'],
+            ])->save();
+
+            $anterior = $c;
+        }
+
+        // Al final, asegurar que el vehículo refleje la última carga cronológica
+        $vehiculo = Vehiculo::lockForUpdate()->find($vehiculoId);
+        if ($vehiculo) {
+            $ultima = $this->latestCarga($vehiculoId);
+            $vehiculo->update(['kilometros' => $ultima?->km_final]);
+        }
+    }
+
+    /**
+     * Última carga cronológica del vehículo (fecha desc, id desc)
+     */
+    protected function latestCarga(int $vehiculoId): ?CargaCombustible
+    {
+        return CargaCombustible::where('vehiculo_id', $vehiculoId)
+            ->orderBy('fecha','desc')->orderBy('id','desc')
+            ->first();
+    }
+
+    /**
+     * ¿Es (fecha,id) la última para el vehículo?
+     */
+    protected function isLatestCarga(int $vehiculoId, $fecha, int $id): bool
+    {
+        $ultima = $this->latestCarga($vehiculoId);
+        return $ultima && $ultima->fecha == $fecha && $ultima->id == $id;
+    }
+
+    /**
+     * Carga inmediatamente anterior a (fecha,id). Si $excludeId se pasa, lo excluye.
+     */
+    protected function findPrevCarga(int $vehiculoId, $fecha, ?int $excludeId = null): ?CargaCombustible
+    {
+        return CargaCombustible::where('vehiculo_id', $vehiculoId)
+            ->when($excludeId, fn($q) => $q->where('id','!=',$excludeId))
+            ->where(function ($q) use ($fecha, $excludeId) {
+                $q->where('fecha','<',$fecha)
+                  ->orWhere(function ($q2) use ($fecha, $excludeId) {
+                      $q2->where('fecha',$fecha);
+                      if ($excludeId) {
+                          $q2->where('id','<',$excludeId);
+                      } else {
+                          // si no hay exclude, simplemente tomar el menor id del mismo día
+                          $q2->where('id','<', PHP_INT_MAX);
+                      }
+                  });
+            })
+            ->orderBy('fecha','desc')->orderBy('id','desc')
+            ->first();
+    }
+
+    /**
+     * Carga inmediatamente posterior a (fecha,id)
+     */
+    protected function findNextCarga(int $vehiculoId, $fecha, int $id): ?CargaCombustible
+    {
+        return CargaCombustible::where('vehiculo_id', $vehiculoId)
+            ->where(function ($q) use ($fecha, $id) {
+                $q->where('fecha','>',$fecha)
+                  ->orWhere(function ($q2) use ($fecha, $id) {
+                      $q2->where('fecha',$fecha)->where('id','>',$id);
+                  });
+            })
+            ->orderBy('fecha','asc')->orderBy('id','asc')
+            ->first();
+    }
+
     // ===================== API MÓVIL =====================
 
     /**
@@ -286,7 +409,7 @@ class CargaCombustibleController extends Controller
             'precio'           => ['required', 'numeric', 'min:0'],
             'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
             'litros'           => ['required', 'numeric', 'min:0.001'],
-            'total'            => ['required', 'numeric', 'min:0.01'], // ⬅ CAMBIO: total obligatorio en API
+            'total'            => ['required', 'numeric', 'min:0.01'], // total obligatorio en API
             'custodio'         => ['nullable', 'string', 'max:255'],
             'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
             'km_final'         => ['required', 'integer', 'min:0'],
@@ -311,30 +434,40 @@ class CargaCombustibleController extends Controller
         $data['estado'] = 'Pendiente';
 
         return DB::transaction(function () use ($data, $operador, $imagenes) {
-            $vehiculo  = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
-            $kmInicial = $vehiculo->kilometros;
+            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+
+            // Importante: base en carga previa cronológica a la nueva fecha
+            $previa = $this->findPrevCarga($vehiculo->id, $data['fecha'], null);
+            $kmInicial = $previa?->km_final;
 
             if (!is_null($kmInicial) && $data['km_final'] < $kmInicial) {
                 return response()->json([
-                    'errors' => ['km_final' => ["El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial})."]]
+                    'errors' => ['km_final' => ["El KM final ({$data['km_final']}) no puede ser menor que el KM inicial calculado ({$kmInicial})."]]
                 ], 422);
             }
 
             $payload = $data;
             $payload['operador_id'] = $operador->id;
 
-            $this->applyDerived($payload, $kmInicial); // ⬅ NO recalcula total
+            $this->applyDerived($payload, $kmInicial); // NO recalcula total
 
             $carga = new CargaCombustible();
             $carga->forceFill($payload)->save();
 
-            $vehiculo->update(['kilometros' => $payload['km_final']]);
-
+            // Mover imágenes si vienen
             if (!empty($imagenes)) {
                 $this->attachTmpImagesToCarga($carga, $imagenes);
             }
 
-            $carga->loadMissing('vehiculo','operador');
+            // 🔁 Recalcular en cadena desde esta carga
+            $this->reflowFromCarga($carga);
+
+            // 🔚 Asegurar odómetro del vehículo con la última
+            $ultima = $this->latestCarga($vehiculo->id);
+            $vehiculo->update(['kilometros' => $ultima?->km_final]);
+
+            $carga->loadMissing('vehiculo','operador','fotos');
+
             DB::afterCommit(function () use ($carga) {
                 $destinatarios = User::role(['administrador','capturista'], 'web')->get();
                 Notification::send($destinatarios, new NuevaCarga($carga));

@@ -222,7 +222,17 @@
                             <tbody>
                                 @forelse($vehiculos as $v)
                                     @php
-                                        $tarjetaNumero = optional($v->tarjetaSiVale)->numero_tarjeta;
+                                        // === RELACIÓN TARJETA ===
+                                        $tarjeta       = optional($v->tarjetaSiVale);
+                                        $tarjetaNumero = $tarjeta->numero_tarjeta;
+                                        $tarjetaNip    = $tarjeta->nip;
+
+                                        // Normaliza fecha de vencimiento (string YYYY-MM-DD)
+                                        $fechaTarjeta = $tarjeta->fecha_vencimiento;
+                                        if ($fechaTarjeta instanceof \Carbon\Carbon) {
+                                            $fechaTarjeta = $fechaTarjeta->toDateString();
+                                        }
+
                                         $tarjetaLabel  = $tarjetaNumero ?: ($v->tarjeta_si_vale_id ? ('ID '.$v->tarjeta_si_vale_id) : null);
 
                                         // Tanque 1–1
@@ -240,19 +250,27 @@
                                             'estado'      => $v->estado ?? null,
                                             'motor'       => $v->motor ?? null,
                                             'kilometros'  => $v->kilometros ?? null,
+
+                                            // Tarjeta (texto plano para mostrar)
                                             'tarjeta'     => $tarjetaLabel,
                                             'tarjeta_si_vale_id' => $v->tarjeta_si_vale_id ?? null,
-                                            'tarjeta_si_vale'    => [
+
+                                            // Datos de tarjeta (objeto)
+                                            'tarjeta_si_vale' => [
                                                 'numero_tarjeta'    => $tarjetaNumero,
-                                                'fecha_vencimiento' => optional($v->tarjetaSiVale)->fecha_vencimiento,
+                                                'nip'               => $tarjetaNip,          // <- NIP correcto desde la relación
+                                                'fecha_vencimiento' => $fechaTarjeta,
                                             ],
-                                            'nip'                       => $v->nip ?? null,
-                                            'fec_vencimiento'           => $v->fec_vencimiento ?? null,
+
+                                            // Campos para el modal (nivel raíz)
+                                            'nip'                       => $tarjetaNip,      // <- disponible directo
+                                            'fec_vencimiento'           => $fechaTarjeta,    // <- desde tarjeta
                                             'vencimiento_t_circulacion' => $v->vencimiento_t_circulacion ?? null,
                                             'cambio_placas'             => $v->cambio_placas ?? null,
                                             'poliza_hdi'      => $v->poliza_hdi ?? null,
                                             'poliza_latino'   => $v->poliza_latino ?? null,
                                             'poliza_qualitas' => $v->poliza_qualitas ?? null,
+
                                             'fotos'   => isset($v->fotos) ? $v->fotos->map(fn($f) => ['id' => $f->id])->values() : [],
 
                                             // Tanque 1–1 (objeto)
@@ -266,7 +284,7 @@
                                                 'costo_tanque_lleno'   => $t->costo_tanque_lleno,
                                             ] : null,
 
-                                            // Back-compat: arreglo con 0/1 elemento por si el JS aún espera "tanques"
+                                            // Back-compat: arreglo con 0/1 elemento
                                             'tanques' => $t->id ? [[
                                                 'id'                   => $t->id,
                                                 'cantidad_tanques'     => $t->cantidad_tanques,
@@ -533,7 +551,7 @@
 
     </div>
 
-    {{-- ====== SCRIPT para pintar el tanque en el modal ====== --}}
+    {{-- ====== SCRIPT: pinta datos (incluye NIP) y tanque en el modal ====== --}}
     <script>
     (() => {
       const appEl = document.getElementById('vehiculos-app');
@@ -545,6 +563,40 @@
         return isNaN(num) ? '—' : num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
 
+      function setTextByDataV(key, value) {
+        const el = document.querySelector(`[data-v="${key}"]`);
+        if (el) el.textContent = (value ?? '—');
+      }
+
+      function setBasics(veh) {
+        const subtitleEl = document.getElementById('vehicleModalSubtitle');
+        const titleEl = document.getElementById('vehicleModalLabel');
+        if (titleEl) titleEl.textContent = 'Vehículo';
+        if (subtitleEl) {
+          const unidad = veh?.unidad ?? '—';
+          const placa  = veh?.placa ?? '—';
+          subtitleEl.textContent = `${unidad} · ${placa}`;
+        }
+
+        const mapping = ['id','unidad','placa','serie','marca','anio','propietario','ubicacion','estado','motor','kilometros'];
+        mapping.forEach(k => setTextByDataV(k, veh?.[k] ?? '—'));
+
+        const tarjeta = veh?.tarjeta ?? (veh?.tarjeta_si_vale && veh.tarjeta_si_vale.numero_tarjeta) ?? '—';
+        setTextByDataV('tarjeta', tarjeta);
+
+        const nip = veh?.nip ?? (veh?.tarjeta_si_vale && veh.tarjeta_si_vale.nip) ?? '—';
+        setTextByDataV('nip', nip);
+
+        const fv = veh?.fec_vencimiento ?? (veh?.tarjeta_si_vale && veh.tarjeta_si_vale.fecha_vencimiento) ?? '—';
+        setTextByDataV('fec_vencimiento', fv);
+
+        setTextByDataV('vencimiento_t_circulacion', veh?.vencimiento_t_circulacion ?? '—');
+        setTextByDataV('cambio_placas', veh?.cambio_placas ?? '—');
+        setTextByDataV('poliza_hdi', veh?.poliza_hdi ?? '—');
+        setTextByDataV('poliza_latino', veh?.poliza_latino ?? '—');
+        setTextByDataV('poliza_qualitas', veh?.poliza_qualitas ?? '—');
+      }
+
       document.querySelectorAll('.btn-view-veh').forEach(btn => {
         btn.addEventListener('click', () => {
           const veh = JSON.parse(btn.getAttribute('data-veh') || '{}');
@@ -554,6 +606,9 @@
           const managePhotosLink  = document.getElementById('managePhotosLink');
           if (editVehicleLink && veh?.urls?.edit_vehicle)  editVehicleLink.href  = veh.urls.edit_vehicle;
           if (managePhotosLink && veh?.urls?.edit_vehicle) managePhotosLink.href = veh.urls.edit_vehicle + '#fotos';
+
+          // === Pinta datos básicos, tarjeta, NIP y vencimientos ===
+          setBasics(veh);
 
           // Render tanque 1–1
           const tbody        = document.getElementById('tanksTbody');
@@ -594,8 +649,6 @@
           }
         });
       });
-
-
     })();
     </script>
 </x-app-layout>
