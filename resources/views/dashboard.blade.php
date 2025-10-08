@@ -188,7 +188,7 @@
 
                 @role('administrador')
                 <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="{{ route('admin.backup.index') }}" class="card card-link bg-indigo-lt" aria-label="Bases de datos" target="_blank" rel="noopener">
+                    <a href="{{ route('admin.backup.index') }}" class="card card-link bg-indigo-lt" aria-label="Bases de datos" rel="noopener">
                         <div class="card-body d-flex align-items-center">
                             <span class="avatar bg-indigo text-white me-3">
                                 <i class="ti ti-database"></i>

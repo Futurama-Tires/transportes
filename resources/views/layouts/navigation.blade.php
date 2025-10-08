@@ -14,8 +14,8 @@
         ['type' => 'route', 'value' => 'tarjetas.index',         'label' => 'Tarjetas SiVale'],
         ['type' => 'route', 'value' => 'tarjetas-comodin.index', 'label' => 'Tarjetas Comodín'],
         ['type' => 'route', 'value' => 'programa-verificacion.index',   'label' => 'Verificaciones'],
-        ['type' => 'url',   'value' => '#',                      'label' => 'Bases de datos'],
-        ['type' => 'url',   'value' => '#',                      'label' => 'Reportes y estadísticas'],
+        ['type' => 'route',   'value' => 'admin.backup.index',                      'label' => 'Bases de datos'],
+        ['type' => 'route',   'value' => 'reportes.index',                      'label' => 'Reportes'],
     ];
 @endphp
 
