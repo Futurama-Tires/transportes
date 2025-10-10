@@ -299,6 +299,17 @@ Route::middleware('auth')->group(function () {
 
     Route::view('/operadores/confirmacion', 'operadores.confirmacion')
     ->name('operadores.confirmacion');
+
+    // Marcar TODAS las notificaciones no leídas del usuario
+Route::post('/leer-todas', function (Request $request) {
+    $user = $request->user();
+
+    // Actualiza en bloque (una sola query):
+    $user->unreadNotifications()->update(['read_at' => now()]);
+
+    return response()->noContent(); // 204
+})->name('leer_todas');
+
     });
 });
 

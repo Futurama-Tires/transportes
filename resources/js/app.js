@@ -12,58 +12,156 @@ window.Alpine = Alpine;
 Alpine.start();
 
 // ---------------- Notificaciones (polling navbar) ----------------
-function cargarNotificaciones() {
-    fetch('/notificaciones/nuevas', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(r => r.json())
-        .then(({ count, items }) => {
-            const badge = document.getElementById('notif-count');
-            if (badge) badge.textContent = count > 9 ? '9+' : String(count ?? 0);
+function csrf() {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+}
 
-            const list = document.getElementById('notif-list');
-            if (!list) return;
+async function postJSON(url, data = null) {
+    return fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrf(),
+            ...(data ? { 'Content-Type': 'application/json' } : {})
+        },
+        body: data ? JSON.stringify(data) : null
+    });
+}
 
-            list.innerHTML = '';
-            if (!items || !items.length) {
-                list.innerHTML = `<div class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">Sin notificaciones</div>`;
-                return;
-            }
+function setNotifBadge(count) {
+    const badge = document.getElementById('notif-count');
+    if (!badge) return;
+    const safe = Number.isFinite(count) ? count : 0;
+    badge.textContent = safe > 9 ? '9+' : String(safe);
+}
 
-            items.forEach(n => {
-                const a = document.createElement('a');
-                a.href = n.url || '/cargas';
-                a.className = 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700';
-                a.innerHTML = `
-                    <div class="font-medium">${n.titulo ?? 'Notificación'}</div>
-                    <div class="text-gray-500 dark:text-gray-400 text-xs">${n.mensaje ?? ''}</div>
-                    <div class="text-gray-400 dark:text-gray-500 text-[10px] mt-1">${n.fecha ?? ''}</div>
-                `;
-                a.addEventListener('click', () => {
-                    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                    fetch(`/notificaciones/${n.id}/leer`, {
-                        method: 'POST',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': token
-                        }
-                    }).catch(() => {});
-                });
-                list.appendChild(a);
+function renderEmptyList(listEl) {
+    listEl.innerHTML = `<div class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">Sin notificaciones</div>`;
+}
+
+function construirHeader(listEl, count, onMarkAll) {
+    const header = document.createElement('div');
+    header.className = 'px-3 py-2 flex items-center justify-between';
+
+    // Botón "Marcar todas"
+    if (count > 0) {
+        const markAll = document.createElement('button');
+        markAll.type = 'button';
+        markAll.className = 'text-xs font-medium text-blue-600 hover:underline dark:text-blue-400';
+        markAll.textContent = 'Marcar todas';
+        markAll.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                await postJSON('/notificaciones/leer-todas');
+                await cargarNotificaciones(true); // refresh forzado
+            } catch (_) {}
+        });
+        header.appendChild(markAll);
+    } else {
+        const span = document.createElement('span');
+        span.className = 'text-xs text-gray-500';
+        span.textContent = 'Sin nuevas';
+        header.appendChild(span);
+    }
+
+    // Link "Ir a cargas" (o cambia aquí si quieres a otra ruta)
+    const verTodas = document.createElement('a');
+    verTodas.href = '/cargas';
+    verTodas.className = 'text-xs text-blue-600 hover:underline dark:text-blue-400';
+    verTodas.textContent = 'Ir a cargas';
+    header.appendChild(verTodas);
+
+    listEl.appendChild(header);
+
+    const divider = document.createElement('div');
+    divider.className = 'border-t border-gray-200 dark:border-gray-700';
+    listEl.appendChild(divider);
+}
+
+function construirItem(n, onMarked) {
+    // Contenedor del item (no es <a> para poder tener botón independiente)
+    const item = document.createElement('div');
+    item.className = 'px-4 py-2 flex items-start justify-between gap-2 hover:bg-gray-100 dark:hover:bg-gray-700';
+
+    // Área clickeable que navega (y marca como leída)
+    const link = document.createElement('a');
+    link.href = n.url || '/cargas';
+    link.className = 'min-w-0 flex-1';
+    link.innerHTML = `
+        <div class="font-medium truncate">${n.titulo ?? 'Notificación'}</div>
+        <div class="text-gray-500 dark:text-gray-400 text-xs truncate">${n.mensaje ?? ''}</div>
+        <div class="text-gray-400 dark:text-gray-500 text-[10px] mt-1">${n.fecha ?? ''}</div>
+    `;
+    link.addEventListener('click', async () => {
+        try { await postJSON(`/notificaciones/${n.id}/leer`); } catch (_) {}
+        // dejamos que navegue
+    });
+
+    // Botón "Marcar" individual (no navega)
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'shrink-0 text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600';
+    btn.title = 'Marcar como leída';
+    btn.textContent = 'Marcar';
+    btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+            await postJSON(`/notificaciones/${n.id}/leer`);
+            onMarked?.(item);
+        } catch (_) {}
+    });
+
+    item.appendChild(link);
+    item.appendChild(btn);
+    return item;
+}
+
+async function cargarNotificaciones(force = false) {
+    try {
+        const r = await fetch('/notificaciones/nuevas', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const { count, items } = await r.json();
+
+        // Actualiza badge
+        setNotifBadge(count ?? 0);
+
+        // Rellena lista
+        const list = document.getElementById('notif-list');
+        if (!list) return;
+
+        list.innerHTML = '';
+        construirHeader(list, count ?? 0);
+
+        if (!items || !items.length) {
+            renderEmptyList(list);
+            return;
+        }
+
+        // Estado local del contador (para restar sin pedir al server)
+        let remaining = Number.isFinite(count) ? count : items.length;
+
+        items.forEach((n) => {
+            const itemEl = construirItem(n, (el) => {
+                // Al marcar: quitar el item, decrementar y refrescar vacío si corresponde
+                el.remove();
+                remaining = Math.max(0, remaining - 1);
+                setNotifBadge(remaining);
+
+                // Si el listado visible quedó sin elementos (más allá del header/divider), lo refrescamos completo
+                const visibles = list.querySelectorAll('div.px-4.py-2.flex.items-start.justify-between');
+                if (visibles.length === 0) {
+                    renderEmptyList(list);
+                }
             });
-
-            const divider = document.createElement('div');
-            divider.className = 'border-t border-gray-200 dark:border-gray-700 my-1';
-            list.appendChild(divider);
-
-            const verTodas = document.createElement('a');
-            verTodas.href = '/cargas';
-            verTodas.className = 'block px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30';
-            verTodas.textContent = 'Ir a cargas';
-            list.appendChild(verTodas);
-        })
-        .catch(console.error);
+            list.appendChild(itemEl);
+        });
+    } catch (err) {
+        console.error(err);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     cargarNotificaciones();
     setInterval(cargarNotificaciones, 15000);
 });
+
