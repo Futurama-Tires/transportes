@@ -172,14 +172,13 @@
                             {{-- Acciones --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
                                 {{-- Botón único: Exportar Excel --}}
-                                <a
-                                    href="{{ route('operadores.index', array_merge(request()->only($keepParams), ['export'=>'xlsx'])) }}"
-                                    class="btn btn-outline-success"
-                                    role="button"
-                                >
-                                    <i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
-                                    Exportar
+                                <a href="{{ route('operadores.index', array_merge(request()->only($keepParams), ['export' => 'xlsx'])) }}"
+                                class="btn btn-outline-success"
+                                title="Exportar a Excel">
+                                    <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
+                                    <span>Exportar</span>
                                 </a>
+
 
                                 {{-- Botón Filtros (abre Offcanvas) --}}
                                 <button

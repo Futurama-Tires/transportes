@@ -103,11 +103,12 @@
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
                                 {{-- Botón único: Exportar Excel --}}
                                 <a href="{{ $exportHref }}"
-                                   class="btn btn-success"
-                                   title="Exportar a Excel">
-                                    <i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>
-                                    Exportar
+                                class="btn btn-outline-success"
+                                title="Exportar a Excel">
+                                    <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
+                                    <span>Exportar</span>
                                 </a>
+
 
                                 {{-- Botón: Filtros --}}
                                 <button type="button"
