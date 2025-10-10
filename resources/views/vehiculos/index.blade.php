@@ -40,8 +40,17 @@
             <div class="page-header d-print-none">
                 <div class="container-xl">
                     <div class="row g-2 align-items-center">
+                        <ol class="breadcrumb">
+                                <li class="breadcrumb-item">
+                                    <a>Inicio</a>
+                                </li>
+                                <li class="breadcrumb-item">
+                                    <a>Panel</a>
+                                </li>
+                                <li class="breadcrumb-item active" aria-current="page">Gestión de vehículos</li>
+                            </ol>
                         <div class="col">
-                            <h2 class="page-title mb-0">Gestión de Vehículos</h2>
+                            <h2 class="page-title mb-0">Gestión de vehículos</h2>
                         </div>
                         <div class="col-auto ms-auto">
                             <a href="{{ route('vehiculos.create') }}" class="btn btn-primary">

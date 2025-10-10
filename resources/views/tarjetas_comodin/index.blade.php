@@ -14,16 +14,27 @@
         $activeCount = $activeFilters->count();
     @endphp
 
-    {{-- ===== HEADER ===== --}}
+    {{-- ================= HEADER (estilo de cargas: breadcrumb + título + CTA) ================= --}}
     <x-slot name="header">
         <div class="page-header d-print-none">
             <div class="container-xl">
                 <div class="row g-2 align-items-center">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a>Inicio</a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a>Panel</a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">Tarjetas Comodín</li>
+                    </ol>
+
                     <div class="col">
                         <h2 class="page-title mb-0 d-flex align-items-center gap-2">
                             Tarjetas Comodín
                         </h2>
                     </div>
+
                     <div class="col-auto ms-auto">
                         <a href="{{ route('tarjetas-comodin.create') }}" class="btn btn-primary">
                             <i class="ti ti-plus me-1"></i>

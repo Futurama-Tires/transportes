@@ -34,6 +34,15 @@
         <div class="page-header d-print-none">
             <div class="container-xl">
                 <div class="row g-2 align-items-center">
+                    <ol class="breadcrumb">
+                                <li class="breadcrumb-item">
+                                    <a>Inicio</a>
+                                </li>
+                                <li class="breadcrumb-item">
+                                    <a>Panel</a>
+                                </li>
+                                <li class="breadcrumb-item active" aria-current="page">Cargas de combustible</li>
+                            </ol>
                     <div class="col">
                         <h2 class="page-title mb-0">Cargas de Combustible</h2>
                     </div>

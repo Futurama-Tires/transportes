@@ -28,16 +28,32 @@
             });
     @endphp
 
-    <div class="page-header d-print-none">
-      <br>
-        <div class="container-xl">
-            <div class="row g-2 align-items-center">
-                <div class="col">
-                    <h2 class="page-title mb-0">Reportes - Dashboard</h2>
+    {{-- ================= HEADER (estilo cargas: breadcrumb + título + CTA) ================= --}}
+    <x-slot name="header">
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a>Inicio</a></li>
+                        <li class="breadcrumb-item"><a>Panel</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Reportes</li>
+                    </ol>
+
+                    <div class="col">
+                        <h2 class="page-title mb-0">Reportes — Dashboard</h2>
+                    </div>
+
+                    {{-- CTA: ir a filtros (ancla segura) --}}
+                    <div class="col-auto ms-auto">
+                        <a href="#filtrosForm" class="btn btn-primary">
+                            <i class="ti ti-adjustments me-1" aria-hidden="true"></i>
+                            <span>Filtros</span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    </x-slot>
 
     <div class="page-body">
         <div class="container-xl">
