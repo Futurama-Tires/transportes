@@ -1,197 +1,576 @@
-¿Lo del que debe ir en el controlador está en el contrlador, y lo que debe de ir en el modelo, está en el modelo? Si no es asi,
-corrigelo y dame los códigos completos.
-
 <?php
 
 namespace App\Http\Controllers;
 
-use App\Models\TarjetaSiVale;
+use App\Models\CargaCombustible;
+use App\Models\CargaFoto;
+use App\Models\Operador;
+use App\Models\Vehiculo;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
+use App\Notifications\NuevaCarga;
+use Illuminate\Support\Facades\Notification;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CargasExport;
 
-class TarjetaSiValeController extends Controller
+class CargaCombustibleController extends Controller
 {
-    public function __construct()
+    public function index(Request $request)
     {
-        $this->middleware(['auth', 'role:administrador|capturista']);
-    }
+        // 👉 Exportar a Excel con filtros/orden actuales (sin paginar)
+        if ($request->get('export') === 'xlsx') {
+            $filename = 'cargas_' . now()->format('Ymd_His') . '.xlsx';
+            return Excel::download(new CargasExport($request), $filename);
+        }
 
-    public function index()
-    {
-        $tarjetas = TarjetaSiVale::latest()->paginate(10);
-        return view('tarjetas.index', compact('tarjetas'));
+        $filters = $request->only([
+            'search',
+            'vehiculo_id', 'operador_id',
+            'tipo_combustible',
+            'from', 'to',
+            'litros_min','litros_max',
+            'precio_min','precio_max',
+            'total_min','total_max',
+            'rend_min','rend_max',
+            'km_ini_min','km_ini_max',
+            'km_fin_min','km_fin_max',
+            'destino','custodio',
+            'estado',
+            'sort_by','sort_dir',
+        ]);
+
+        $vehiculos  = Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']);
+        $operadores = Operador::select('id','nombre','apellido_paterno','apellido_materno'])
+            ->orderBy('nombre')->orderBy('apellido_paterno')->get();
+
+        $tipos = CargaCombustible::TIPOS_COMBUSTIBLE;
+
+        $cargas = CargaCombustible::query()
+            ->with(['vehiculo','operador'])
+            ->filter($filters)
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('cargas.index', compact('cargas','vehiculos','operadores','tipos'));
     }
 
     public function create()
     {
-        return view('tarjetas.create');
+        return view('cargas.create', [
+            'carga'      => new CargaCombustible(),
+            'operadores' => Operador::orderBy('nombre')->get(),
+            'vehiculos'  => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
+            'tipos'      => CargaCombustible::TIPOS_COMBUSTIBLE,
+        ]);
     }
 
     public function store(Request $request)
     {
-        $data = $this->validateData($request);
-        TarjetaSiVale::create($data);
-
-        return redirect()
-            ->route('tarjetas.index')
-            ->with('success', 'Tarjeta SiVale creada correctamente.');
-    }
-
-    /**
-     * Muestra la tarjeta + sus vehículos y sus cargas (paginadas) con totales.
-     */
-    public function show(TarjetaSiVale $tarjeta, Request $request)
-    {
-        // Cargamos vehículos asociados
-        $tarjeta->load('vehiculos');
-
-        // Query base de cargas
-        $cargasQuery = $tarjeta->cargas()
-            ->with(['vehiculo:id,unidad,placa,serie'])
-            ->orderByDesc('fecha');
-
-        // Totales
-        $stats = [
-            'total_cargas'  => (clone $cargasQuery)->count(),
-            'total_litros'  => (clone $cargasQuery)->sum('litros'),
-            'total_gastado' => (clone $cargasQuery)->sum('total'),
-        ];
-
-        // Paginación
-        $perPage = (int) $request->get('per_page', 15);
-        $cargas  = $cargasQuery->paginate($perPage)->withQueryString();
-
-        return view('tarjetas.show', compact('tarjeta', 'cargas', 'stats'));
-    }
-
-    public function edit(TarjetaSiVale $tarjeta)
-    {
-        return view('tarjetas.edit', compact('tarjeta'));
-    }
-
-    public function update(Request $request, TarjetaSiVale $tarjeta)
-    {
-        $data = $this->validateData($request, $tarjeta->id);
-        $tarjeta->update($data);
-
-        return redirect()
-            ->route('tarjetas.index')
-            ->with('success', 'Tarjeta SiVale actualizada correctamente.');
-    }
-
-    public function destroy(TarjetaSiVale $tarjeta)
-    {
-        $tarjeta->delete();
-
-        return redirect()
-            ->route('tarjetas.index')
-            ->with('success', 'Tarjeta SiVale eliminada correctamente.');
-    }
-
-    /**
-     * Valida y normaliza datos. Usa dinámicamente el nombre real de la tabla del modelo.
-     * Nota: si 'fecha_vencimiento' viene como 'YYYY-MM', se guarda como el ÚLTIMO día del mes.
-     */
-    private function validateData(Request $request, $id = null)
-    {
-        $table = (new TarjetaSiVale())->getTable();
-
         $data = $request->validate([
-            'numero_tarjeta'    => ['required', 'digits_between:4,16', Rule::unique($table)->ignore($id)],
-            'nip'               => ['nullable', 'digits:4'],
-            'fecha_vencimiento' => ['nullable', 'date_format:Y-m'],
-            'descripcion'       => ['nullable', 'string', 'max:1000'],
-        ], [
-            'numero_tarjeta.digits_between' => 'El número de tarjeta debe tener entre 4 y 16 dígitos.',
-            'nip.digits'                    => 'El NIP debe tener exactamente 4 dígitos.',
-            'fecha_vencimiento.date_format' => 'El formato de fecha debe ser Mes/Año (YYYY-MM).',
+            'fecha'            => ['required', 'date'],
+            'precio'           => ['required', 'numeric', 'min:0'],
+            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
+            'litros'           => ['required', 'numeric', 'min:0.001'],
+            'total'            => ['required', 'numeric', 'min:0.01'], // total obligatorio (manual)
+            'custodio'         => ['nullable', 'string', 'max:255'],
+            'operador_id'      => ['required', 'exists:operadores,id'],
+            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
+            'km_final'         => ['required', 'integer', 'min:0'],    // lectura posterior (nuevo odómetro del vehículo)
+            'destino'          => ['nullable', 'string', 'max:255'],
+            'observaciones'    => ['nullable', 'string', 'max:2000'],
         ]);
 
-        // Normalizar fecha: de 'YYYY-MM' -> último día del mes ('YYYY-MM-DD')
-        if (!empty($data['fecha_vencimiento'])) {
-            $data['fecha_vencimiento'] = Carbon::createFromFormat('Y-m', $data['fecha_vencimiento'])
-                ->endOfMonth()
-                ->format('Y-m-d');
+        // ✅ Todo lo creado en web sale Aprobada
+        $data['estado'] = 'Aprobada';
+
+        return DB::transaction(function () use ($data) {
+            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+
+            // 🔧 KM inicial: usar SIEMPRE el odómetro actual del vehículo (si es null => 0)
+            $kmInicial = (int) ($vehiculo->kilometros ?? 0);
+
+            if ($data['km_final'] < $kmInicial) {
+                throw ValidationException::withMessages([
+                    'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial}).",
+                ]);
+            }
+
+            // Derivados con base en (km_inicial del vehículo) y (km_final enviado)
+            $this->applyDerived($data, $kmInicial); // NO recalcula total
+
+            $carga = new CargaCombustible();
+            $carga->forceFill($data)->save();
+
+            // 🔁 Recalcular en cadena desde esta carga y actualizar odómetro del vehículo
+            $this->reflowFromCarga($carga, true);
+
+            // Notificación (después del commit)
+            $carga->loadMissing('vehiculo','operador');
+            DB::afterCommit(function () use ($carga) {
+                $destinatarios = User::role(['administrador','capturista'], 'web')->get();
+                Notification::send($destinatarios, new NuevaCarga($carga));
+            });
+
+            return redirect()->route('cargas.index')
+                ->with('success', 'Carga registrada y kilometraje recalculado correctamente.');
+        });
+    }
+
+    public function edit(CargaCombustible $carga)
+    {
+        $carga->load(['fotos', 'vehiculo', 'operador']);
+
+        // 👉 Solo la más reciente puede editar KM (fecha desc, id desc)
+        $kmEditable = $this->isLatestCarga($carga->vehiculo_id, $carga->fecha, $carga->id);
+
+        return view('cargas.edit', [
+            'carga'        => $carga,
+            'operadores'   => Operador::orderBy('nombre')->get(),
+            'vehiculos'    => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
+            'tipos'        => CargaCombustible::TIPOS_COMBUSTIBLE,
+            'km_editable'  => $kmEditable, // <-- úsalo para deshabilitar el input en la vista
+        ]);
+    }
+
+    public function update(Request $request, CargaCombustible $carga)
+    {
+        $data = $request->validate([
+            'fecha'            => ['required', 'date'],
+            'precio'           => ['required', 'numeric', 'min:0'],
+            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
+            'litros'           => ['required', 'numeric', 'min:0.001'],
+            'total'            => ['required', 'numeric', 'min:0.01'], // total obligatorio (manual)
+            'custodio'         => ['nullable', 'string', 'max:255'],
+            'operador_id'      => ['required', 'exists:operadores,id'],
+            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
+            'km_final'         => ['required', 'integer', 'min:0'],    // lectura posterior (nuevo odómetro del vehículo)
+            'destino'          => ['nullable', 'string', 'max:255'],
+            'observaciones'    => ['nullable', 'string', 'max:2000'],
+            'estado'           => ['required', 'in:Pendiente,Aprobada'],
+        ]);
+
+        return DB::transaction(function () use ($carga, $data) {
+            // ⚖️ ¿La carga era la más reciente ANTES de editar?
+            // (La restricción se evalúa respecto al estado actual en BD)
+            $eraMasReciente = $this->isLatestCarga($carga->vehiculo_id, $carga->fecha, $carga->id);
+
+            // Cargar vehículo de destino (por si cambiaron vehiculo_id)
+            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+
+            if ($eraMasReciente) {
+                // ✅ Si es la más reciente, se permite editar KM y se valida contra el odómetro actual
+                $kmInicial = (int) ($vehiculo->kilometros ?? 0);
+
+                if ($data['km_final'] < $kmInicial) {
+                    throw ValidationException::withMessages([
+                        'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial}).",
+                    ]);
+                }
+            } else {
+                // 🚫 No es la más reciente → no se permite editar el kilometraje
+                // Forzar km_final al valor que ya tenía la carga
+                $data['km_final'] = (int) $carga->km_final;
+
+                // Para que los derivados del guardado queden coherentes de inmediato,
+                // calcula km_inicial con base en la NUEVA posición (fecha/vehículo) dentro de la cadena.
+                $prev = $this->findPrevCarga($vehiculo->id, $data['fecha'], $carga->id);
+                $kmInicial = (int) ($prev?->km_final ?? 0);
+            }
+
+            // Derivados (después se hará reflow para toda la cadena)
+            $this->applyDerived($data, $kmInicial); // NO recalcula total
+
+            $carga->forceFill($data)->save();
+
+            // 🧭 Actualizar odómetro del vehículo solo si (después de guardar) esta carga quedó como la más reciente
+            $shouldUpdateVehicleOdometer = $this->isLatestCarga($vehiculo->id, $carga->fecha, $carga->id);
+
+            // 🔁 Recalcular en cadena desde ESTA carga
+            $this->reflowFromCarga($carga, $shouldUpdateVehicleOdometer);
+
+            return redirect()->route('cargas.index')
+                ->with('success', $eraMasReciente
+                    ? 'Carga actualizada; kilometraje y cadena recalculados.'
+                    : 'Carga actualizada (kilometraje bloqueado por no ser la más reciente); cadena recalculada.');
+        });
+    }
+
+    public function destroy(CargaCombustible $carga)
+    {
+        return DB::transaction(function () use ($carga) {
+            $vehiculoId = $carga->vehiculo_id;
+
+            // Guardar referencia del primer "siguiente" para reflow después del borrado
+            $siguiente = $this->findNextCarga($vehiculoId, $carga->fecha, $carga->id);
+
+            $deleted = $carga->delete();
+
+            // 🔁 Si había cargas posteriores, recalcular desde la primera siguiente y actualizar odómetro
+            if ($deleted && $siguiente) {
+                $this->reflowFromCarga($siguiente, true);
+            } else {
+                // 🔚 Si ya no hay siguientes, asegurar odómetro del vehículo según la nueva última
+                $vehiculo = Vehiculo::lockForUpdate()->find($vehiculoId);
+                if ($vehiculo) {
+                    $ultima = $this->latestCarga($vehiculoId);
+                    $vehiculo->update(['kilometros' => $ultima?->km_final]);
+                }
+            }
+
+            return redirect()->route('cargas.index')
+                ->with('success', $deleted ? 'Carga eliminada y kilometraje recalculado.' : 'No se pudo eliminar la carga.');
+        });
+    }
+
+    /** ===================== Revisión: Aprobar ===================== */
+
+    public function approve(Request $request, CargaCombustible $carga)
+    {
+        // Permitir solo a admin/capturista (Spatie)
+        if (!$request->user()->hasAnyRole(['administrador','capturista'])) {
+            abort(403, 'No autorizado.');
         }
 
-        return $data;
+        DB::transaction(function () use ($request, $carga) {
+            // Concurrencia: solo si sigue en Pendiente
+            $updated = CargaCombustible::whereKey($carga->id)
+                ->where('estado', CargaCombustible::ESTADO_PENDIENTE)
+                ->update([
+                    'estado'       => CargaCombustible::ESTADO_APROBADA,
+                    'revisado_por' => $request->user()->id,
+                    'revisado_en'  => now(),
+                ]);
+
+            if (!$updated) {
+                throw ValidationException::withMessages([
+                    'estado' => 'La carga ya fue aprobada o su estado cambió.'
+                ]);
+            }
+        });
+
+        return back()->with('success', "Carga #{$carga->id} aprobada.");
     }
-}
 
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use App\Models\Vehiculo;
-use App\Models\CargaCombustible;
-
-/**
- * Class TarjetaSiVale
- *
- * Representa una tarjeta SiVale asignada a uno o varios vehículos.
- * Desde aquí podemos llegar a todas las cargas realizadas por esos vehículos.
- */
-class TarjetaSiVale extends Model
-{
-    use HasFactory;
+    // ===================== Helpers de cálculo =====================
 
     /**
-     * OJO: Ajusta este nombre si tu tabla real es snake_case.
-     * Recomendado: 'tarjetas_sivale'
+     * Calcula y normaliza campos derivados:
+     * - mes
+     * - km_inicial (si es null => 0)
+     * - recorrido = max(0, km_final - km_inicial) si existe km_final
+     * - rendimiento = recorrido / litros
+     * - diferencia (misma lógica que tenías)
      */
-    protected $table = 'tarjetasSiVale';
-
-    protected $fillable = [
-        'numero_tarjeta',
-        'nip',
-        'fecha_vencimiento',
-        'descripcion',
-    ];
-
-    protected $casts = [
-        'fecha_vencimiento' => 'date',
-    ];
-
-    /**
-     * Relación: una tarjeta puede estar asociada a varios vehículos (o a uno).
-     * FK en vehiculos: vehiculos.tarjeta_si_vale_id
-     */
-    public function vehiculos()
+    protected function applyDerived(array &$data, ?int $kmInicial): void
     {
-        return $this->hasMany(Vehiculo::class, 'tarjeta_si_vale_id');
+        $data['mes'] = ucfirst(Carbon::parse($data['fecha'])->locale('es')->translatedFormat('F'));
+
+        // NO calcular total. Solo normalizar si viene.
+        if (isset($data['total'])) {
+            $data['total'] = round((float) $data['total'], 2);
+        }
+
+        // 👉 Si km_inicial es null, tómalo como 0 (evita errores de cálculo)
+        $kmBase = (int) ($kmInicial ?? 0);
+        $data['km_inicial'] = $kmBase;
+
+        // km_final debe venir en $data (lectura posterior / nuevo odómetro)
+        $kmFinal = isset($data['km_final']) ? (int) $data['km_final'] : null;
+
+        $recorrido = isset($kmFinal) ? max(0, $kmFinal - $kmBase) : null;
+        $data['recorrido'] = is_null($recorrido) ? null : (int)$recorrido;
+
+        $data['rendimiento'] = (!is_null($recorrido) && (float)$data['litros'] > 0)
+            ? round($recorrido / (float)$data['litros'], 2)
+            : null;
+
+        // Mantén tu lógica de diferencia (usa precio si lo tienes)
+        if (!is_null($recorrido) && isset($data['litros'], $data['precio'])) {
+            $data['diferencia'] = round(-(((float)$data['litros'] - ($recorrido / 14)) * (float)$data['precio']), 2);
+        } else {
+            $data['diferencia'] = null;
+        }
     }
 
     /**
-     * Relación indirecta: Tarjeta → Vehículo(s) → Cargas de Combustible.
-     * Esto permite $tarjeta->cargas para listar TODAS las cargas ligadas a la tarjeta.
+     * Recalcula en cadena km_inicial/recorrido/rendimiento/diferencia
+     * desde $start (incluido) hacia adelante, con orden (fecha asc, id asc).
+     * Al final, puede (opcionalmente) actualizar el odómetro del vehículo a la última carga.
      *
-     * Claves:
-     * - firstKey (en Vehiculo):      'tarjeta_si_vale_id' → referencia a TarjetaSiVale.id
-     * - secondKey (en CargaComb.):   'vehiculo_id'        → referencia a Vehiculo.id
-     * - localKey (en TarjetaSiVale): 'id'
-     * - secondLocalKey (en Vehiculo):'id'
+     * @param  CargaCombustible $start
+     * @param  bool $updateVehicleOdometer  Si true, actualiza Vehiculo.kilometros a la última carga.
      */
-    public function cargas()
+    protected function reflowFromCarga(CargaCombustible $start, bool $updateVehicleOdometer = true): void
     {
-        return $this->hasManyThrough(
-            CargaCombustible::class, // Modelo final
-            Vehiculo::class,         // Modelo intermedio
-            'tarjeta_si_vale_id',    // FK en Vehiculo que apunta a TarjetaSiVale
-            'vehiculo_id',           // FK en CargaCombustible que apunta a Vehiculo
-            'id',                    // PK local en TarjetaSiVale
-            'id'                     // PK local en Vehiculo
-        );
+        $vehiculoId = $start->vehiculo_id;
+
+        // Carga inmediatamente anterior al inicio (para base de comparación)
+        $prev = $this->findPrevCarga($vehiculoId, $start->fecha, $start->id);
+
+        // Todas las cargas DESPUÉS de "start" (NO incluir "start")
+        $cadena = CargaCombustible::where('vehiculo_id', $vehiculoId)
+            ->where(function ($q) use ($start) {
+                $q->where('fecha', '>', $start->fecha)
+                  ->orWhere(function ($q2) use ($start) {
+                      // ⛔️ OJO: usamos > en id para NO duplicar $start
+                      $q2->where('fecha', $start->fecha)->where('id', '>', $start->id);
+                  });
+            })
+            ->orderBy('fecha', 'asc')->orderBy('id', 'asc')
+            ->get();
+
+        // Procesar primero la propia $start y luego las siguientes
+        $lista = collect([$start])->merge($cadena);
+
+        $anterior = $prev; // puede ser null
+        foreach ($lista as $c) {
+            $payload = [
+                'fecha'            => $c->fecha,
+                'precio'           => $c->precio,
+                'litros'           => $c->litros,
+                'total'            => $c->total,
+                'km_final'         => $c->km_final,        // lectura posterior
+                'tipo_combustible' => $c->tipo_combustible,
+            ];
+
+            // Para cada carga en la cadena, el km_inicial se toma del km_final de la anterior;
+            // si no hay anterior, se usa 0 (regla nueva).
+            $kmBase = $anterior?->km_final; // puede ser null, applyDerived lo tratará como 0
+            $this->applyDerived($payload, $kmBase);
+
+            // Actualiza SOLO los campos derivados para no tocar otros metadatos
+            $c->forceFill([
+                'mes'         => $payload['mes'],
+                'km_inicial'  => $payload['km_inicial'],
+                'recorrido'   => $payload['recorrido'],
+                'rendimiento' => $payload['rendimiento'],
+                'diferencia'  => $payload['diferencia'],
+            ])->save();
+
+            $anterior = $c;
+        }
+
+        // 🔚 Al final, opcionalmente, asegurar que el vehículo refleje la última carga cronológica
+        if ($updateVehicleOdometer) {
+            $vehiculo = Vehiculo::lockForUpdate()->find($vehiculoId);
+            if ($vehiculo) {
+                $ultima = $this->latestCarga($vehiculoId);
+                $vehiculo->update(['kilometros' => $ultima?->km_final]);
+            }
+        }
     }
 
     /**
-     * (Opcional) Atajo si manejas 1:1 a nivel de negocio:
-     * Devuelve el primer vehículo asociado (si solo hubiera uno).
+     * Última carga cronológica del vehículo (fecha desc, id desc)
      */
-    public function vehiculo()
+    protected function latestCarga(int $vehiculoId): ?CargaCombustible
     {
-        return $this->hasOne(Vehiculo::class, 'tarjeta_si_vale_id');
+        return CargaCombustible::where('vehiculo_id', $vehiculoId)
+            ->orderBy('fecha','desc')->orderBy('id','desc')
+            ->first();
+    }
+
+    /**
+     * ¿Es (fecha,id) la última para el vehículo?
+     */
+    protected function isLatestCarga(int $vehiculoId, $fecha, int $id): bool
+    {
+        $ultima = $this->latestCarga($vehiculoId);
+        return $ultima && $ultima->fecha == $fecha && $ultima->id == $id;
+    }
+
+    /**
+     * Carga inmediatamente anterior a (fecha,id). Si $excludeId se pasa, lo excluye.
+     */
+    protected function findPrevCarga(int $vehiculoId, $fecha, ?int $excludeId = null): ?CargaCombustible
+    {
+        return CargaCombustible::where('vehiculo_id', $vehiculoId)
+            ->when($excludeId, fn($q) => $q->where('id','!=',$excludeId))
+            ->where(function ($q) use ($fecha, $excludeId) {
+                $q->where('fecha','<',$fecha)
+                  ->orWhere(function ($q2) use ($fecha, $excludeId) {
+                      $q2->where('fecha',$fecha);
+                      if ($excludeId) {
+                          $q2->where('id','<',$excludeId);
+                      } else {
+                          // si no hay exclude, simplemente tomar el menor id del mismo día
+                          $q2->where('id','<', PHP_INT_MAX);
+                      }
+                  });
+            })
+            ->orderBy('fecha','desc')->orderBy('id','desc')
+            ->first();
+    }
+
+    /**
+     * Carga inmediatamente posterior a (fecha,id)
+     */
+    protected function findNextCarga(int $vehiculoId, $fecha, int $id): ?CargaCombustible
+    {
+        return CargaCombustible::where('vehiculo_id', $vehiculoId)
+            ->where(function ($q) use ($fecha, $id) {
+                $q->where('fecha','>',$fecha)
+                  ->orWhere(function ($q2) use ($fecha, $id) {
+                      $q2->where('fecha',$fecha)->where('id','>',$id);
+                  });
+            })
+            ->orderBy('fecha','asc')->orderBy('id','asc')
+            ->first();
+    }
+
+    // ===================== API MÓVIL =====================
+
+    /**
+     * API móvil: crea carga y, si vienen imágenes temporales, las anexa (tabla carga_fotos).
+     * Entrada opcional:
+     *   - imagenes: [{tipo: 'ticket|voucher|odometro|extra', tmp_path: 'tmp/ocr/...'}]
+     */
+    public function storeApi(Request $request)
+    {
+        $data = $request->validate([
+            'fecha'            => ['required', 'date'],
+            'precio'           => ['required', 'numeric', 'min:0'],
+            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
+            'litros'           => ['required', 'numeric', 'min:0.001'],
+            'total'            => ['required', 'numeric', 'min:0.01'], // total obligatorio en API
+            'custodio'         => ['nullable', 'string', 'max:255'],
+            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
+            'km_final'         => ['required', 'integer', 'min:0'],    // lectura posterior (nuevo odómetro del vehículo)
+            'destino'          => ['nullable', 'string', 'max:255'],
+            'observaciones'    => ['nullable', 'string', 'max:2000'],
+            'imagenes'             => ['nullable', 'array'],
+            'imagenes.*.tipo'      => ['nullable', 'in:ticket,voucher,odometro,extra'],
+            'imagenes.*.tmp_path'  => ['required_with:imagenes', 'string'],
+        ]);
+
+        $imagenes = $data['imagenes'] ?? [];
+        unset($data['imagenes']);
+
+        $user = $request->user();
+        $operador = Operador::where('user_id', $user->id)->first();
+
+        if (!$operador) {
+            return response()->json(['message' => 'El usuario autenticado no tiene un operador asociado.'], 422);
+        }
+
+        // ✅ Todo lo que llega por API inicia como Pendiente
+        $data['estado'] = 'Pendiente';
+
+        return DB::transaction(function () use ($data, $operador, $imagenes) {
+            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+
+            // 🔧 KM inicial: odómetro actual del vehículo (si null => 0)
+            $kmInicial = (int) ($vehiculo->kilometros ?? 0);
+
+            if ($data['km_final'] < $kmInicial) {
+                return response()->json([
+                    'errors' => ['km_final' => ["El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial})."]]
+                ], 422);
+            }
+
+            $payload = $data;
+            $payload['operador_id'] = $operador->id;
+
+            $this->applyDerived($payload, $kmInicial); // NO recalcula total
+
+            $carga = new CargaCombustible();
+            $carga->forceFill($payload)->save();
+
+            // Mover imágenes si vienen
+            if (!empty($imagenes)) {
+                $this->attachTmpImagesToCarga($carga, $imagenes);
+            }
+
+            // 🔁 Recalcular en cadena desde esta carga y actualizar odómetro del vehículo
+            $this->reflowFromCarga($carga, true);
+
+            $carga->loadMissing('vehiculo','operador','fotos');
+
+            DB::afterCommit(function () use ($carga) {
+                $destinatarios = User::role(['administrador','capturista'], 'web')->get();
+                Notification::send($destinatarios, new NuevaCarga($carga));
+            });
+
+            return response()->json(
+                $carga->load([
+                    'vehiculo:id,unidad,placa',
+                    'operador:id,nombre,apellido_paterno,apellido_materno',
+                    'fotos:id,carga_id,tipo,path,mime,size,original_name'
+                ]),
+                201
+            );
+        });
+    }
+
+    /**
+     * Mueve archivos temporales a PRIVADO.
+     * Acepta ambos orígenes durante la transición:
+     *   - PRIVADO: storage/app/tmp/ocr/...
+     *   - LEGADO (público): storage/app/public/tmp/ocr/...
+     * Los deja en: storage/app/cargas/{carga_id}/...
+     */
+    protected function attachTmpImagesToCarga(CargaCombustible $carga, array $imagenes): void
+    {
+        $private = Storage::disk('local');  // destino privado
+        $public  = Storage::disk('public'); // legado (origen posible)
+
+        $baseDir = "cargas/{$carga->id}";
+        if (!$private->exists($baseDir)) {
+            $private->makeDirectory($baseDir);
+        }
+
+        foreach ($imagenes as $img) {
+            $tmp  = $img['tmp_path'] ?? null;
+            $tipo = $img['tipo'] ?? CargaFoto::EXTRA;
+
+            if (!$tmp || !is_string($tmp)) continue;
+            if (!str_starts_with($tmp, 'tmp/ocr/')) continue;
+
+            // Detecta en qué disco está la temporal
+            $sourceDisk = null;
+            if ($private->exists($tmp)) {
+                $sourceDisk = 'local';
+            } elseif ($public->exists($tmp)) {
+                $sourceDisk = 'public';
+            } else {
+                continue; // no existe en ninguno
+            }
+
+            $ext  = pathinfo($tmp, PATHINFO_EXTENSION) ?: 'jpg';
+            $name = ($tipo ?: 'extra') . '-' . now()->format('Ymd-His') . '-' . Str::random(6) . '.' . $ext;
+            $dest = $baseDir . '/' . $name;
+
+            // Mueve en-local o copia de public->local y borra origen
+            if ($sourceDisk === 'local') {
+                if (!$private->move($tmp, $dest)) {
+                    throw ValidationException::withMessages(['imagenes' => "No se pudo mover la imagen temporal {$tmp}."]);
+                }
+            } else {
+                try {
+                    $bytes = $public->get($tmp);
+                    $private->put($dest, $bytes);
+                    $public->delete($tmp);
+                } catch (\Throwable $e) {
+                    throw ValidationException::withMessages(['imagenes' => "No se pudo transferir la imagen temporal {$tmp} al almacenamiento privado."]);
+                }
+            }
+
+            $mime = $private->mimeType($dest);
+            $size = $private->size($dest);
+
+            CargaFoto::create([
+                'carga_id'      => $carga->id,
+                'tipo'          => $tipo,
+                'path'          => $dest,
+                'mime'          => $mime,
+                'size'          => $size,
+                'original_name' => null,
+            ]);
+        }
     }
 }
