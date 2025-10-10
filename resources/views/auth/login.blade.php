@@ -22,11 +22,11 @@
     {{-- Columna izquierda: imagen a pantalla completa (solo desktop) --}}
     <aside class="relative hidden md:block">
         <img
-            src="{{ asset('images/fondo_login2.png') }}"
+            src="{{ asset('images/fondo_login.png') }}"
             alt="Control de combustible para flotillas"
             class="absolute inset-0 h-full w-full object-cover"
         >
-        <div class="absolute inset-0 bg-gradient-to-b from-slate-900/40 to-slate-900/60"></div>
+        <div class="absolute inset-0  from-slate-900/40 to-slate-900/60"></div>
     </aside>
 
     {{-- Columna derecha: logo arriba + formulario --}}
