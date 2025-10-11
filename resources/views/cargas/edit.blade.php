@@ -28,11 +28,17 @@
         <div class="page-header d-print-none">
             <div class="container-xl">
                 <div class="row g-2 align-items-center">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a>Inicio</a></li>
+                        <li class="breadcrumb-item"><a>Panel</a></li>
+                        <li class="breadcrumb-item"><a>Cargas de combustible</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Editar carga de combustible</li>
+                    </ol>
                     <div class="col">
                         <h2 class="page-title mb-0">Editar Carga de Combustible</h2>
                     </div>
                     <div class="col-auto ms-auto d-flex align-items-center gap-2">
-                        <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('cargas.index') }}" class="btn btn-primary">
                             <i class="ti ti-arrow-left me-1"></i> Volver a la lista
                         </a>
                     </div>

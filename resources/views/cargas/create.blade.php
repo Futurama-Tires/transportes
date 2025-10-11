@@ -4,7 +4,7 @@
         /** @var \App\Models\CargaCombustible|null $carga */
         $isEdit = isset($carga) && $carga->exists;
         $fechaValue = old('fecha', isset($carga->fecha) ? \Illuminate\Support\Carbon::parse($carga->fecha)->format('Y-m-d') : '');
-        $title = $isEdit ? 'Editar Carga de Combustible' : 'Nueva Carga de Combustible';
+        $title = $isEdit ? 'Editar Carga de Combustible' : 'Agregar Carga de Combustible';
         $action = $isEdit ? route('cargas.update', $carga) : route('cargas.store');
     @endphp
 
@@ -13,11 +13,17 @@
         <div class="page-header d-print-none">
             <div class="container-xl">
                 <div class="row g-2 align-items-center">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a>Inicio</a></li>
+                        <li class="breadcrumb-item"><a>Panel</a></li>
+                        <li class="breadcrumb-item"><a>Cargas de combustible</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Agregar carga de combustible</li>
+                    </ol>
                     <div class="col">
                         <h2 class="page-title mb-0">{{ $title }}</h2>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('cargas.index') }}" class="btn btn-primary">
                             <i class="ti ti-arrow-left me-1"></i> Volver a la lista
                         </a>
                     </div>
