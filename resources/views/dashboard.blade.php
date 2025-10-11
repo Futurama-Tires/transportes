@@ -12,6 +12,7 @@
                                 </li>
                                 <li class="breadcrumb-item active" aria-current="page">Panel</li>
                             </ol>
+                            <br> 
                         <div class="d-flex align-items-center gap-2">
                             <h2 class="page-title mb-0">Panel de Administración</h2>
                         </div>
@@ -24,7 +25,6 @@
     {{-- BODY --}}
     <div class="page-body">
         <div class="container-xl">
-
             {{-- Mensajes por rol (discretos) --}}
             <div class="mb-3">
                 @role('administrador')
