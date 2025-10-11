@@ -42,7 +42,6 @@ class CalendarioVerificacion extends Model
     /* ===================== Relaciones ===================== */
     public function regla()
     {
-        // Si no usas el modelo, no pasará nada.
         return $this->belongsTo(\App\Models\VerificacionRegla::class, 'regla_id');
     }
 
