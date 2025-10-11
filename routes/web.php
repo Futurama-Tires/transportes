@@ -35,13 +35,12 @@ use App\Services\TelegramNotifier;
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-| - Rutas públicas (welcome, forgot password)
-| - Rutas autenticadas (dashboard, perfil)
-| - Rutas por rol (administrador, capturista)
-| - Recursos anidados con scopeBindings
-| - Convenciones de nombres y parámetros
-|
-| Nota: Se definen patrones globales numéricos para IDs.
+| Estructura:
+| - Rutas públicas (welcome, forgot password).
+| - Rutas autenticadas (dashboard, perfil, notificaciones).
+| - Rutas por rol (administrador / capturista).
+| - Recursos anidados con scopeBindings.
+| - Patrones globales para IDs.
 */
 
 /* ------------------------------------------------------------------ */
@@ -65,8 +64,10 @@ Route::pattern('archivo', '\d+');            // Archivos de licencia
 Route::view('/', 'welcome')->name('welcome');
 
 Route::middleware('guest')->group(function () {
-    Route::get('/forgot-password',  [PasswordResetLinkController::class, 'create'])->name('password.request');
-    Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
+    Route::get('/forgot-password',  [PasswordResetLinkController::class, 'create'])
+        ->name('password.request');
+    Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->name('password.email');
 });
 
 /* ------------------------------------------------------------------ */
@@ -74,17 +75,17 @@ Route::middleware('guest')->group(function () {
 /* ------------------------------------------------------------------ */
 Route::middleware('auth')->group(function () {
 
-    /* -------------------------- Dashboard -------------------------- */
+    /* ---------------------------- Dashboard ---------------------------- */
     Route::view('/dashboard', 'dashboard')->middleware('verified')->name('dashboard');
 
-    /* ----------------------- Perfil de usuario --------------------- */
+    /* ------------------------- Perfil de usuario ----------------------- */
     Route::prefix('profile')->name('profile.')->group(function () {
         Route::get('/',    [ProfileController::class, 'edit'])->name('edit');
         Route::patch('/',  [ProfileController::class, 'update'])->name('update');
         Route::delete('/', [ProfileController::class, 'destroy'])->name('destroy');
     });
 
-    /* ------------------------- Notificaciones ---------------------- */
+    /* --------------------------- Notificaciones ------------------------ */
     Route::name('notificaciones.')->prefix('notificaciones')->group(function () {
         // Últimas no leídas (máx. 8)
         Route::get('/nuevas', function (Request $request) {
@@ -117,24 +118,26 @@ Route::middleware('auth')->group(function () {
         })->name('leer');
     });
 
+    // Marcar TODAS las notificaciones no leídas del usuario (se deja fuera del grupo para conservar el nombre plano si ya existe en front)
+    Route::post('/leer-todas', function (Request $request) {
+        $user = $request->user();
+        $user->unreadNotifications()->update(['read_at' => now()]);
+        return response()->noContent(); // 204
+    })->name('leer_todas');
+
     /* =============================================================== */
     /*   SOLO ADMINISTRADORES                                          */
     /* =============================================================== */
     Route::middleware('role:administrador')->group(function () {
 
-        /* Capturistas */
+        // Capturistas
         Route::resource('capturistas', CapturistaController::class);
 
-        Route::get('/admin/backup', [AdminBackupController::class, 'index'])->name('admin.backup.index');
-    Route::post('/admin/backup/download', [AdminBackupController::class, 'download'])->name('admin.backup.download');
-    Route::post('/admin/backup/restore', [AdminBackupController::class, 'restore'])->name('admin.backup.restore');
-
-        /* Backups */
+        // Backups (se centraliza en un solo prefijo, evitando duplicados)
         Route::prefix('admin/backup')->name('admin.backup.')->group(function () {
-            Route::get('/',            [AdminBackupController::class, 'index'])->name('index');
-            // POST => evita ejecuciones por prefetch/bots
-            Route::post('/download',   [AdminBackupController::class, 'download'])->name('download');
-            Route::post('/restore',    [AdminBackupController::class, 'restore'])->name('restore');
+            Route::get('/',          [AdminBackupController::class, 'index'])->name('index');
+            Route::post('/download', [AdminBackupController::class, 'download'])->name('download'); // POST para evitar prefetch
+            Route::post('/restore',  [AdminBackupController::class, 'restore'])->name('restore');   // POST idem
         });
     });
 
@@ -143,13 +146,13 @@ Route::middleware('auth')->group(function () {
     /* =============================================================== */
     Route::middleware('role:administrador|capturista')->group(function () {
 
-        /* --------------------- Recursos base ------------------------ */
+        /* -------------------------- Recursos base ------------------------- */
         Route::resource('operadores', OperadorController::class)
             ->parameters(['operadores' => 'operador']);
 
         Route::resources([
             'vehiculos' => VehiculoController::class,
-            'tarjetas'  => TarjetaSiValeController::class, // parámetro {tarjeta}
+            'tarjetas'  => TarjetaSiValeController::class, // param implícito {tarjeta}
         ]);
 
         Route::resource('verificaciones', VerificacionController::class)
@@ -158,63 +161,66 @@ Route::middleware('auth')->group(function () {
         Route::resource('cargas', CargaCombustibleController::class)
             ->parameters(['cargas' => 'carga']);
 
-        /* -------------------- Tanques por Vehículo ------------------ */
+        /* ---------------------- Tanques por Vehículo ---------------------- */
         Route::scopeBindings()->group(function () {
-            Route::resource('vehiculos.tanques', TanqueController::class)->except(['show']);
+            Route::resource('vehiculos.tanques', TanqueController::class)
+                ->except(['show']);
         });
 
-        /* ----------------- Tarjetas Comodín y Gastos ---------------- */
+        /* ------------------ Tarjetas Comodín y Gastos --------------------- */
         Route::resource('tarjetas-comodin', TarjetaComodinController::class);
 
         // Listado global de gastos (filtrable por ?tarjeta=ID)
-        Route::get('comodin-gastos', [ComodinGastoController::class, 'index'])->name('comodin-gastos.index');
+        Route::get('comodin-gastos', [ComodinGastoController::class, 'index'])
+            ->name('comodin-gastos.index');
 
-        // Gastos anidados a Tarjeta Comodín (shallow ed/act/del)
+        // Gastos anidados a Tarjeta Comodín (shallow: edit/update/destroy fuera del prefijo)
         Route::scopeBindings()->group(function () {
             Route::resource('tarjetas-comodin.gastos', ComodinGastoController::class)
                 ->only(['create', 'store', 'edit', 'update', 'destroy'])
                 ->shallow();
         });
 
-        /* ---------------------- Fotos: Vehículos -------------------- */
+        /* -------------------------- Fotos: Vehículos ----------------------- */
         Route::prefix('vehiculos')->name('vehiculos.')->scopeBindings()->group(function () {
-            Route::get('{vehiculo}/fotos',            [VehiculoFotoController::class, 'index'])->name('fotos.index');
-            Route::post('{vehiculo}/fotos',           [VehiculoFotoController::class, 'store'])->name('fotos.store');
-            Route::delete('{vehiculo}/fotos/{foto}',  [VehiculoFotoController::class, 'destroy'])->name('fotos.destroy');
+            Route::get('{vehiculo}/fotos',           [VehiculoFotoController::class, 'index'])->name('fotos.index');
+            Route::post('{vehiculo}/fotos',          [VehiculoFotoController::class, 'store'])->name('fotos.store');
+            Route::delete('{vehiculo}/fotos/{foto}', [VehiculoFotoController::class, 'destroy'])->name('fotos.destroy');
         });
         // Visualización directa por ID
-        Route::get('vehiculos/fotos/{foto}', [VehiculoFotoController::class, 'show'])->name('vehiculos.fotos.show');
+        Route::get('vehiculos/fotos/{foto}', [VehiculoFotoController::class, 'show'])
+            ->name('vehiculos.fotos.show');
 
-        /* ---------------------- Fotos: Operadores ------------------- */
+        /* -------------------------- Fotos: Operadores ---------------------- */
         Route::prefix('operadores')->name('operadores.')->scopeBindings()->group(function () {
-            Route::get('{operador}/fotos',            [OperadorFotoController::class, 'index'])->name('fotos.index');
-            Route::post('{operador}/fotos',           [OperadorFotoController::class, 'store'])->name('fotos.store');
-            Route::delete('{operador}/fotos/{foto}',  [OperadorFotoController::class, 'destroy'])->name('fotos.destroy');
+            Route::get('{operador}/fotos',           [OperadorFotoController::class, 'index'])->name('fotos.index');
+            Route::post('{operador}/fotos',          [OperadorFotoController::class, 'store'])->name('fotos.store');
+            Route::delete('{operador}/fotos/{foto}', [OperadorFotoController::class, 'destroy'])->name('fotos.destroy');
         });
         // Visualización directa por ID
-        Route::get('operadores/fotos/{foto}', [OperadorFotoController::class, 'show'])->name('operadores.fotos.show');
+        Route::get('operadores/fotos/{foto}', [OperadorFotoController::class, 'show'])
+            ->name('operadores.fotos.show');
 
-        /* ------------------------ Fotos: Cargas --------------------- */
+        /* ---------------------------- Fotos: Cargas ------------------------ */
         Route::prefix('cargas')->name('cargas.')->group(function () {
             // Visualización directa por ID (protegida)
-            Route::get('fotos/{foto}',         [CargaFotoWebController::class, 'show'])->name('fotos.show');
+            Route::get('fotos/{foto}', [CargaFotoWebController::class, 'show'])->name('fotos.show');
             // Subir/Borrar foto de una carga
-            Route::post('{carga}/fotos',       [CargaFotoWebController::class, 'store'])->name('fotos.store');
+            Route::post('{carga}/fotos',          [CargaFotoWebController::class, 'store'])->name('fotos.store');
             Route::delete('{carga}/fotos/{foto}', [CargaFotoWebController::class, 'destroy'])->name('fotos.destroy');
 
             // Aprobar carga (POST)
             Route::post('{carga}/aprobar', [CargaCombustibleController::class, 'approve'])->name('approve');
         });
 
-        /* ---------------- Calendario de Verificación ---------------- */
+        /* ---------------------- Calendario de Verificación ----------------- */
         Route::resource('calendarios', CalendarioVerificacionController::class)
             ->parameters(['calendarios' => 'calendario'])
             ->names('calendarios');
 
-        /* ------------- Reglas de Verificación + Periodos ------------ */
+        /* --------------- Reglas de Verificación + Generación --------------- */
         Route::prefix('verificacion-reglas')->name('verificacion-reglas.')->group(function () {
-
-            // Endpoint JSON primero para evitar choques
+            // Endpoint auxiliar JSON
             Route::get('/estados-disponibles', [VerificacionReglaController::class, 'estadosDisponibles'])
                 ->name('estados-disponibles');
 
@@ -231,17 +237,17 @@ Route::middleware('auth')->group(function () {
             Route::post('/{verificacion_regla}/generar', [VerificacionReglaController::class, 'generar'])->name('generar');
         });
 
-        /* --------------------- Programa Verificación ---------------- */
+        /* ----------------------- Programa de Verificación ------------------ */
         Route::prefix('programa-verificacion')->name('programa-verificacion.')->group(function () {
             Route::get('/',        [ProgramaVerificacionController::class, 'index'])->name('index');
             Route::post('/marcar', [ProgramaVerificacionController::class, 'marcar'])->name('marcar');
         });
 
-        /* --------------------------- Reportes ----------------------- */
-        // Vista principal (Dashboard de reportes)
+        /* ------------------------------- Reportes -------------------------- */
+        // Vista principal (Dashboard)
         Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
 
-        // JSON API (se mantienen las rutas exactas, ahora con nombres)
+        // JSON API
         Route::prefix('api/reportes')->name('reportes.api.')->group(function () {
             Route::get('/rendimiento',  [ReporteController::class, 'rendimientoJson'])->name('rendimiento');
             Route::get('/costo-km',     [ReporteController::class, 'costoKmJson'])->name('costo_km');
@@ -249,67 +255,38 @@ Route::middleware('auth')->group(function () {
             Route::get('/verificacion', [ReporteController::class, 'verificacionJson'])->name('verificacion');
         });
 
-        // Exportación PDF (se conservan endpoints; se agregan nombres)
+        // Exportación PDF
         Route::prefix('reportes')->name('reportes.export.')->group(function () {
-            // Rendimiento (GET/POST)
             Route::match(['get','post'], '/rendimiento/export.pdf',  [ReporteController::class, 'exportRendimientoPdf'])->name('rendimiento_pdf');
-
-            // Costo por km (GET/POST)
             Route::match(['get','post'], '/costo-km/export.pdf',     [ReporteController::class, 'exportCostoKmPdf'])->name('costo_km_pdf');
-
-            // Auditoría (GET/POST)
             Route::match(['get','post'], '/auditoria/export.pdf',    [ReporteController::class, 'exportAuditoriaPdf'])->name('auditoria_pdf');
-
-            // Verificación (GET/POST)
             Route::match(['get','post'], '/verificacion/export.pdf', [ReporteController::class, 'exportVerificacionPdf'])->name('verificacion_pdf');
         });
 
-        /* -------------------- Licencias de Conducir ----------------- */
-        // CRUD principal
+        /* ------------------------ Licencias de Conducir -------------------- */
         Route::resource('licencias', LicenciaConducirController::class);
 
-        // Archivos asociados a licencias (subir / ver / descargar / eliminar)
+        // Archivos asociados a licencias
         Route::prefix('licencias')->name('licencias.archivos.')->group(function () {
-            Route::post('{licencia}/archivos',                 [LicenciaArchivoController::class, 'store'])->name('store');
-            Route::delete('archivos/{archivo}',                [LicenciaArchivoController::class, 'destroy'])->name('destroy');
-            Route::get('archivos/{archivo}/download',          [LicenciaArchivoController::class, 'download'])->name('download');
-            Route::get('archivos/{archivo}/inline',            [LicenciaArchivoController::class, 'inline'])->name('inline');
+            Route::post('{licencia}/archivos',        [LicenciaArchivoController::class, 'store'])->name('store');
+            Route::delete('archivos/{archivo}',       [LicenciaArchivoController::class, 'destroy'])->name('destroy');
+            Route::get('archivos/{archivo}/download', [LicenciaArchivoController::class, 'download'])->name('download');
+            Route::get('archivos/{archivo}/inline',   [LicenciaArchivoController::class, 'inline'])->name('inline');
         });
 
-        Route::get('/precios-combustible', [PrecioCombustibleController::class, 'index'])
-        ->name('precios-combustible.index');
+        /* ------------------------ Precios de Combustible ------------------- */
+        Route::prefix('precios-combustible')->name('precios-combustible.')->group(function () {
+            Route::get('/',                                     [PrecioCombustibleController::class, 'index'])->name('index');
+            Route::post('/',                                    [PrecioCombustibleController::class, 'store'])->name('store');
+            Route::put('/{precioCombustible}',                  [PrecioCombustibleController::class, 'update'])->name('update');
+            Route::get('/json',                                 [PrecioCombustibleController::class, 'current'])->name('current');
+            Route::post('/bulk',                                [PrecioCombustibleController::class, 'upsertMany'])->name('bulk');
+            Route::post('/recalcular-tanques',                  [PrecioCombustibleController::class, 'recalc'])->name('recalc');
+        });
 
-    // CRUD básico
-    Route::post('/precios-combustible', [PrecioCombustibleController::class, 'store'])
-        ->name('precios-combustible.store');
-
-    Route::put('/precios-combustible/{precioCombustible}', [PrecioCombustibleController::class, 'update'])
-        ->name('precios-combustible.update');
-
-    // Endpoints para modal/AJAX
-    Route::get('/precios-combustible/json', [PrecioCombustibleController::class, 'current'])
-        ->name('precios-combustible.current');
-
-    Route::post('/precios-combustible/bulk', [PrecioCombustibleController::class, 'upsertMany'])
-        ->name('precios-combustible.bulk');
-
-    // (Opcional) Recalcular costo_tanque_lleno después de cambiar precios
-    Route::post('/precios-combustible/recalcular-tanques', [PrecioCombustibleController::class, 'recalc'])
-        ->name('precios-combustible.recalc');
-
-    Route::view('/operadores/confirmacion', 'operadores.confirmacion')
-    ->name('operadores.confirmacion');
-
-    // Marcar TODAS las notificaciones no leídas del usuario
-Route::post('/leer-todas', function (Request $request) {
-    $user = $request->user();
-
-    // Actualiza en bloque (una sola query):
-    $user->unreadNotifications()->update(['read_at' => now()]);
-
-    return response()->noContent(); // 204
-})->name('leer_todas');
-
+        /* -------------------------- Vistas utilitarias --------------------- */
+        Route::view('/operadores/confirmacion', 'operadores.confirmacion')
+            ->name('operadores.confirmacion');
     });
 });
 
@@ -325,4 +302,3 @@ Route::middleware('auth')->get('/debug/telegram', function (TelegramNotifier $tg
 /* Auth scaffolding (login, register, etc.)                           */
 /* ------------------------------------------------------------------ */
 require __DIR__ . '/auth.php';
-
