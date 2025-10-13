@@ -5,21 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\TarjetaComodin;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Carbon\Carbon;
 
 class TarjetaComodinController extends Controller
 {
-    /** Listado con búsqueda por número de tarjeta */
+    /** Listado con búsqueda/filtros/orden usando scopes del Modelo */
     public function index(Request $request)
     {
-        $q = TarjetaComodin::query()
-            ->when($request->filled('search'), function ($qq) use ($request) {
-                $s = $request->string('search');
-                $qq->where('numero_tarjeta', 'like', "%{$s}%");
-            })
-            ->orderByDesc('id');
-
-        $tarjetas = $q->paginate(12)->withQueryString();
+        $tarjetas = TarjetaComodin::query()
+            ->search($request->input('search'))
+            ->ultimos4($request->input('ultimos4'))
+            ->tieneNip($request->input('tiene_nip'))
+            ->venceFrom($request->input('from'))
+            ->venceTo($request->input('to'))
+            ->estado($request->input('estado'))
+            ->ordenar($request->input('sort_by'), $request->input('sort_dir'))
+            ->paginate(12)
+            ->withQueryString();
 
         return view('tarjetas_comodin.index', compact('tarjetas'));
     }
@@ -34,27 +35,19 @@ class TarjetaComodinController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            // Cambiado: 4 a 16 dígitos (solo números)
+            // 4 a 16 dígitos (solo números), único
             'numero_tarjeta'    => [
                 'required',
                 'regex:/^\d{4,16}$/',
                 Rule::unique('tarjetas_comodin', 'numero_tarjeta'),
             ],
             'nip'               => ['nullable', 'string', 'max:255'],
-            // Cambiado: aceptar 'YYYY-MM' y guardar último día del mes
-            'fecha_vencimiento' => ['nullable', 'date_format:Y-m'],
-            // Nuevo campo
+            // Dejamos el parse a los mutators del Modelo: acepta 'YYYY-MM' o 'YYYY-MM-DD'
+            'fecha_vencimiento' => ['nullable', 'string', 'max:20'],
             'descripcion'       => ['nullable', 'string', 'max:1000'],
         ], [
-            'numero_tarjeta.regex'         => 'El número de tarjeta debe tener entre 4 y 16 dígitos (solo números).',
-            'fecha_vencimiento.date_format'=> 'El formato de fecha debe ser Mes/Año (YYYY-MM).',
+            'numero_tarjeta.regex'  => 'El número de tarjeta debe tener entre 4 y 16 dígitos (solo números).',
         ]);
-
-        if (!empty($data['fecha_vencimiento'])) {
-            $data['fecha_vencimiento'] = Carbon::createFromFormat('Y-m', $data['fecha_vencimiento'])
-                ->endOfMonth()
-                ->format('Y-m-d');
-        }
 
         TarjetaComodin::create($data);
 
@@ -76,30 +69,21 @@ class TarjetaComodinController extends Controller
         $tarjeta = $tarjetas_comodin;
 
         $data = $request->validate([
-            // Cambiado: 4 a 16 dígitos (solo números)
             'numero_tarjeta'    => [
                 'required',
                 'regex:/^\d{4,16}$/',
                 Rule::unique('tarjetas_comodin', 'numero_tarjeta')->ignore($tarjeta->id),
             ],
             'nip'               => ['nullable', 'string', 'max:255'],
-            // Cambiado: aceptar 'YYYY-MM' y guardar último día del mes
-            'fecha_vencimiento' => ['nullable', 'date_format:Y-m'],
-            // Nuevo campo
+            'fecha_vencimiento' => ['nullable', 'string', 'max:20'],
             'descripcion'       => ['nullable', 'string', 'max:1000'],
         ], [
-            'numero_tarjeta.regex'         => 'El número de tarjeta debe tener entre 4 y 16 dígitos (solo números).',
-            'fecha_vencimiento.date_format'=> 'El formato de fecha debe ser Mes/Año (YYYY-MM).',
+            'numero_tarjeta.regex'  => 'El número de tarjeta debe tener entre 4 y 16 dígitos (solo números).',
         ]);
 
-        if (!empty($data['fecha_vencimiento'])) {
-            $data['fecha_vencimiento'] = Carbon::createFromFormat('Y-m', $data['fecha_vencimiento'])
-                ->endOfMonth()
-                ->format('Y-m-d');
-        }
-
-        // Evitar sobreescribir NIP con vacío
-        if (!$request->filled('nip')) {
+        // Si el campo viene presente pero vacío, el mutator lo convertirá a null;
+        // si NO viene en la request y quieres preservar el valor, no toques la clave.
+        if (!$request->has('nip')) {
             unset($data['nip']);
         }
 
@@ -110,7 +94,7 @@ class TarjetaComodinController extends Controller
             ->with('status', 'Tarjeta Comodín actualizada.');
     }
 
-    /** Eliminar tarjeta (cascade borra sus gastos) */
+    /** Eliminar tarjeta (considera FK/ON DELETE en la migración de gastos) */
     public function destroy(TarjetaComodin $tarjetas_comodin)
     {
         $tarjetas_comodin->delete();

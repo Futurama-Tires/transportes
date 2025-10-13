@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\TarjetaSiVale;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class TarjetaSiValeController extends Controller
 {
@@ -14,9 +13,19 @@ class TarjetaSiValeController extends Controller
         $this->middleware(['auth', 'role:administrador|capturista']);
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $tarjetas = TarjetaSiVale::latest()->paginate(10);
+        $tarjetas = TarjetaSiVale::query()
+            ->search($request->input('search'))
+            ->ultimos4($request->input('ultimos4'))
+            ->tieneNip($request->input('tiene_nip'))
+            ->venceFrom($request->input('from'))
+            ->venceTo($request->input('to'))
+            ->estado($request->input('estado'))
+            ->ordenar($request->input('sort_by'), $request->input('sort_dir'))
+            ->paginate((int) $request->input('per_page', 10))
+            ->withQueryString();
+
         return view('tarjetas.index', compact('tarjetas'));
     }
 
@@ -28,7 +37,6 @@ class TarjetaSiValeController extends Controller
     public function store(Request $request)
     {
         $data = $this->validateData($request);
-        // La normalización final (quitar guiones, fecha fin de mes, etc.) la hace el Modelo
         TarjetaSiVale::create($data);
 
         return redirect()
@@ -36,27 +44,20 @@ class TarjetaSiValeController extends Controller
             ->with('success', 'Tarjeta SiVale creada correctamente.');
     }
 
-    /**
-     * Muestra la tarjeta + sus vehículos y sus cargas (paginadas) con totales.
-     */
     public function show(TarjetaSiVale $tarjeta, Request $request)
     {
-        // Cargamos vehículos asociados
         $tarjeta->load('vehiculos');
 
-        // Query base de cargas
         $cargasQuery = $tarjeta->cargas()
             ->with(['vehiculo:id,unidad,placa,serie'])
             ->orderByDesc('fecha');
 
-        // Totales
         $stats = [
             'total_cargas'  => (clone $cargasQuery)->count(),
             'total_litros'  => (clone $cargasQuery)->sum('litros'),
             'total_gastado' => (clone $cargasQuery)->sum('total'),
         ];
 
-        // Paginación
         $perPage = (int) $request->get('per_page', 15);
         $cargas  = $cargasQuery->paginate($perPage)->withQueryString();
 
@@ -88,15 +89,14 @@ class TarjetaSiValeController extends Controller
     }
 
     /**
-     * Valida datos (tolerante a guiones/espacios) y asegura UNIQUE sobre el valor normalizado (solo dígitos).
-     * La normalización definitiva vive en los mutators del Modelo.
+     * Valida datos (tolerante a guiones/espacios) y asegura UNIQUE
+     * sobre el valor normalizado (solo dígitos).
      */
     private function validateData(Request $request, $id = null): array
     {
         $table = (new TarjetaSiVale())->getTable();
 
         $rules = [
-            // Permitimos dígitos, espacios y guiones en input; el largo real (4-16) se valida sobre la versión "solo dígitos"
             'numero_tarjeta' => [
                 'required',
                 'regex:/^[\d\-\s]{4,25}$/',
@@ -117,7 +117,6 @@ class TarjetaSiValeController extends Controller
                 },
             ],
             'nip' => ['nullable', 'digits:4'],
-            // Distintos formatos aceptados; el modelo hará la normalización final
             'fecha_vencimiento' => ['nullable', 'string', 'max:20'],
             'descripcion'       => ['nullable', 'string', 'max:1000'],
         ];
