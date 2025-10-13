@@ -18,7 +18,7 @@ class ProgramaVerificacionController extends Controller
         $semestre = $request->input('semestre');
         $semestre = in_array($semestre, ['1','2']) ? intval($semestre) : null;
 
-        // Estados desde vehiculos (fuente de verdad)
+        // Estados desde vehiculos 
         $estadosDisponibles = Vehiculo::query()
             ->select('estado')->distinct()->orderBy('estado')->pluck('estado');
 
@@ -156,7 +156,7 @@ class ProgramaVerificacionController extends Controller
                     }
                 }
 
-                // Ordenar por placa (ajusta si prefieres por unidad)
+                // Ordenar por placa
                 usort($lista['pendientes'], fn($a,$b)=>strcmp($a['vehiculo']->placa, $b['vehiculo']->placa));
                 foreach ($lista['verificados'] as $f=>&$arr) {
                     usort($arr, fn($a,$b)=>strcmp($a['vehiculo']->placa, $b['vehiculo']->placa));

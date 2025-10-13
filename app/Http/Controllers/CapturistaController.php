@@ -29,7 +29,7 @@ class CapturistaController extends Controller
         $capturistas = Capturista::query()
             ->with('user')
             ->filter($filters)
-            ->paginate(25)           // paginación solicitada
+            ->paginate(25)           // paginación 
             ->withQueryString();     // conserva filtros al paginar
 
         return view('capturistas.index', compact('capturistas'));

@@ -29,7 +29,7 @@ class CargaFotoWebController extends Controller
     }
 
     /**
-     * Sube una foto a la carga indicada.
+     * Subir una foto a la carga indicada.
      * POST /cargas/{carga}/fotos
      */
     public function store(Request $request, CargaCombustible $carga)

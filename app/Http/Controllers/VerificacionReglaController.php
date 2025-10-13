@@ -367,7 +367,7 @@ class VerificacionReglaController extends Controller
     /* ===== Defaults para precarga en UI ===== */
     protected function defaultSemestralDetalles(): array
     {
-        // Mapeo “par” típico (puedes ajustar si lo deseas):
+        // Mapeo
         // S1: 5-6 Ene-Feb | 7-8 Feb-Mar | 3-4 Mar-Abr | 1-2 Abr-May | 9-0 May-Jun
         // S2: 5-6 Jul-Ago | 7-8 Ago-Sep | 3-4 Sep-Oct | 1-2 Oct-Nov | 9-0 Nov-Dic
         $mapS1 = [

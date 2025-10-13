@@ -22,7 +22,7 @@ class CargaCombustibleController extends Controller
 {
     public function index(Request $request)
     {
-        // 👉 Exportar a Excel con filtros/orden actuales (sin paginar)
+        // Exportar a Excel con filtros/orden actuales (sin paginar)
         if ($request->get('export') === 'xlsx') {
             $filename = 'cargas_' . now()->format('Ymd_His') . '.xlsx';
             return Excel::download(new CargasExport($request), $filename);
@@ -85,13 +85,13 @@ class CargaCombustibleController extends Controller
             'observaciones'    => ['nullable', 'string', 'max:2000'],
         ]);
 
-        // ✅ Todo lo creado en web sale Aprobada
+        // Todo lo creado en web sale Aprobada
         $data['estado'] = 'Aprobada';
 
         return DB::transaction(function () use ($data) {
             $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
 
-            // 🔎 Base cronológica: km_inicial = km_final de la carga previa (no usar odómetro del vehículo)
+            // Base cronológica: km_inicial = km_final de la carga previa (no usar odómetro del vehículo)
             $previa = $this->findPrevCarga($vehiculo->id, $data['fecha'], null);
             $kmInicial = (int) ($previa?->km_final ?? 0);
 
@@ -107,7 +107,7 @@ class CargaCombustibleController extends Controller
             $carga = new CargaCombustible();
             $carga->forceFill($data)->save();
 
-            // 🔁 Recalcular en cadena desde esta carga
+            // Recalcular en cadena desde esta carga
             $this->reflowFromCarga($carga, true); // y sincroniza odómetro del vehículo
 
             // Notificación
@@ -126,7 +126,7 @@ class CargaCombustibleController extends Controller
     {
         $carga->load(['fotos', 'vehiculo', 'operador']);
 
-        // 👉 Solo la más reciente puede editar KM (fecha desc, id desc)
+        // Solo la más reciente puede editar KM (fecha desc, id desc)
         $kmEditable = $this->isLatestCarga($carga->vehiculo_id, $carga->fecha, $carga->id);
 
         return view('cargas.edit', [
@@ -231,11 +231,11 @@ class CargaCombustibleController extends Controller
 
             $deleted = $carga->delete();
 
-            // 🔁 Si había cargas posteriores, recalcular desde la primera siguiente
+            // Si había cargas posteriores, recalcular desde la primera siguiente
             if ($deleted && $siguiente) {
                 $this->reflowFromCarga($siguiente, true);
             } else {
-                // 🔚 Alinear odómetro al nuevo último
+                // Alinear odómetro al nuevo último
                 $this->syncVehicleOdometer($vehiculoId);
             }
 
@@ -290,7 +290,7 @@ class CargaCombustibleController extends Controller
             $data['total'] = round((float) $data['total'], 2);
         }
 
-        // 👉 Si km_inicial es null, tómalo como 0 (evita errores de cálculo)
+        // Si km_inicial es null, tómalo como 0 (evita errores de cálculo)
         $kmBase = (int) ($kmInicial ?? 0);
         $data['km_inicial'] = $kmBase;
 
@@ -464,7 +464,7 @@ class CargaCombustibleController extends Controller
             return response()->json(['message' => 'El usuario autenticado no tiene un operador asociado.'], 422);
         }
 
-        // ✅ Todo lo que llega por API inicia como Pendiente
+        // Todo lo que llega por API inicia como Pendiente
         $data['estado'] = 'Pendiente';
 
         return DB::transaction(function () use ($data, $operador, $imagenes) {
@@ -492,7 +492,7 @@ class CargaCombustibleController extends Controller
                 $this->attachTmpImagesToCarga($carga, $imagenes);
             }
 
-            // 🔁 Recalcular en cadena y sincronizar odómetro
+            // Recalcular en cadena y sincronizar odómetro
             $this->reflowFromCarga($carga, true);
 
             $carga->loadMissing('vehiculo','operador','fotos');

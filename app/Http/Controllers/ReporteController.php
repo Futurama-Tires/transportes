@@ -124,7 +124,7 @@ class ReporteController extends Controller
         return $u !== '' ? $u : $p;
     }
 
-    /** Normaliza chart_uri: acepta data URLs o base64 "pelón" y las convierte a data:image/png;base64, */
+    /** Normaliza chart_uri **/
     private function normalizeChartUri(?string $raw): ?string
     {
         if (!$raw) return null;
@@ -499,7 +499,7 @@ class ReporteController extends Controller
         return response()->json([
             'kpis'       => $res['kpis'],
             'table'      => $pag['data'],
-            'rows'       => $pag['data'],   // si el front usa 'rows', lo mantenemos paginado también
+            'rows'       => $pag['data'],   // si el front usa 'rows', lo mantenemos paginado 
             'pagination' => $pag['meta'],
             'chart'      => [
                 'categories' => ['Verificado', 'Sin verificar'],

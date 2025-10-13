@@ -18,7 +18,7 @@ class ComodinGastoController extends Controller
      */
     public function index(Request $request)
     {
-        // 👉 Exportar a Excel con filtros/orden actuales (sin paginar)
+        // Exportar a Excel con filtros/orden actuales (sin paginar)
         if ($request->get('export') === 'xlsx') {
             $filename = 'comodin_gastos_' . now()->format('Ymd_His') . '.xlsx';
             return Excel::download(new ComodinGastosExport($request), $filename);

@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Consideraciones de rendimiento (producción):
  * - La búsqueda global usa LIKE con comodines (%…%), lo cual puede ser costoso en tablas grandes.
  *   Para alto volumen, evalúa índices compuestos/funcionales y/o FULLTEXT (MySQL) sobre los campos
- *   consultados frecuentemente (nombre/apellidos/email) según tu motor y versión.
+ *   consultados frecuentemente (nombre/apellidos/email) 
  * - El ordenamiento por email hace un LEFT JOIN con "users"; asegurar índice sobre users.email y FK capturistas.user_id.
  * - Se usa select('capturistas.*') al ordenar por email para evitar colisión de columnas en JOINS.
  *
