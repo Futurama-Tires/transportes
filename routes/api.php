@@ -2,9 +2,12 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+// Controladores (importa SIEMPRE con namespace correcto)
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CargaCombustibleController;
 use App\Http\Controllers\Api\OcrController;
+use App\Http\Controllers\Api\CargaFotoController; // ← FALTA EN TU VERSIÓN
 
 // Login (limitamos intentos para evitar fuerza bruta)
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
@@ -21,11 +24,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     // === API móvil: crear carga (operador se infiere del token) ===
+    // (Solo una vez; eliminé el duplicado)
     Route::post('/cargas', [CargaCombustibleController::class, 'storeApi']);
 
     // Catálogos mínimos para el formulario móvil
     Route::get('/vehiculos-min', function () {
-        return \App\Models\Vehiculo::orderBy('unidad')->get(['id','unidad','placa']);
+        // Incluye 'kilometros' porque la app Android lo usa para prellenar km_inicial
+        return \App\Models\Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']);
     });
 
     Route::get('/operadores-min', function () {
@@ -36,7 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/catalogos/cargas', function () {
         return [
-            'tipos'       => \App\Models\CargaCombustible::TIPOS_COMBUSTIBLE ?? ['Magna','Diesel','Premium'],
+            'tipos' => \App\Models\CargaCombustible::TIPOS_COMBUSTIBLE ?? ['Magna','Diesel','Premium'],
         ];
     });
 
@@ -45,13 +50,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/ocr/voucher',  [OcrController::class, 'voucher']);
     Route::post('/ocr/odometro', [OcrController::class, 'odometro']);
 
-    // Crear carga (móvil) con validación de importes y anexado de fotos desde tmp
-    Route::post('/cargas', [CargaCombustibleController::class, 'storeApi']);
-
-    // Añadir / eliminar fotos adicionales a una carga
-    Route::get('/cargas/{carga}/fotos', [CargaFotoController::class, 'index']);              // listar
-    Route::get('/cargas/{carga}/fotos/{foto}', [CargaFotoController::class, 'show']);        // ver una
-    Route::get('/cargas/{carga}/fotos/{foto}/download', [CargaFotoController::class, 'download']); // descargar/mostrar archivo
-    Route::post('/cargas/{carga}/fotos', [CargaFotoController::class, 'store']);             // subir nueva
-    Route::delete('/cargas/{carga}/fotos/{foto}', [CargaFotoController::class, 'destroy']);
+    // Fotos por carga (listado/descarga/subida/borrado)
+    Route::get   ('/cargas/{carga}/fotos',                    [CargaFotoController::class, 'index']);
+    Route::get   ('/cargas/{carga}/fotos/{foto}',             [CargaFotoController::class, 'show']);
+    Route::get   ('/cargas/{carga}/fotos/{foto}/download',    [CargaFotoController::class, 'download']);
+    Route::post  ('/cargas/{carga}/fotos',                    [CargaFotoController::class, 'store']);
+    Route::delete('/cargas/{carga}/fotos/{foto}',             [CargaFotoController::class, 'destroy']);
 });
