@@ -118,7 +118,7 @@ class CargaCombustibleController extends Controller
             });
 
             return redirect()->route('cargas.index')
-                ->with('success', 'Carga registrada y kilometraje recalculado correctamente.');
+                ->with('success', 'Carga registrada correctamente.');
         });
     }
 
@@ -216,8 +216,8 @@ class CargaCombustibleController extends Controller
 
             return redirect()->route('cargas.index')
                 ->with('success', $eraMasReciente
-                    ? 'Carga actualizada; kilometraje y cadena recalculados.'
-                    : 'Carga actualizada (kilometraje bloqueado por no ser la más reciente); cadena recalculada.');
+                    ? 'Carga actualizada correctamente'
+                    : 'Carga actualizada correctamente');
         });
     }
 
@@ -240,7 +240,7 @@ class CargaCombustibleController extends Controller
             }
 
             return redirect()->route('cargas.index')
-                ->with('success', $deleted ? 'Carga eliminada y kilometraje recalculado.' : 'No se pudo eliminar la carga.');
+                ->with('success', $deleted ? 'Carga eliminada correctamente.' : 'No se pudo eliminar la carga.');
         });
     }
 

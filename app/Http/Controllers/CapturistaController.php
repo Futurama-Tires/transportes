@@ -76,7 +76,7 @@ class CapturistaController extends Controller
             ->with('created', true)
             ->with('email', $user->email)
             ->with('password', $randomPassword)
-            ->with('success', 'Capturista creado correctamente.');
+            ->with('success', 'Registro creado correctamente.');
     }
 
     public function edit($id)
@@ -116,7 +116,7 @@ class CapturistaController extends Controller
             'email' => $validated['email'],
         ]);
 
-        return redirect()->route('capturistas.index')->with('success', 'Capturista actualizado correctamente');
+        return redirect()->route('capturistas.index')->with('success', 'Registro actualizado correctamente');
     }
 
     public function destroy($id)
@@ -126,6 +126,6 @@ class CapturistaController extends Controller
         // Elimina el usuario (si la FK tiene ON DELETE CASCADE, eliminará el capturista)
         $capturista->user->delete();
 
-        return redirect()->route('capturistas.index')->with('success', 'Capturista eliminado correctamente');
+        return redirect()->route('capturistas.index')->with('success', 'Registro eliminado correctamente');
     }
 }
