@@ -124,13 +124,16 @@
                                             </div>
 
                                             <div class="col-12 col-md-6">
-                                                <label for="telefono" class="form-label">Teléfono</label>
+                                                <label for="telefono" class="form-label">Teléfono (10 dígitos)</label>
                                                 <div class="input-group">
                                                     <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
                                                     <input id="telefono" name="telefono" type="tel"
+                                                           inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
+                                                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
                                                            class="form-control @error('telefono') is-invalid @enderror"
                                                            value="{{ old('telefono', $operador->telefono) }}"
-                                                           placeholder="+52 777 123 4567" autocomplete="tel">
+                                                           placeholder="Ej. 7771234567" autocomplete="tel"
+                                                           title="Ingresa exactamente 10 dígitos (solo números)">
                                                     @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                                 </div>
                                             </div>
@@ -224,55 +227,58 @@
 
                                     {{-- ================= 5) CONTACTO DE EMERGENCIA ================= --}}
                                     <div class="col-12">
-                                        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Contacto de emergencia</div>
-                                        <div class="row g-3">
-                                            <div class="col-12 col-md-6">
-                                                <label for="contacto_emergencia_nombre" class="form-label">Nombre</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">contact_emergency</span></span>
-                                                    <input id="contacto_emergencia_nombre" name="contacto_emergencia_nombre" type="text"
-                                                           class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror"
-                                                           value="{{ old('contacto_emergencia_nombre', $operador->contacto_emergencia_nombre) }}"
-                                                           placeholder="Ej. Juan Pérez">
-                                                    @error('contacto_emergencia_nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
+        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Contacto de emergencia</div>
+        <div class="row g-3">
+            <div class="col-12 col-md-6">
+                <label for="contacto_emergencia_nombre" class="form-label">Nombre</label>
+                <div class="input-group">
+                    <span class="input-group-text"><span class="material-symbols-outlined">contact_emergency</span></span>
+                    <input id="contacto_emergencia_nombre" name="contacto_emergencia_nombre" type="text"
+                           class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror"
+                           value="{{ old('contacto_emergencia_nombre', $operador->contacto_emergencia_nombre) }}"
+                           placeholder="Ej. Juan Pérez">
+                    @error('contacto_emergencia_nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+            </div>
 
-                                            <div class="col-12 col-md-6">
-                                                <label for="contacto_emergencia_parentesco" class="form-label">Parentesco</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">diversity_1</span></span>
-                                                    <input id="contacto_emergencia_parentesco" name="contacto_emergencia_parentesco" type="text"
-                                                           class="form-control @error('contacto_emergencia_parentesco') is-invalid @enderror"
-                                                           value="{{ old('contacto_emergencia_parentesco', $operador->contacto_emergencia_parentesco) }}" placeholder="Ej. Esposa, Hermano, Amigo">
-                                                    @error('contacto_emergencia_parentesco') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
+            <div class="col-12 col-md-6">
+                <label for="contacto_emergencia_parentesco" class="form-label">Parentesco</label>
+                <div class="input-group">
+                    <span class="input-group-text"><span class="material-symbols-outlined">diversity_1</span></span>
+                    <input id="contacto_emergencia_parentesco" name="contacto_emergencia_parentesco" type="text"
+                           class="form-control @error('contacto_emergencia_parentesco') is-invalid @enderror"
+                           value="{{ old('contacto_emergencia_parentesco', $operador->contacto_emergencia_parentesco) }}" placeholder="Ej. Esposa, Hermano, Amigo">
+                    @error('contacto_emergencia_parentesco') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+            </div>
 
-                                            <div class="col-12 col-md-6">
-                                                <label for="contacto_emergencia_tel" class="form-label">Teléfono</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
-                                                    <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
-                                                           class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
-                                                           value="{{ old('contacto_emergencia_tel', $operador->contacto_emergencia_tel) }}"
-                                                           placeholder="+52 777 000 0000">
-                                                    @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
+            <div class="col-12 col-md-6">
+                <label for="contacto_emergencia_tel" class="form-label">Teléfono de emergencia (10 dígitos)</label>
+                <div class="input-group">
+                    <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                    <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
+                           inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
+                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                           class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
+                           value="{{ old('contacto_emergencia_tel', $operador->contacto_emergencia_tel) }}"
+                           placeholder="Ej. 7770000000"
+                           title="Ingresa exactamente 10 dígitos (solo números)">
+                    @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+            </div>
 
-                                            <div class="col-12 col-md-6">
-                                                <label for="contacto_emergencia_ubicacion" class="form-label">Ubicación</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">place</span></span>
-                                                    <input id="contacto_emergencia_ubicacion" name="contacto_emergencia_ubicacion" type="text"
-                                                           class="form-control @error('contacto_emergencia_ubicacion') is-invalid @enderror"
-                                                           value="{{ old('contacto_emergencia_ubicacion', $operador->contacto_emergencia_ubicacion) }}" placeholder="Ej. Cuernavaca, Morelos">
-                                                    @error('contacto_emergencia_ubicacion') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+            <div class="col-12 col-md-6">
+                <label for="contacto_emergencia_ubicacion" class="form-label">Ubicación</label>
+                <div class="input-group">
+                    <span class="input-group-text"><span class="material-symbols-outlined">place</span></span>
+                    <input id="contacto_emergencia_ubicacion" name="contacto_emergencia_ubicacion" type="text"
+                           class="form-control @error('contacto_emergencia_ubicacion') is-invalid @enderror"
+                           value="{{ old('contacto_emergencia_ubicacion', $operador->contacto_emergencia_ubicacion) }}" placeholder="Ej. Cuernavaca, Morelos">
+                    @error('contacto_emergencia_ubicacion') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+            </div>
+        </div>
+    </div>
 
                                 </div> {{-- /row --}}
                             </div>
@@ -338,7 +344,6 @@
                                             <div class="col-12">
                                                 <div class="card position-relative foto-card" data-id="{{ $foto->id }}">
                                                     <div class="ratio ratio-4x3">
-                                                        {{-- Imagen visible y clicable (nueva pestaña) --}}
                                                         <a href="{{ route('operadores.fotos.show', $foto) }}"
                                                            target="_blank" rel="noopener noreferrer"
                                                            title="Abrir en nueva pestaña"
@@ -348,18 +353,15 @@
                                                              class="w-100 h-100 rounded object-fit-cover">
                                                     </div>
 
-                                                    {{-- Botón marcar para borrar (toggle) --}}
                                                     <button type="button"
                                                             class="btn btn-danger btn-icon btn-sm position-absolute top-0 end-0 m-1 toggle-delete z-3"
                                                             data-id="{{ $foto->id }}" title="Marcar para borrar">
                                                         <span class="material-symbols-outlined">delete</span>
                                                     </button>
 
-                                                    {{-- Checkbox oculto que viaja en el form --}}
                                                     <input type="checkbox" class="d-none delete-input"
                                                            id="del-{{ $foto->id }}" name="delete_fotos[]" value="{{ $foto->id }}">
 
-                                                    {{-- Cinta visual cuando está marcada --}}
                                                     <div class="position-absolute top-0 start-0 w-100 h-100 rounded bg-danger opacity-25 d-none overlay-del"></div>
                                                     <span class="badge bg-danger position-absolute bottom-0 start-0 m-2 d-none badge-del">
                                                         <span class="material-symbols-outlined me-1 align-middle">delete</span> Se borrará
@@ -521,8 +523,8 @@
 
     <style>
         .bg-cover { background-repeat: no-repeat; }
-        .overlay-del { pointer-events: none; } /* La capa roja no bloquea clics */
-        .foto-card .toggle-delete { z-index: 3; } /* Botón por encima del stretched-link */
+        .overlay-del { pointer-events: none; }
+        .foto-card .toggle-delete { z-index: 3; }
         .object-fit-cover { object-fit: cover; }
     </style>
 </x-app-layout>

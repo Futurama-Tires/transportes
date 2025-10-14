@@ -96,7 +96,7 @@ class OperadorController extends Controller
         // (0) Normaliza a MAYÚSCULAS (antes de validar) — incluye ESTADO_CIVIL
         $this->normalizeRequestToUpper($request);
 
-        // (1) Validación de campos del Operador (incluye DOMICILIO)
+        // (1) Validación de campos del Operador (incluye DOMICILIO + TELÉFONOS 10 dígitos)
         $data = $this->validateOperador($request, isUpdate: false, operador: null);
 
         // Email: aceptar cualquier dominio válido. No se fuerza a mayúsculas.
@@ -132,18 +132,15 @@ class OperadorController extends Controller
         // (3) Subir fotos (fuera de la transacción)
         $this->saveUploadedPhotos($request, $payload['operador']->id);
 
-        // (4) Redirección con modal de credenciales
         // (4) Redirección: la pestaña NUEVA irá a confirmación
-return redirect()
-    ->route('operadores.confirmacion')
-    ->with([
-        'created'  => true,
-        'email'    => $payload['user']->email,
-        'password' => $payload['passwordPlain'],
-        // opcional:
-        'success'  => 'Operador creado correctamente.',
-    ]);
-
+        return redirect()
+            ->route('operadores.confirmacion')
+            ->with([
+                'created'  => true,
+                'email'    => $payload['user']->email,
+                'password' => $payload['passwordPlain'],
+                'success'  => 'Operador creado correctamente.',
+            ]);
     }
 
     /**
@@ -179,7 +176,7 @@ return redirect()
         // (0) Normaliza a MAYÚSCULAS (antes de validar) — incluye ESTADO_CIVIL
         $this->normalizeRequestToUpper($request);
 
-        // (1) Validación de campos (ignorando unique de CURP/RFC en este operador) — incluye DOMICILIO
+        // (1) Validación de campos (incluye TELÉFONOS 10 dígitos)
         $data = $this->validateOperador($request, isUpdate: true, operador: $operador);
 
         // (2) Actualizar modelo
@@ -257,8 +254,6 @@ return redirect()
      */
     private function normalizeRequestToUpper(Request $request): void
     {
-        // Llaves a forzar MAYÚSCULAS (agrega/quita según tu modelo)
-        // OJO: ESTADO_CIVIL se normaliza a MAYÚSCULAS aquí.
         $upperKeys = [
             'nombre',
             'apellido_paterno',
@@ -270,23 +265,18 @@ return redirect()
             'estado_civil',
             'curp',
             'rfc',
-            // NOTA: "domicilio" lo dejamos sin upper por si quieres respetar minúsculas/mayúsculas del usuario.
-            // Si deseas que sea en mayúsculas, agrega 'domicilio' aquí.
         ];
 
         $normalize = [];
         foreach ($upperKeys as $key) {
             if ($request->has($key)) {
                 $val = (string) $request->input($key);
-                // Trim y colapsar espacios múltiples
                 $val = trim(preg_replace('/\s+/u', ' ', $val) ?? '');
-                // MAYÚSCULAS UTF-8
                 $val = Str::upper($val);
                 $normalize[$key] = $val;
             }
         }
 
-        // También limpiamos domicilio (sin upper): trim + colapsar espacios
         if ($request->has('domicilio')) {
             $dom = (string) $request->input('domicilio');
             $dom = trim(preg_replace('/\s+/u', ' ', $dom) ?? '');
@@ -310,7 +300,6 @@ return redirect()
     {
         $ignoreId = $operador?->id;
 
-        // Nota: el email se valida aparte (en store/update) porque pertenece al User.
         return $request->validate([
             'user_id'                     => ['nullable', 'exists:users,id'],
             'nombre'                      => ['required', 'string', 'max:255'],
@@ -318,9 +307,10 @@ return redirect()
             'apellido_materno'            => ['nullable', 'string', 'max:255'],
 
             // Contacto / datos existentes
-            'telefono'                    => ['nullable', 'string', 'max:20'],
+            // ===  Teléfonos estrictamente 10 dígitos numéricos ===
+            'telefono'                    => ['nullable', 'string', 'regex:/^\d{10}$/'],
             'contacto_emergencia_nombre'  => ['nullable', 'string', 'max:255'],
-            'contacto_emergencia_tel'     => ['nullable', 'string', 'max:20'],
+            'contacto_emergencia_tel'     => ['nullable', 'string', 'regex:/^\d{10}$/'],
             'tipo_sangre'                 => ['nullable', 'string', 'max:5'],
 
             // ===== NUEVO: DOMICILIO =====
@@ -335,7 +325,6 @@ return redirect()
                 'nullable',
                 'string',
                 'size:18',
-                // 18 alfanumérico en MAYÚSCULAS
                 'regex:/^[A-ZÑ0-9]{18}$/',
                 Rule::unique('operadores', 'curp')->ignore($ignoreId),
             ],
@@ -349,17 +338,22 @@ return redirect()
             'contacto_emergencia_parentesco' => ['nullable', 'string', 'max:100'],
             'contacto_emergencia_ubicacion'  => ['nullable', 'string', 'max:255'],
         ], [
-            'user_id.exists'                => 'El usuario seleccionado no es válido.',
-            'nombre.required'               => 'El nombre es obligatorio.',
-            'apellido_paterno.required'     => 'El apellido paterno es obligatorio.',
-            'estado_civil.in'               => 'El estado civil debe ser: SOLTERO, CASADO, VIUDO o DIVORCIADO.',
-            'curp.size'                     => 'La CURP debe tener 18 caracteres.',
-            'curp.regex'                    => 'La CURP debe ser alfanumérica en mayúsculas (18 chars).',
-            'curp.unique'                   => 'La CURP ya está registrada para otro operador.',
-            'rfc.min'                       => 'El RFC debe tener entre 12 y 13 caracteres.',
-            'rfc.max'                       => 'El RFC debe tener entre 12 y 13 caracteres.',
-            'rfc.regex'                     => 'El RFC no cumple el formato esperado (usa mayúsculas).',
-            'rfc.unique'                    => 'El RFC ya está registrado para otro operador.',
+            'user_id.exists'                    => 'El usuario seleccionado no es válido.',
+            'nombre.required'                   => 'El nombre es obligatorio.',
+            'apellido_paterno.required'         => 'El apellido paterno es obligatorio.',
+
+            // Mensajes TELÉFONOS
+            'telefono.regex'                    => 'El teléfono debe tener exactamente 10 dígitos (solo números).',
+            'contacto_emergencia_tel.regex'     => 'El teléfono de emergencia debe tener exactamente 10 dígitos (solo números).',
+
+            'estado_civil.in'                   => 'El estado civil debe ser: SOLTERO, CASADO, VIUDO o DIVORCIADO.',
+            'curp.size'                         => 'La CURP debe tener 18 caracteres.',
+            'curp.regex'                        => 'La CURP debe ser alfanumérica en mayúsculas (18 chars).',
+            'curp.unique'                       => 'La CURP ya está registrada para otro operador.',
+            'rfc.min'                           => 'El RFC debe tener entre 12 y 13 caracteres.',
+            'rfc.max'                           => 'El RFC debe tener entre 12 y 13 caracteres.',
+            'rfc.regex'                         => 'El RFC no cumple el formato esperado (usa mayúsculas).',
+            'rfc.unique'                        => 'El RFC ya está registrado para otro operador.',
         ]);
     }
 
@@ -429,7 +423,7 @@ return redirect()
         $ext       = $file->getClientOriginalExtension();
 
         return $timestamp . '_' . $operadorId . '_' . $uuid . '.' . $ext;
-        }
+    }
 
     /**
      * Elimina el usuario completamente, limpiando tokens y roles si están disponibles.
@@ -479,7 +473,6 @@ return redirect()
             ->sortByDesc(fn ($d) => strlen($d));
 
         foreach ($dirs as $dir) {
-            // Seguridad básica: sólo dentro de BASE_DIR
             if (\Str::startsWith($dir, self::BASE_DIR . '/')) {
                 try { $disk->deleteDirectory($dir); } catch (\Throwable $e) {}
             }

@@ -59,24 +59,21 @@ class Operador extends Model
     }
 
     /**
-     * Accesor para "nombre_completo".
+     * Accesor para "nombre_completo" con apellidos primero.
+     * Formato: "APELLIDO_PATERNO APELLIDO_MATERNO NOMBRE"
      */
     public function getNombreCompletoAttribute(): string
     {
         $partes = array_filter([
-            $this->nombre,
             $this->apellido_paterno,
             $this->apellido_materno,
+            $this->nombre,
         ]);
         return trim(implode(' ', $partes));
     }
 
     /**
-     * Normalizaciones:
-     * - estado_civil → minúsculas (coincide con ENUM de la migración)
-     * - CURP/RFC → mayúsculas y sin espacios extras
-     * - Parentesco/Uso de ubicación → trim
-     * - Domicilio → colapsa espacios y trim
+     * Normalizaciones (varias).
      */
     public function setEstadoCivilAttribute($value): void
     {
@@ -124,7 +121,7 @@ class Operador extends Model
      * Filtro principal: búsqueda global + ordenamiento.
      *
      * Acepta:
-     * - search   (string) // búsqueda global
+     * - search   (string)
      * - sort_by  (string) // 'nombre_completo' | 'email'
      * - sort_dir (string) // 'asc' | 'desc'
      */
@@ -155,7 +152,8 @@ class Operador extends Model
                    ->orWhere('operadores.contacto_emergencia_parentesco', 'like', $like)
                    ->orWhere('operadores.contacto_emergencia_ubicacion', 'like', $like)
 
-                   // Nombre completo
+                   // Nombre completo (ambos órdenes para cubrir búsquedas)
+                   ->orWhereRaw("CONCAT_WS(' ', operadores.apellido_paterno, operadores.apellido_materno, operadores.nombre) LIKE ?", [$like])
                    ->orWhereRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) LIKE ?", [$like])
 
                    // Relación user: email y (opcional) name
@@ -182,8 +180,8 @@ class Operador extends Model
                   ->select('operadores.*')
                   ->orderBy('users.email', $dir);
         } else {
-            // ordenar por nombre completo (ignora NULL con CONCAT_WS)
-            $query->orderByRaw("CONCAT_WS(' ', operadores.nombre, operadores.apellido_paterno, operadores.apellido_materno) {$dir}");
+            // ordenar por nombre completo con apellidos primero
+            $query->orderByRaw("CONCAT_WS(' ', operadores.apellido_paterno, operadores.apellido_materno, operadores.nombre) {$dir}");
         }
 
         return $query;

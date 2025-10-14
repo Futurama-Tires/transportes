@@ -20,9 +20,9 @@
         /** @var \Illuminate\Pagination\LengthAwarePaginator|\Illuminate\Contracts\Pagination\Paginator $p */
         $p = $operadores;
 
-        // Opciones de ordenamiento (único lugar)
+        // Opciones de ordenamiento (ajustada la etiqueta para reflejar apellidos primero)
         $sortOptions = [
-            'nombre_completo' => 'Nombre completo',
+            'nombre_completo' => 'Nombre (apellidos primero)',
             'email'           => 'Correo electrónico',
             'id'              => 'ID',
         ];
@@ -46,20 +46,16 @@
 
         $firstModel = $p->first();
         if ($firstModel) {
-            // Unimos fillable + atributos reales por si hay columnas no fillable
             $columnsAll = array_unique(array_merge(
                 $firstModel->getFillable(),
                 array_keys($firstModel->getAttributes() ?? [])
             ));
         } else {
-            // Sin datos: usamos fillable del modelo para renderizar encabezados
             $columnsAll = (new \App\Models\Operador)->getFillable();
         }
         $columnsAll = array_values(array_filter($columnsAll, fn($c) => !in_array($c, $excluded, true)));
 
         // Orden lógico propuesto:
-        // 1) Identidad, 2) Contacto básico, 3) Datos personales,
-        // 4) Identificadores oficiales, 5) Contacto de emergencia
         $preferredOrder = [
             // 1) Identidad
             'nombre','apellido_paterno','apellido_materno',
@@ -73,30 +69,34 @@
             'contacto_emergencia_nombre','contacto_emergencia_parentesco','contacto_emergencia_tel','contacto_emergencia_ubicacion',
         ];
 
-        // Creamos la lista final respetando el orden preferido y añadiendo cualquier resto (alfabético)
         $columnsOrdered = [];
         foreach ($preferredOrder as $c) {
             if (in_array($c, $columnsAll, true)) $columnsOrdered[] = $c;
         }
         $remaining = array_values(array_diff($columnsAll, $columnsOrdered));
-        sort($remaining); // por si existen columnas nuevas no contempladas
+        sort($remaining);
         $columns = array_merge($columnsOrdered, $remaining);
+
+        // === INYECTAR columna "nombre_completo" y remover las 3 columnas sueltas ===
+        $columns = array_values(array_filter($columns, fn($c) => !in_array($c, ['nombre','apellido_paterno','apellido_materno'], true)));
+        array_unshift($columns, 'nombre_completo'); // primera columna visible
 
         // Etiquetas amigables por columna (opcionales)
         $labelMap = [
-            'nombre'                         => 'Nombre',
-            'apellido_paterno'               => 'Apellido paterno',
-            'apellido_materno'               => 'Apellido materno',
-            'telefono'                       => 'Teléfono',
-            'domicilio'                      => 'Domicilio',
-            'contacto_emergencia_nombre'     => 'Contacto de emergencia',
-            'contacto_emergencia_tel'        => 'Tel. emergencia',
-            'tipo_sangre'                    => 'Tipo de sangre',
-            'estado_civil'                   => 'Estado civil',
-            'curp'                           => 'CURP',
-            'rfc'                            => 'RFC',
-            'contacto_emergencia_parentesco' => 'Parentesco (emergencia)',
-            'contacto_emergencia_ubicacion'  => 'Ubicación (emergencia)',
+            'nombre_completo'               => 'Nombre',
+            'nombre'                        => 'Nombre',
+            'apellido_paterno'              => 'Apellido paterno',
+            'apellido_materno'              => 'Apellido materno',
+            'telefono'                      => 'Teléfono',
+            'domicilio'                     => 'Domicilio',
+            'contacto_emergencia_nombre'    => 'Contacto de emergencia',
+            'contacto_emergencia_tel'       => 'Tel. emergencia',
+            'tipo_sangre'                   => 'Tipo de sangre',
+            'estado_civil'                  => 'Estado civil',
+            'curp'                          => 'CURP',
+            'rfc'                           => 'RFC',
+            'contacto_emergencia_parentesco'=> 'Parentesco (emergencia)',
+            'contacto_emergencia_ubicacion' => 'Ubicación (emergencia)',
         ];
 
         $labelFor = function(string $col) use ($labelMap) {
@@ -110,15 +110,11 @@
         <div class="page-header d-print-none">
             <div class="container-xl">
                 <div class="row g-2 align-items-center">
-                            <ol class="breadcrumb">
-                                <li class="breadcrumb-item">
-                                    <a>Inicio</a>
-                                </li>
-                                <li class="breadcrumb-item">
-                                    <a>Panel</a>
-                                </li>
-                                <li class="breadcrumb-item active" aria-current="page">Gestión de operadores</li>
-                            </ol>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a>Inicio</a></li>
+                        <li class="breadcrumb-item"><a>Panel</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Gestión de operadores</li>
+                    </ol>
                     <div class="col">
                         <h2 class="page-title mb-0">Gestión de Operadores</h2>
                     </div>
@@ -144,10 +140,8 @@
                 </div>
             @endif
 
-            {{-- ===== FORM DE BÚSQUEDA/FILTROS (GET) =====
-                 Importante: este formulario NO envuelve la tabla para evitar formularios anidados. --}}
+            {{-- ===== FORM DE BÚSQUEDA/FILTROS (GET) ===== --}}
             <form method="GET" action="{{ route('operadores.index') }}" autocomplete="off" novalidate>
-                {{-- TOOLBAR: búsqueda + acciones rápidas --}}
                 <div class="card mb-3">
                     <div class="card-body">
                         <div class="row g-2 align-items-center">
@@ -171,16 +165,12 @@
 
                             {{-- Acciones --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                {{-- Botón único: Exportar Excel --}}
                                 <a href="{{ route('operadores.index', array_merge(request()->only($keepParams), ['export' => 'xlsx'])) }}"
-                                class="btn btn-outline-success"
-                                title="Exportar a Excel">
+                                   class="btn btn-outline-success" title="Exportar a Excel">
                                     <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
                                     <span>Exportar</span>
                                 </a>
 
-
-                                {{-- Botón Filtros (abre Offcanvas) --}}
                                 <button
                                     type="button"
                                     class="btn btn-outline-secondary position-relative"
@@ -197,7 +187,7 @@
                             </div>
                         </div>
 
-                        {{-- Resumen cuando hay búsqueda --}}
+                        {{-- Resumen --}}
                         @if($search !== '')
                             <div class="mt-3 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between">
                                 <div class="small">
@@ -218,15 +208,10 @@
                     </div>
                 </div>
 
-                {{-- OFFCANVAS DE FILTROS (incluye ordenación) --}}
-                <div
-                    class="offcanvas offcanvas-end"
-                    tabindex="-1"
-                    id="filtersOffcanvas"
-                    aria-labelledby="filtersOffcanvasLabel"
-                    data-bs-backdrop="false"   {{-- ← sin oscurecimiento --}}
-                    data-bs-scroll="true"      {{-- ← permite scroll del contenido de fondo --}}
-                >
+                {{-- OFFCANVAS DE FILTROS --}}
+                <div class="offcanvas offcanvas-end" tabindex="-1" id="filtersOffcanvas"
+                     aria-labelledby="filtersOffcanvasLabel"
+                     data-bs-backdrop="false" data-bs-scroll="true">
                     <div class="offcanvas-header">
                         <h2 class="offcanvas-title h4" id="filtersOffcanvasLabel">
                             <i class="ti ti-adjustments me-2" aria-hidden="true"></i>Filtros
@@ -235,7 +220,6 @@
                     </div>
 
                     <div class="offcanvas-body">
-                        {{-- Orden y dirección --}}
                         <div class="mb-4">
                             <div class="text-secondary text-uppercase fw-semibold small mb-2">Orden y vista</div>
                             <div class="row g-2">
@@ -257,7 +241,6 @@
                             </div>
                         </div>
 
-                        {{-- Espacio para futuros filtros --}}
                         <div class="mb-2">
                             <div class="text-secondary small">Puedes añadir más filtros aquí cuando existan en el modelo.</div>
                         </div>
@@ -273,11 +256,10 @@
                         </div>
                     </div>
                 </div>
-                {{-- /OFFCANVAS --}}
             </form>
             {{-- ===== /FORM DE BÚSQUEDA/FILTROS (GET) ===== --}}
 
-            {{-- ===== TABLA (fuera del <form GET>) ===== --}}
+            {{-- ===== TABLA ===== --}}
             <div class="card">
                 <div class="table-responsive">
                     <table class="table table-vcenter table-striped table-hover">
@@ -298,13 +280,12 @@
                                         {{ ($firstItem ?? 0) + $loop->index }}
                                     </td>
 
-                                    {{-- Celdas dinámicas por cada columna de la tabla (orden lógico) --}}
+                                    {{-- Celdas dinámicas --}}
                                     @foreach($columns as $col)
                                         @php
                                             $val = data_get($op, $col);
                                             $display = $val;
 
-                                            // Formateos ligeros por tipo de campo
                                             if ($col === 'estado_civil' && is_string($display)) {
                                                 $display = ucfirst(strtolower($display));
                                             }
@@ -313,7 +294,13 @@
                                             }
                                         @endphp
 
-                                        @if($col === 'tipo_sangre')
+                                        @if($col === 'nombre_completo')
+                                            <td>
+                                                <div class="text-truncate" style="max-width: 260px" title="{{ $op->nombre_completo }}">
+                                                    {{ $op->nombre_completo ?: '—' }}
+                                                </div>
+                                            </td>
+                                        @elseif($col === 'tipo_sangre')
                                             <td class="text-nowrap">
                                                 <span class="badge bg-red-lt">
                                                     <i class="ti ti-droplet me-1"></i>{{ $display ?: '—' }}
@@ -341,7 +328,7 @@
                                                 <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
                                             </a>
 
-                                            {{-- Eliminar (formulario POST DELETE FUERA de cualquier GET) --}}
+                                            {{-- Eliminar --}}
                                             <form
                                                 action="{{ route('operadores.destroy', $op) }}"
                                                 method="POST"

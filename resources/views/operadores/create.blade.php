@@ -88,16 +88,16 @@
                                                 </div>
                                             </div>
 
-                        <div class="col-12 col-md-6">
-                            <label for="apellido_materno" class="form-label">Apellido materno</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
-                                <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
-                                       class="form-control @error('apellido_materno') is-invalid @enderror"
-                                       value="{{ old('apellido_materno') }}" placeholder="(opcional)">
-                                @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                            </div>
-                        </div>
+                                            <div class="col-12 col-md-6">
+                                                <label for="apellido_materno" class="form-label">Apellido materno</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
+                                                    <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
+                                                           class="form-control @error('apellido_materno') is-invalid @enderror"
+                                                           value="{{ old('apellido_materno') }}" placeholder="(opcional)">
+                                                    @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -119,13 +119,16 @@
                                             </div>
 
                                             <div class="col-12 col-md-6">
-                                                <label for="telefono" class="form-label">Teléfono</label>
+                                                <label for="telefono" class="form-label">Teléfono (10 dígitos)</label>
                                                 <div class="input-group">
                                                     <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
                                                     <input id="telefono" name="telefono" type="tel"
-                                                           inputmode="tel" autocomplete="tel"
+                                                           inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
+                                                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                                                           autocomplete="tel"
                                                            class="form-control @error('telefono') is-invalid @enderror"
-                                                           value="{{ old('telefono') }}" placeholder="+52 777 123 4567">
+                                                           value="{{ old('telefono') }}" placeholder="Ej. 7771234567"
+                                                           title="Ingresa exactamente 10 dígitos (solo números)">
                                                     @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                                 </div>
                                             </div>
@@ -243,12 +246,15 @@
                                             </div>
 
                                             <div class="col-12 col-md-6">
-                                                <label for="contacto_emergencia_tel" class="form-label">Teléfono</label>
+                                                <label for="contacto_emergencia_tel" class="form-label">Teléfono de emergencia (10 dígitos)</label>
                                                 <div class="input-group">
                                                     <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
                                                     <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
+                                                           inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
+                                                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
                                                            class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
-                                                           value="{{ old('contacto_emergencia_tel') }}" placeholder="+52 777 000 0000">
+                                                           value="{{ old('contacto_emergencia_tel') }}" placeholder="Ej. 7770000000"
+                                                           title="Ingresa exactamente 10 dígitos (solo números)">
                                                     @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                                 </div>
                                             </div>
@@ -453,7 +459,6 @@
         <script>
             document.addEventListener('DOMContentLoaded', function(){
                 try {
-                    // Ajusta el nombre de ruta si tu ruta difiere
                     window.open(@json(route('operadores.confirmacion')), '_blank');
                 } catch (e) {}
             });

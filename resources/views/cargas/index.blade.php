@@ -345,16 +345,10 @@
                                         <div class="empty">
                                             <div class="empty-icon"><i class="ti ti-database-off" aria-hidden="true"></i></div>
                                             <p class="empty-title">No hay datos</p>
-                                            <p class="empty-subtitle text-secondary">
-                                                {{ $hasFilters ? 'No se encontraron resultados con los filtros aplicados.' : 'Aún no has registrado cargas de combustible.' }}
-                                            </p>
                                             <div class="empty-action">
                                                 @if($hasFilters)
                                                     <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">Limpiar filtros</a>
                                                 @endif
-                                                <a href="{{ route('cargas.create') }}" class="btn btn-primary">
-                                                    <i class="ti ti-plus me-2" aria-hidden="true"></i>Agregar Nueva Carga
-                                                </a>
                                             </div>
                                         </div>
                                     </td>
