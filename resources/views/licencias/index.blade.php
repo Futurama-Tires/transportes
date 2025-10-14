@@ -3,11 +3,10 @@
     @vite(['resources/js/app.js'])
 
     @php
-        $q = request();
-        $search = $q->input('search', '');
-        $ambito = $q->input('ambito', '');
+        $q       = request();
+        $search  = $q->input('search', '');
+        $ambito  = $q->input('ambito', '');
         $estatus = $q->input('estatus', ''); // vigente | por_vencer | vencida
-        $operadorId = $q->input('operador_id', '');
     @endphp
 
     <x-slot name="header">
@@ -44,16 +43,23 @@
                         <div class="row g-2 align-items-center">
                             <div class="col-12 col-xl">
                                 <div class="input-group">
-                                    <span class="input-group-text"><span class="material-symbols-outlined">search</span></span>
-                                    <input type="text" name="search" value="{{ $search }}" class="form-control"
-                                           placeholder="Buscar por folio, tipo, emisor, estado de emisión…">
+                                    <span class="input-group-text">
+                                        <span class="material-symbols-outlined">search</span>
+                                    </span>
+                                    <input
+                                        type="text"
+                                        name="search"
+                                        value="{{ $search }}"
+                                        class="form-control"
+                                        placeholder="Buscar por folio, tipo, emisor, estado de emisión…">
                                     <button class="btn btn-primary" type="submit">
                                         <span class="material-symbols-outlined me-1 align-middle">search</span>Buscar
                                     </button>
                                 </div>
                             </div>
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="offcanvas" data-bs-target="#filters" aria-controls="filters">
+                                <button class="btn btn-outline-secondary" type="button"
+                                        data-bs-toggle="offcanvas" data-bs-target="#filters" aria-controls="filters">
                                     <span class="material-symbols-outlined me-1 align-middle">tune</span>Filtros
                                 </button>
                                 <a href="{{ route('licencias.index') }}" class="btn btn-outline-secondary">
@@ -65,7 +71,8 @@
                 </div>
 
                 {{-- Offcanvas filtros --}}
-                <div class="offcanvas offcanvas-end" tabindex="-1" id="filters" aria-labelledby="filtersLabel" data-bs-backdrop="false" data-bs-scroll="true">
+                <div class="offcanvas offcanvas-end" tabindex="-1" id="filters" aria-labelledby="filtersLabel"
+                     data-bs-backdrop="false" data-bs-scroll="true">
                     <div class="offcanvas-header">
                         <h2 class="offcanvas-title h4" id="filtersLabel">Filtros</h2>
                         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
@@ -88,10 +95,7 @@
                                 <option value="vencida" {{ $estatus==='vencida'?'selected':'' }}>Vencida</option>
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Operador (ID)</label>
-                            <input type="number" name="operador_id" class="form-control" value="{{ $operadorId }}" placeholder="Ej. 12">
-                        </div>
+                        {{-- Se elimina filtro por Operador ID --}}
                     </div>
                     <div class="offcanvas-footer p-3 border-top">
                         <button type="submit" class="btn btn-primary w-100">
@@ -106,7 +110,7 @@
                     <table class="table table-vcenter table-striped table-hover">
                         <thead>
                             <tr class="text-uppercase text-secondary small">
-                                <th>ID</th>
+                                <th style="width: 1%">#</th>
                                 <th>Operador</th>
                                 <th>Ámbito</th>
                                 <th>Tipo</th>
@@ -118,16 +122,20 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php $iBase = $licencias->firstItem() ?? 0; @endphp
                             @forelse($licencias as $l)
                                 @php
                                     $op = $l->operador;
-                                    $nombre = $op?->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
+                                    $nombre = $op?->nombre_completo
+                                        ?? trim(($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? '').' '.($op->nombre ?? ''));
                                 @endphp
                                 <tr>
-                                    <td>{{ $l->id }}</td>
+                                    <td>{{ $iBase + $loop->index }}</td>
                                     <td class="text-nowrap">
                                         @if($op)
-                                            <a href="{{ route('operadores.edit', $op) }}" class="text-decoration-none">{{ $nombre ?: 'Operador #'.$op->id }}</a>
+                                            <a href="{{ route('operadores.edit', $op) }}" class="text-decoration-none">
+                                                {{ $nombre ?: 'Operador' }}
+                                            </a>
                                         @else
                                             —
                                         @endif
@@ -154,7 +162,7 @@
                                             <span class="material-symbols-outlined me-1 align-middle">edit</span>Editar
                                         </a>
                                         <form action="{{ route('licencias.destroy', $l) }}" method="POST" class="d-inline"
-                                              onsubmit="return confirm('¿Eliminar licencia #{{ $l->id }}? Esta acción borra sus archivos.');">
+                                              onsubmit="return confirm('¿Eliminar esta licencia? Esta acción borra sus archivos.');">
                                             @csrf @method('DELETE')
                                             <button class="btn btn-danger btn-sm">
                                                 <span class="material-symbols-outlined me-1 align-middle">delete</span>Eliminar

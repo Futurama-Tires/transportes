@@ -49,7 +49,7 @@ class LicenciaConducir extends Model
     }
 
     /* =======================
-     * Normalizaciones ligeras
+     * Mutators (normalización)
      * ======================= */
     public function setAmbitoAttribute($value): void
     {
@@ -95,19 +95,18 @@ class LicenciaConducir extends Model
 
     public function getEstatusAttribute(): ?string
     {
-        if (!$this->fecha_vencimiento) {
-            return null; // sin vigencia capturada
-        }
+        if (!$this->fecha_vencimiento) return null;
+
         $restantes = $this->dias_restantes;
         if ($restantes === null) return null;
 
-        if ($restantes < 0)  return 'vencida';
+        if ($restantes < 0)   return 'vencida';
         if ($restantes <= 30) return 'por_vencer';
         return 'vigente';
     }
 
     /* =======================
-     * Scopes útiles
+     * Scopes
      * ======================= */
     public function scopeVigentes(Builder $q): Builder
     {
@@ -124,5 +123,40 @@ class LicenciaConducir extends Model
         $hoy = now()->startOfDay();
         $lim = now()->addDays($dias)->endOfDay();
         return $q->whereBetween('fecha_vencimiento', [$hoy, $lim]);
+    }
+
+    /** Búsqueda libre por folio, tipo, emisor, estado_emision */
+    public function scopeSearch(Builder $q, ?string $s): Builder
+    {
+        $s = trim((string) $s);
+        if ($s === '') return $q;
+
+        $like = "%{$s}%";
+        return $q->where(function (Builder $qq) use ($like) {
+            $qq->where('folio', 'like', $like)
+               ->orWhere('tipo', 'like', $like)
+               ->orWhere('emisor', 'like', $like)
+               ->orWhere('estado_emision', 'like', $like);
+        });
+    }
+
+    /** Filtro por ámbito (federal/estatal) */
+    public function scopeAmbito(Builder $q, ?string $ambito): Builder
+    {
+        $ambito = strtolower(trim((string) $ambito));
+        if ($ambito === '') return $q;
+        return $q->where('ambito', $ambito);
+    }
+
+    /** Filtro por estatus (vigente|por_vencer|vencida) */
+    public function scopeEstatus(Builder $q, ?string $estatus, int $diasPorVencer = 30): Builder
+    {
+        $estatus = strtolower(trim((string) $estatus));
+        return match ($estatus) {
+            'vigente'    => $q->vigentes(),
+            'por_vencer' => $q->porVencer($diasPorVencer),
+            'vencida'    => $q->vencidas(),
+            default      => $q,
+        };
     }
 }

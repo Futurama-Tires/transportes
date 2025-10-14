@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\LicenciaConducir;
-use App\Models\LicenciaArchivo;
 use App\Models\Operador;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,39 +19,28 @@ class LicenciaConducirController extends Controller
 
     public function __construct()
     {
-        // Mismo esquema de seguridad que Operadores
         $this->middleware(['auth', 'role:administrador|capturista']);
     }
 
     /**
-     * Lista de licencias (opcional: filtrar por operador).
+     * Lista de licencias (filtros: search, ambito, estatus).
+     * Se eliminó filtro por operador_id y la columna ID.
      */
     public function index(Request $request)
     {
-        $query = LicenciaConducir::with(['operador', 'archivos']);
-
-        if ($request->filled('operador_id')) {
-            $query->where('operador_id', $request->integer('operador_id'));
-        }
-
-        // Filtros simples opcionales
-        if ($s = $request->string('search')->toString()) {
-            $like = "%{$s}%";
-            $query->where(function ($q) use ($like) {
-                $q->where('folio', 'like', $like)
-                  ->orWhere('tipo', 'like', $like)
-                  ->orWhere('emisor', 'like', $like)
-                  ->orWhere('estado_emision', 'like', $like);
-            });
-        }
-
-        $licencias = $query->orderByDesc('fecha_vencimiento')->paginate(15)->withQueryString();
+        $licencias = LicenciaConducir::with(['operador', 'archivos'])
+            ->search($request->input('search'))
+            ->ambito($request->input('ambito'))
+            ->estatus($request->input('estatus')) // vigente|por_vencer|vencida
+            ->orderByDesc('fecha_vencimiento')
+            ->paginate(25)
+            ->withQueryString();
 
         return view('licencias.index', compact('licencias'));
     }
 
     /**
-     * Form de creación (opcional; puedes omitir si lo incrustas en Operadores).
+     * Form de creación.
      */
     public function create(Request $request)
     {
@@ -65,12 +53,10 @@ class LicenciaConducirController extends Controller
 
     /**
      * Crear licencia.
-     * Al finalizar, redirige al edit del Operador.
      */
     public function store(Request $request)
     {
         $data = $this->validateLicencia($request, false, null);
-
         $licencia = LicenciaConducir::create($data);
 
         return redirect()
@@ -98,7 +84,6 @@ class LicenciaConducirController extends Controller
 
     /**
      * Actualizar licencia.
-     * Al finalizar, redirige al edit del Operador.
      */
     public function update(Request $request, LicenciaConducir $licencia)
     {
@@ -112,22 +97,19 @@ class LicenciaConducirController extends Controller
 
     /**
      * Eliminar licencia + archivos físicos.
-     * (Opcional) Tras eliminar, volvemos al edit del Operador.
      */
     public function destroy(LicenciaConducir $licencia)
     {
         $licencia->load('archivos');
-        $paths = $licencia->archivos->pluck('ruta')->all();
-        $dir   = self::BASE_DIR . '/' . $licencia->id;
+        $paths      = $licencia->archivos->pluck('ruta')->all();
+        $dir        = self::BASE_DIR . '/' . $licencia->id;
         $operadorId = $licencia->operador_id;
 
         DB::transaction(function () use ($licencia) {
-            // Borra primero filas de archivos (por si tu FK no tiene cascade)
             $licencia->archivos()->delete();
             $licencia->delete();
         });
 
-        // Limpieza física
         $disk = Storage::disk(self::DISK);
         foreach ($paths as $p) {
             try { $disk->delete($p); } catch (\Throwable $e) {}
@@ -140,13 +122,14 @@ class LicenciaConducirController extends Controller
     }
 
     /**
-     * Validación y normalización de datos de licencia.
+     * Validación y normalización mínima de datos de licencia.
+     * (Se normaliza previo a validar para que la unicidad de 'folio' sea consistente)
      */
     private function validateLicencia(Request $request, bool $isUpdate, ?LicenciaConducir $licencia): array
     {
         $ignoreId = $licencia?->id;
 
-        // Normalizaciones ligeras
+        // Normalizaciones ligeras antes de validar (coherencia en unique folio)
         if ($request->has('ambito')) {
             $request->merge(['ambito' => strtolower(trim((string) $request->input('ambito')))]);
         }
@@ -167,7 +150,7 @@ class LicenciaConducirController extends Controller
                 'string',
                 'max:50',
                 Rule::unique('licencias_conducir', 'folio')->ignore($ignoreId),
-                // Si deseas unicidad por (folio, ambito), cambia a:
+                // Si deseas unicidad por (folio, ambito), usa un índice compuesto en DB y:
                 // Rule::unique('licencias_conducir')->where(fn($q)=>$q->where('ambito',$request->input('ambito')))->ignore($ignoreId),
             ],
             'fecha_expedicion'   => ['nullable', 'date', 'before_or_equal:fecha_vencimiento'],
