@@ -3,7 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 /**
  * Cada fila representa una "ventana" de verificación para un estado y una terminación.
@@ -14,6 +17,8 @@ use Illuminate\Support\Carbon;
  */
 class CalendarioVerificacion extends Model
 {
+    use HasFactory;
+
     protected $table = 'calendario_verificacion';
 
     protected $fillable = [
@@ -48,6 +53,30 @@ class CalendarioVerificacion extends Model
     public function verificaciones()
     {
         return $this->hasMany(\App\Models\Verificacion::class, 'calendario_id');
+    }
+
+    /* ===================== Normalización ===================== */
+
+    /** Normaliza nombre de estado de forma consistente con el resto del sistema. */
+    public static function normalizeEstado(?string $s): string
+    {
+        $norm = Str::of($s ?? '')
+            ->ascii()
+            ->upper()
+            ->replaceMatches('/\s+/', ' ')
+            ->trim()
+            ->toString();
+
+        if (in_array($norm, ['ESTADO DE MEXICO','MEXICO','EDO MEXICO','EDO. MEX','E DOMEX'], true)) {
+            return 'EDO MEX';
+        }
+        return $norm;
+    }
+
+    /** Aplica normalización al asignar estado. */
+    public function setEstadoAttribute($value): void
+    {
+        $this->attributes['estado'] = static::normalizeEstado($value);
     }
 
     /* ===================== Accessors/Helpers ===================== */
@@ -116,7 +145,6 @@ class CalendarioVerificacion extends Model
         if (!$this->anio || !$this->mes_inicio) {
             return $this->vigente_desde ? Carbon::parse($this->vigente_desde, $tz)->startOfDay() : null;
         }
-        // ¡OJO! TZ va al ÚLTIMO parámetro de create (hour,min,sec,tz)
         return Carbon::create($this->anio, $this->mes_inicio, 1, 0, 0, 0, $tz)->startOfDay();
     }
 
@@ -126,7 +154,6 @@ class CalendarioVerificacion extends Model
         if (!$this->anio || !$this->mes_fin) {
             return $this->vigente_hasta ? Carbon::parse($this->vigente_hasta, $tz)->startOfDay() : null;
         }
-        // Último día del mes_fin, con TZ al final
         return Carbon::create($this->anio, $this->mes_fin, 1, 0, 0, 0, $tz)
             ->endOfMonth()
             ->startOfDay();
@@ -139,13 +166,48 @@ class CalendarioVerificacion extends Model
         return $anio ? $q->where('anio', $anio) : $q;
     }
 
+    /** Nuevo: filtra por estado normalizado. */
+    public function scopeDeEstado(Builder $q, string $estado): Builder
+    {
+        return $q->where('estado', static::normalizeEstado($estado));
+    }
+
+    /** Nuevo: filtra por terminación (0..9). */
+    public function scopeDeTerminacion(Builder $q, int $terminacion): Builder
+    {
+        return $q->where('terminacion', $terminacion);
+    }
+
+    /**
+     * Nuevo: filtra periodos cuya ventana [vigente_desde, vigente_hasta]
+     * contiene la fecha dada.
+     */
+    public function scopeVigenteEn(Builder $q, $fecha): Builder
+    {
+        $f = $fecha instanceof Carbon ? $fecha->toDateString() : (string) $fecha;
+        return $q->whereDate('vigente_desde', '<=', $f)
+                 ->whereDate('vigente_hasta', '>=', $f);
+    }
+
+    /** Nuevo: atajo por mes (1..12) y año usando mes_inicio/mes_fin. */
+    public function scopeDelMes(Builder $q, int $mes, int $anio): Builder
+    {
+        return $q->where('anio', $anio)
+                 ->where('mes_inicio', '<=', $mes)
+                 ->where('mes_fin', '>=', $mes);
+    }
+
+    /**
+     * (Ajustado) Filtra opcionalmente por estado y/o terminación.
+     * Usa normalización en vez de comparaciones UPPER().
+     */
     public function scopeEstadoTerminacion($q, ?string $estado, ?int $terminacion)
     {
         if ($estado !== null && $estado !== '') {
-            $q->whereRaw('UPPER(estado) = ?', [mb_strtoupper($estado)]);
+            $q->where('estado', static::normalizeEstado($estado));
         }
         if ($terminacion !== null) {
-            $q->where('terminacion', (int)$terminacion);
+            $q->where('terminacion', (int) $terminacion);
         }
         return $q;
     }

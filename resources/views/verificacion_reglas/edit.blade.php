@@ -30,7 +30,9 @@
         <div class="col">
           <br>
           <h2 class="page-title">Editar regla</h2>
-          <div class="page-subtitle text-secondary">{{ $regla->nombre }}</div>
+          <div class="page-subtitle text-secondary">
+            {{ $regla->nombre }} · Al guardar, se sincronizarán automáticamente los calendarios de todos los años asignados a esta regla.
+          </div>
         </div>
         <div class="col-auto ms-auto">
           <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-outline-secondary">
@@ -100,12 +102,13 @@
       {{-- ======= EDICIÓN DEL CALENDARIO POR TERMINACIÓN ======= --}}
       <div class="card-header">
         <h3 class="card-title">Calendario por terminación</h3>
-        <div class="card-subtitle">Ajusta los meses; aplica con “Regenerar” para el año elegido.</div>
+        <div class="card-subtitle">
+            Ajusta los meses; al guardar se sincronizarán automáticamente para todos los años que tenga asignados esta regla.
+        </div>
       </div>
       <div class="card-body py-3">
         @php
           $meses = [1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'];
-          $det = $regla->detalles()->get()->groupBy('semestre'); // 0,1,2
           $byTerm = [];
           foreach ($regla->detalles as $d) {
             $byTerm[$d->terminacion][$d->semestre] = ['mes_inicio'=>$d->mes_inicio,'mes_fin'=>$d->mes_fin];
@@ -161,7 +164,7 @@
                 @endforeach
               </tbody>
             </table>
-            <small class="form-hint">Valida que el par inicio/fin esté dentro de 1–12.</small>
+            <small class="form-hint">Valida que el par inicio/fin esté dentro de 1–12. Se sincroniza automáticamente al guardar.</small>
           </div>
         </div>
 
@@ -199,43 +202,12 @@
                 @endforeach
               </tbody>
             </table>
-            <small class="form-hint">“Anual” usa solo el semestre 0 (una ventana por terminación).</small>
+            <small class="form-hint">“Anual” usa solo el semestre 0 (una ventana por terminación). Se sincroniza automáticamente al guardar.</small>
           </div>
         </div>
       </div>
 
-      <hr class="m-0">
-
-      {{-- ======= REGENERAR AL GUARDAR ======= --}}
-      <div class="card-header">
-        <h3 class="card-title">Aplicar cambios al calendario</h3>
-      </div>
-      <div class="card-body py-3">
-        <div class="row g-3">
-          <div class="col-6 col-lg-3">
-            <label class="form-label">Año a regenerar</label>
-            @php
-              $anioSugerido = optional($regla->vigencia_inicio)->format('Y') ?? now()->year;
-            @endphp
-            <input type="number" class="form-control" name="anio_regenerar" min="2000" max="2999"
-                   value="{{ old('anio_regenerar', $anioSugerido) }}">
-          </div>
-          <div class="col-12 col-lg-9 d-flex align-items-end">
-            <label class="form-check">
-              <input class="form-check-input" type="checkbox" name="regenerar_al_guardar" value="1">
-              <span class="form-check-label">
-                Regenerar periodos de <strong>este año</strong> al guardar (sobrescribe periodos de esta regla para ese año).
-              </span>
-            </label>
-          </div>
-        </div>
-        <small class="form-hint">Si no marcas esta opción, solo se guardará la regla; podrás regenerar luego desde el botón.</small>
-      </div>
-
-      <div class="card-footer d-flex justify-content-between flex-wrap">
-        <a href="{{ route('verificacion-reglas.generar.form',$regla) }}" class="btn btn-outline-indigo">
-          <i class="ti ti-refresh"></i> Regenerar (avanzado)
-        </a>
+      <div class="card-footer d-flex justify-content-end flex-wrap">
         <div>
           <button class="btn btn-primary">
             <i class="ti ti-device-floppy"></i> Guardar cambios
@@ -243,19 +215,35 @@
         </div>
       </div>
     </form>
+
     {{-- FOOTER --}}
     <br>
-            <div class="text-center text-secondary small py-4">
-                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
-            </div>
+    <div class="text-center text-secondary small py-4">
+        © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+    </div>
   </div>
 
   <script>
+    function setDisabled(container, disabled) {
+      container.querySelectorAll('select, input, textarea, button').forEach(el => {
+        el.disabled = disabled;
+      });
+    }
     function toggleFrecuencia() {
       const f = document.getElementById('frecuencia').value;
-      document.getElementById('tabla-semestral').style.display = (f === 'Semestral') ? '' : 'none';
-      document.getElementById('tabla-anual').style.display = (f === 'Anual') ? '' : 'none';
+      const semDiv = document.getElementById('tabla-semestral');
+      const anuDiv = document.getElementById('tabla-anual');
+      const semActive = (f === 'Semestral');
+
+      semDiv.style.display = semActive ? '' : 'none';
+      anuDiv.style.display = semActive ? 'none' : '';
+
+      // Habilitar lo visible, deshabilitar lo oculto para no postear basura
+      setDisabled(semDiv, !semActive);
+      setDisabled(anuDiv, semActive);
     }
+    // Inicial
+    toggleFrecuencia();
     document.getElementById('frecuencia').addEventListener('change', toggleFrecuencia);
   </script>
 </x-app-layout>

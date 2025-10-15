@@ -232,9 +232,6 @@ Route::middleware('auth')->group(function () {
             Route::put('/{verificacion_regla}',      [VerificacionReglaController::class, 'update'])->name('update');
             Route::delete('/{verificacion_regla}',   [VerificacionReglaController::class, 'destroy'])->name('destroy');
 
-            // Generación de periodos
-            Route::get('/{verificacion_regla}/generar',  [VerificacionReglaController::class, 'generarForm'])->name('generar.form');
-            Route::post('/{verificacion_regla}/generar', [VerificacionReglaController::class, 'generar'])->name('generar');
         });
 
         /* ----------------------- Programa de Verificación ------------------ */

@@ -76,10 +76,11 @@ class VerificacionReglaController extends Controller
 
     public function generarForm(VerificacionRegla $verificacion_regla)
     {
+        // (Opcional/legacy) ya no se requiere con reconciliación automática
         return view('verificacion_reglas.generar', ['regla' => $verificacion_regla]);
     }
 
-    /* ===== Store (1 PASO: crea y genera periodos del año elegido) ===== */
+    /* ===== Store (crea regla y SINCRONIZA automáticamente el año capturado) ===== */
     public function store(Request $request)
     {
         // Validación base de la regla + menú flexible
@@ -98,11 +99,11 @@ class VerificacionReglaController extends Controller
             'detalles'        => ['required','array'],
         ]);
 
-        $insertados = 0;
+        $anio = (int) $data['anio'];
 
-        DB::transaction(function () use ($data, &$insertados) {
-            $anio = (int) $data['anio'];
+        $regla = null;
 
+        DB::transaction(function () use ($data, $anio, &$regla) {
             // Normaliza estados seleccionados
             $estadosOriginales = $data['estados'];
             $estadosNorm = array_values(array_unique(array_map(
@@ -111,8 +112,6 @@ class VerificacionReglaController extends Controller
             )));
 
             // 0) Validación extra de disponibilidad (evita choques por año+estado)
-            //    - Checa tabla puente verificacion_regla_estados (ocupación lógica)
-            //    - Checa también calendario_verificacion por robustez (ocupación materializada)
             $choquesPivot = VerificacionReglaEstado::query()
                 ->where('anio', $anio)
                 ->whereIn('estado', $estadosNorm)
@@ -141,7 +140,7 @@ class VerificacionReglaController extends Controller
                 'notas'           => $data['notas'] ?? null,
             ]);
 
-            // 2) Guardar estados por AÑO (únicos por anio+estado en DB idealmente)
+            // 2) Guardar estados por AÑO
             foreach ($estadosOriginales as $label) {
                 VerificacionReglaEstado::create([
                     'regla_id' => $regla->id,
@@ -150,20 +149,36 @@ class VerificacionReglaController extends Controller
                 ]);
             }
 
-            // 3) Guardar DETALLES (terminación → meses)
-            // Estructura esperada:
-            //  - Semestral: detalles[d][1][mes_inicio], detalles[d][1][mes_fin], detalles[d][2][mes_inicio], detalles[d][2][mes_fin]
-            //  - Anual:     detalles[d][0][mes_inicio], detalles[d][0][mes_fin]
+            // 3) Guardar DETALLES (validando rango 1..12, sin cruce de año y filtrando semestres válidos por frecuencia)
+            $allowedSemestres = ($data['frecuencia'] === 'Anual') ? [0] : [1,2];
+
             $seen = [];
             foreach ($data['detalles'] as $terminacionStr => $porSemestre) {
                 $terminacion = (int) $terminacionStr;
+                if ($terminacion < 0 || $terminacion > 9) {
+                    throw ValidationException::withMessages([
+                        'detalles' => 'Terminación inválida. Debe ser 0–9.',
+                    ]);
+                }
 
                 foreach ($porSemestre as $sem => $mm) {
                     $semestre = (int) $sem; // 0 (anual), 1 o 2 (semestral)
+
+                    // << clave: ignorar semestres que no correspondan a la frecuencia >>
+                    if (!in_array($semestre, $allowedSemestres, true)) {
+                        continue;
+                    }
+
                     $mi = (int) ($mm['mes_inicio'] ?? 0);
                     $mf = (int) ($mm['mes_fin'] ?? 0);
+
                     if ($mi < 1 || $mi > 12 || $mf < 1 || $mf > 12) {
                         continue; // ignora filas malformadas
+                    }
+                    if ($mi > $mf) {
+                        throw ValidationException::withMessages([
+                            "detalles.$terminacion.$sem.mes_inicio" => 'mes_inicio no puede ser mayor a mes_fin (no se admite cruce de año).',
+                        ]);
                     }
 
                     $k = $terminacion.'|'.$semestre.'|'.$mi.'|'.$mf;
@@ -180,13 +195,13 @@ class VerificacionReglaController extends Controller
                     ]);
                 }
             }
-
-            // 4) GENERAR PERIODOS AUTOMÁTICAMENTE para el año elegido
-            $insertados = $this->generarPeriodosCore($regla, $anio, false);
         });
 
+        // 4) ⚡️ Reconciliación automática del año capturado
+        $stats = $this->reconciliarPeriodos($regla, $anio);
+
         return redirect()->route('verificacion-reglas.index')
-            ->with('success', 'Regla creada y periodos generados ('.$data['anio'].'). Registros: '.$insertados);
+            ->with('success', "Regla creada. Calendario {$anio} sincronizado (eliminados: {$stats['deleted']}, upsert: {$stats['upserted']}).");
     }
 
     public function update(Request $request, VerificacionRegla $verificacion_regla)
@@ -207,8 +222,17 @@ class VerificacionReglaController extends Controller
             'notas'      => $data['notas'] ?? null,
         ]);
 
+        // ⚡️ Reconciliación automática de TODOS los años asignados a la regla
+        $anios = $verificacion_regla->estadosAsignados()->distinct()->pluck('anio');
+        $tot = ['deleted'=>0,'upserted'=>0];
+        foreach ($anios as $anio) {
+            $s = $this->reconciliarPeriodos($verificacion_regla, (int)$anio);
+            $tot['deleted']  += $s['deleted'];
+            $tot['upserted'] += $s['upserted'];
+        }
+
         return redirect()->route('verificacion-reglas.index')
-            ->with('success', 'Regla actualizada.');
+            ->with('success', "Regla actualizada. Calendarios sincronizados (eliminados: {$tot['deleted']}, upsert: {$tot['upserted']}).");
     }
 
     public function destroy(VerificacionRegla $verificacion_regla)
@@ -221,147 +245,141 @@ class VerificacionReglaController extends Controller
             ->with('success', 'Regla eliminada.');
     }
 
-    /* ===== Generación usando ESTADOS (por año) + DETALLES ===== */
+    /* ===== (Legacy/compat) Generación manual, ahora redirige a reconciliación ===== */
     public function generar(Request $request, VerificacionRegla $verificacion_regla)
     {
         $request->validate([
-            'anio'         => ['required', 'integer', 'min:2000', 'max:2999'],
-            'sobrescribir' => ['nullable', 'boolean'],
+            'anio' => ['required', 'integer', 'min:2000', 'max:2999'],
         ]);
 
-        $anio         = (int) $request->integer('anio');
-        $sobrescribir = (bool) $request->boolean('sobrescribir');
+        $anio = (int) $request->integer('anio');
 
-        $count = $this->generarPeriodosCore($verificacion_regla, $anio, $sobrescribir);
+        $stats = $this->reconciliarPeriodos($verificacion_regla, $anio);
 
         return redirect()->route('verificacion-reglas.index')
-            ->with('success', "Periodos generados para {$verificacion_regla->nombre} ({$anio}). Registros: {$count}");
+            ->with('success', "Calendario {$anio} sincronizado (eliminados: {$stats['deleted']}, upsert: {$stats['upserted']}).");
     }
 
-    /**
-     * Núcleo de generación de periodos: arma e inserta/upserta filas en calendario_verificacion.
-     * - Usa estados de la regla para ese año (pivot primero; JSON como fallback).
-     * - Si $sobrescribir, borra primero lo de ESA regla y año.
-     * - Retorna el total de filas existentes para esa regla y año tras la operación.
-     */
-    private function generarPeriodosCore(VerificacionRegla $regla, int $anio, bool $sobrescribir = false): int
+    /* ===== Reconciliación automática (borra obsoletos y upserta esperados) ===== */
+
+    /** Clave lógica única consistente con el índice único de BD. */
+    private function keyFor(string $estado, int $terminacion, int $mi, int $mf, int $anio): string
     {
-        // Estados asignados a la regla para ese año (normalizados, únicos)
-        $estados = VerificacionReglaEstado::query()
-            ->where('regla_id', $regla->id)
-            ->where('anio', $anio)
-            ->pluck('estado')
-            ->map(fn($e) => mb_strtoupper(trim($e)))
+        $E = VerificacionRegla::normalizeEstado($estado);
+        return "{$E}|{$terminacion}|{$mi}|{$mf}|{$anio}";
+    }
+
+    /** Construye el conjunto esperado de filas para regla+año (indexado por key). */
+    private function buildExpectedRows(VerificacionRegla $regla, int $anio): array
+    {
+        // 1) Estados (normalizados) para ese año
+        $estados = $regla->estadosParaAnio($anio)
+            ->map(fn($e) => VerificacionRegla::normalizeEstado($e))
             ->unique()
             ->values()
             ->all();
 
-        // Backward-compat: si no hay pivot, usa JSON de la regla (si existiera).
-        if (empty($estados) && is_array($regla->estados)) {
-            $estados = collect($regla->estados)
-                ->map(fn($e) => mb_strtoupper(trim($e)))
-                ->unique()
-                ->values()
-                ->all();
+        if (empty($estados)) return [];
+
+        // 2) Detalles (deduplicados) — << clave: filtrar por frecuencia >>
+        $q = $regla->detalles()->orderBy('terminacion');
+        if ($regla->frecuencia === 'Anual') {
+            $q->where('semestre', 0);
+        } else { // Semestral
+            $q->whereIn('semestre', [1,2]);
         }
 
-        if (empty($estados)) {
-            throw ValidationException::withMessages([
-                'estados' => 'Esta regla no tiene estados asignados para el año seleccionado.',
-            ]);
-        }
+        $detalles = $q->get(['terminacion','semestre','mes_inicio','mes_fin'])
+            ->unique(fn($d) => $d->terminacion.'|'.$d->semestre.'|'.$d->mes_inicio.'|'.$d->mes_fin)
+            ->values();
 
-        // Trae los detalles tal como fueron guardados (una fila por terminación+semestre).
-        $detalles = VerificacionReglaDetalle::query()
-            ->where('regla_id', $regla->id)
-            ->orderBy('terminacion')
-            ->get(['terminacion','semestre','mes_inicio','mes_fin']);
+        if ($detalles->isEmpty()) return [];
 
-        if ($detalles->isEmpty()) {
-            throw ValidationException::withMessages([
-                'detalles' => 'La regla no tiene calendario por terminación configurado.',
-            ]);
-        }
+        $rows = [];
+        foreach ($estados as $estado) {
+            foreach ($detalles as $d) {
+                $mi  = (int) $d->mes_inicio;
+                $mf  = (int) $d->mes_fin;
+                if ($mi < 1 || $mi > 12 || $mf < 1 || $mf > 12 || $mi > $mf) {
+                    continue; // no admitimos cruce de año
+                }
+                $desde = Carbon::create($anio, $mi, 1)->startOfMonth();
+                $hasta = Carbon::create($anio, $mf, 1)->endOfMonth();
 
-        // 1) Deduplicar detalles por combinación clave
-        $detalles = $detalles->unique(function ($d) {
-            return $d->terminacion.'|'.$d->semestre.'|'.$d->mes_inicio.'|'.$d->mes_fin;
-        })->values();
+                $sem   = (int) $d->semestre; // 0 (anual) ó 1/2
+                $semE  = ($sem === 0) ? ($mf <= 6 ? 1 : 2) : $sem;
 
-        DB::transaction(function () use ($anio, $sobrescribir, $estados, $detalles, $regla) {
-            // 2) Si sobrescribe, borra lo previo de ESTA regla y año (y solo eso)
-            if ($sobrescribir) {
-                CalendarioVerificacion::query()
-                    ->where('regla_id', $regla->id)
-                    ->where('anio', $anio)
-                    ->delete();
+                $row = [
+                    'estado'         => VerificacionRegla::normalizeEstado($estado),
+                    'terminacion'    => (int) $d->terminacion,
+                    'mes_inicio'     => $mi,
+                    'mes_fin'        => $mf,
+                    'semestre'       => $semE,
+                    'frecuencia'     => $regla->frecuencia, // "Semestral" | "Anual"
+                    'anio'           => $anio,
+                    'vigente_desde'  => $desde->toDateString(),
+                    'vigente_hasta'  => $hasta->toDateString(),
+                    'regla_id'       => $regla->id,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ];
+                $rows[$this->keyFor($row['estado'],$row['terminacion'],$mi,$mf,$anio)] = $row;
             }
+        }
+        return $rows; // indexados por key
+    }
 
-            // 3) Construye filas únicas por (estado, terminacion, mes_inicio, mes_fin, anio)
-            $rows     = [];
-            $seenKeys = [];
+    /**
+     * Reconciliación total:
+     * - Borra periodos obsoletos de ESA regla+año
+     * - Upsert del conjunto esperado (sin duplicar)
+     * Retorna ['deleted' => n, 'upserted' => n]
+     */
+    private function reconciliarPeriodos(VerificacionRegla $regla, int $anio): array
+    {
+        $expected = $this->buildExpectedRows($regla, $anio);
 
-            foreach ($estados as $estado) {
-                foreach ($detalles as $d) {
-                    $mi  = (int) $d->mes_inicio;
-                    $mf  = (int) $d->mes_fin;
-                    $sem = (int) $d->semestre; // 1,2 para Semestral; 0 para Anual
+        return DB::transaction(function () use ($regla, $anio, $expected) {
+            // Trae existentes (id + columnas de clave) para esta regla+año
+            $existing = DB::table('calendario_verificacion')
+                ->where('regla_id', $regla->id)
+                ->where('anio', $anio)
+                ->get(['id','estado','terminacion','mes_inicio','mes_fin','anio'])
+                ->mapWithKeys(function ($r) {
+                    $k = $this->keyFor(
+                        (string)$r->estado,
+                        (int)$r->terminacion,
+                        (int)$r->mes_inicio,
+                        (int)$r->mes_fin,
+                        (int)$r->anio
+                    );
+                    return [$k => (int)$r->id];
+                })
+                ->all();
 
-                    // Fechas de vigencia dentro del mismo año
-                    $desde = Carbon::create($anio, $mi, 1)->startOfMonth();
-                    $hasta = Carbon::create($anio, $mf, 1)->endOfMonth();
-
-                    // Clave contra tu índice único (no incluye regla_id ni semestre)
-                    $uk = implode('|', [
-                        mb_strtoupper($estado),
-                        (int) $d->terminacion,
-                        $mi, $mf,
-                        $anio,
-                    ]);
-                    if (isset($seenKeys[$uk])) {
-                        continue; // evita duplicados en el propio lote
-                    }
-                    $seenKeys[$uk] = true;
-
-                    // Para anual: guardamos semestre 1 si cae en 1–6, 2 si cae en 7–12
-                    $semestreEfectivo = ($sem === 0) ? ($mf <= 6 ? 1 : 2) : $sem;
-
-                    $rows[] = [
-                        'estado'         => mb_strtoupper($estado),
-                        'terminacion'    => (int) $d->terminacion,
-                        'mes_inicio'     => $mi,
-                        'mes_fin'        => $mf,
-                        'semestre'       => $semestreEfectivo,
-                        'frecuencia'     => $regla->frecuencia, // "Semestral" | "Anual"
-                        'anio'           => $anio,
-                        'vigente_desde'  => $desde->toDateString(),
-                        'vigente_hasta'  => $hasta->toDateString(),
-                        'regla_id'       => $regla->id,
-                        'created_at'     => now(),
-                        'updated_at'     => now(),
-                    ];
+            // 1) Borrados: existentes que ya no están en el esperado
+            $idsToDelete = [];
+            foreach ($existing as $k => $id) {
+                if (!isset($expected[$k])) {
+                    $idsToDelete[] = $id;
                 }
             }
-
-            if (empty($rows)) {
-                throw new \RuntimeException('No hay periodos a insertar (verifica los detalles).');
+            if (!empty($idsToDelete)) {
+                DB::table('calendario_verificacion')->whereIn('id', $idsToDelete)->delete();
             }
 
-            // 4) Inserta con tolerancia a colisiones del índice único
-            DB::table('calendario_verificacion')->upsert(
-                $rows,
-                ['estado','terminacion','mes_inicio','mes_fin','anio'], // columnas únicas (índice cal_verif_regla_unica)
-                ['regla_id','semestre','frecuencia','vigente_desde','vigente_hasta','updated_at'] // columnas a actualizar en choque
-            );
+            // 2) Upsert de todo lo esperado (agrega/actualiza)
+            $rows = array_values($expected);
+            if (!empty($rows)) {
+                DB::table('calendario_verificacion')->upsert(
+                    $rows,
+                    ['estado','terminacion','mes_inicio','mes_fin','anio'], // coincide con índice único
+                    ['regla_id','semestre','frecuencia','vigente_desde','vigente_hasta','updated_at']
+                );
+            }
+
+            return ['deleted' => count($idsToDelete), 'upserted' => count($rows)];
         });
-
-        // Total resultante para esa REGLA y AÑO (útil para feedback)
-        $count = CalendarioVerificacion::query()
-            ->where('regla_id', $regla->id)
-            ->where('anio', $anio)
-            ->count();
-
-        return $count;
     }
 
     /* ===== Defaults para precarga en UI ===== */

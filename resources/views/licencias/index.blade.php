@@ -83,7 +83,7 @@
                             <select name="ambito" class="form-select">
                                 <option value="">(todos)</option>
                                 <option value="federal" {{ $ambito==='federal'?'selected':'' }}>Federal</option>
-                                <option value="estatal" {{ $ambito==='estatal'?'selected':'' }}>Estatal</option>
+                                <option value="estatal" {{ $ambito==='statal'?'selected':'' }}>Estatal</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -127,15 +127,13 @@
                                 @php
                                     $op = $l->operador;
                                     $nombre = $op?->nombre_completo
-                                        ?? trim(($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? '').' '.($op->nombre ?? ''));
+                                        ?? trim(($op?->apellido_paterno ?? '').' '.($op?->apellido_materno ?? '').' '.($op?->nombre ?? ''));
                                 @endphp
                                 <tr>
                                     <td>{{ $iBase + $loop->index }}</td>
                                     <td class="text-nowrap">
                                         @if($op)
-                                            <a href="{{ route('operadores.edit', $op) }}" class="text-decoration-none">
-                                                {{ $nombre ?: 'Operador' }}
-                                            </a>
+                                            <span>{{ $nombre ?: 'Operador' }}</span>
                                         @else
                                             —
                                         @endif

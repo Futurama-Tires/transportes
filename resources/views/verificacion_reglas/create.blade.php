@@ -37,7 +37,7 @@
                 <div class="col">
                     <br>
                     <h2 class="page-title text-dark">Nueva regla de verificación</h2>
-                    <div class="page-subtitle text-dark">Define el año, estados y el calendario por terminación.</div>
+
                 </div>
                 <div class="col-auto ms-auto">
                     <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-outline-secondary">
@@ -122,7 +122,7 @@
                 <hr class="my-4">
 
                 {{-- =================== SEMESTRAL =================== --}}
-                <div id="tabla-semestral">
+                <div id="tabla-semestral" style="{{ old('frecuencia','Semestral')==='Semestral' ? '' : 'display:none' }}">
                     <h3 class="h4 text-dark mb-2">Calendario por terminación — Semestral</h3>
                     <div class="table-responsive">
                         <table class="table table-vcenter table-sm table-sticky table-nowrap align-middle mb-0">
@@ -197,12 +197,12 @@
                                 @endforeach
                             </tbody>
                         </table>
-                        <small class="form-hint">Puedes ajustar cualquier rango; la validación se hace al generar periodos.</small>
+                        <small class="form-hint">Puedes ajustar cualquier rango; la validación se hace al guardar y el calendario se sincroniza automáticamente.</small>
                     </div>
                 </div>
 
                 {{-- =================== ANUAL =================== --}}
-                <div id="tabla-anual" style="display:none;">
+                <div id="tabla-anual" style="{{ old('frecuencia','Semestral')==='Anual' ? '' : 'display:none' }}">
                     <h3 class="h4 text-dark mb-2">Calendario por terminación — Anual</h3>
                     <div class="table-responsive">
                         <table class="table table-vcenter table-sm table-sticky table-nowrap align-middle mb-0">
@@ -240,7 +240,7 @@
                                 @endforeach
                             </tbody>
                         </table>
-                        <small class="form-hint">“Anual” significa una sola ventana al año por terminación (como Jalisco).</small>
+                        <small class="form-hint">“Anual” significa una sola ventana al año por terminación (como Jalisco). Se sincroniza automáticamente al guardar.</small>
                     </div>
                 </div>
 
@@ -255,12 +255,18 @@
         </form>
         <br>
         {{-- FOOTER --}}
-            <div class="text-center text-secondary small py-4">
-                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
-            </div>
+        <div class="text-center text-secondary small py-4">
+            © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+        </div>
     </div>
 
     <script>
+        function setDisabled(container, disabled) {
+            container.querySelectorAll('select, input, textarea, button').forEach(el => {
+                el.disabled = disabled;
+            });
+        }
+
         function renderEstadosCheckboxes(disponibles, ocupados) {
             const wrap = document.getElementById('estados-wrap');
             wrap.innerHTML = '';
@@ -367,8 +373,16 @@
 
         function toggleFrecuencia() {
             const f = document.getElementById('frecuencia').value;
-            document.getElementById('tabla-semestral').style.display = (f === 'Semestral') ? '' : 'none';
-            document.getElementById('tabla-anual').style.display     = (f === 'Anual') ? '' : 'none';
+            const semDiv = document.getElementById('tabla-semestral');
+            const anuDiv = document.getElementById('tabla-anual');
+            const semActive = (f === 'Semestral');
+
+            semDiv.style.display = semActive ? '' : 'none';
+            anuDiv.style.display = semActive ? 'none' : '';
+
+            // Habilitar lo visible, deshabilitar lo oculto para no postear basura
+            setDisabled(semDiv, !semActive);
+            setDisabled(anuDiv, semActive);
         }
 
         function selectAllEstados() {

@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class ProgramaVerificacionController extends Controller
 {
@@ -18,48 +19,64 @@ class ProgramaVerificacionController extends Controller
         $semestre = $request->input('semestre');
         $semestre = in_array($semestre, ['1','2']) ? intval($semestre) : null;
 
-        // Estados desde vehiculos 
+        // Estados desde vehículos: sólo no-nulos y no-vacíos
         $estadosDisponibles = Vehiculo::query()
+            ->whereNotNull('estado')
+            ->where('estado', '<>', '')
             ->select('estado')->distinct()->orderBy('estado')->pluck('estado');
+
+        if ($estadosDisponibles->isEmpty()) {
+            return view('verificaciones.programa.index', [
+                'anio'               => $anio,
+                'estado'             => null,
+                'estadoNorm'         => null,
+                'estadosDisponibles' => $estadosDisponibles,
+                'semestre'           => $semestre,
+                'dataSemestres'      => [],
+            ])->with('warning', 'No hay vehículos con estado asignado.');
+        }
 
         $estado = $request->input('estado');
         if (!$estado || !$estadosDisponibles->contains($estado)) {
             $estado = $estadosDisponibles->first();
         }
-
         $estadoNorm = $this->normalizeEstado($estado);
 
         // Periodos del calendario (por año/estado y opcional semestre)
-        $periodos = CalendarioVerificacion::where('anio', $anio)
+        $periodos = CalendarioVerificacion::query()
+            ->where('anio', $anio)
             ->where('estado', $estadoNorm)
             ->when($semestre, fn($q) => $q->where('semestre', $semestre))
             ->orderBy('semestre')->orderBy('mes_inicio')->get();
 
-        // Rangos de cada semestre (solo para cabecera de tarjeta)
+        // Rangos de cada semestre (cabecera)
         $rangos = $this->rangosPorSemestre($periodos);
 
-        // Índice de bimestres por semestre y terminación (para mostrar SIEMPRE aun sin vehículos)
-        // Estructura: $bimestresPorSemestre[1|2][0..9] = ['desde'=>Carbon, 'hasta'=>Carbon, 'mi'=>int, 'mf'=>int]
+        // Índice de bimestres por semestre y terminación:
+        // [1|2][0..9] => ['desde'=>Carbon, 'hasta'=>Carbon, 'mi'=>int, 'mf'=>int, 'cv_id'=>int]
         $bimestresPorSemestre = [1 => [], 2 => []];
         foreach ($periodos as $p) {
             $s   = (int) $p->semestre;
             $dig = (int) $p->terminacion;
 
-            // Preferir columnas de vigencia si existen; si no, construir con mes_inicio/mes_fin
-            $desde = $p->vigente_desde ? Carbon::parse($p->vigente_desde)->startOfDay()
-                                       : Carbon::create($anio, (int)$p->mes_inicio, 1)->startOfDay();
-            $hasta = $p->vigente_hasta ? Carbon::parse($p->vigente_hasta)->endOfDay()
-                                       : Carbon::create($anio, (int)$p->mes_fin, 1)->endOfMonth()->endOfDay();
+            $desde = $p->vigente_desde
+                ? Carbon::parse($p->vigente_desde)->startOfDay()
+                : Carbon::create($anio, (int)$p->mes_inicio, 1)->startOfDay();
+
+            $hasta = $p->vigente_hasta
+                ? Carbon::parse($p->vigente_hasta)->endOfDay()
+                : Carbon::create($anio, (int)$p->mes_fin, 1)->endOfMonth()->endOfDay();
 
             $bimestresPorSemestre[$s][$dig] = [
                 'desde' => $desde,
                 'hasta' => $hasta,
                 'mi'    => (int) $p->mes_inicio,
                 'mf'    => (int) $p->mes_fin,
+                'cv_id' => (int) $p->id,
             ];
         }
 
-        // Vehículos del estado (traemos 'unidad' para mostrarla)
+        // Vehículos del estado (valor mostrado tal cual)
         $vehiculos = Vehiculo::where('estado', $estado)
             ->orderBy('placa')
             ->get(['id','placa','estado','unidad']);
@@ -73,22 +90,33 @@ class ProgramaVerificacionController extends Controller
             $vehiculosPorTerminacion[$dig][] = $v;
         }
 
-        // Verificaciones ya registradas por semestre (rango de meses, no par fijo)
+        // Verificaciones del año para esos vehículos (sin usar verificaciones.anio)
         $ids = $vehiculos->pluck('id')->all();
-
-        $verifS1 = collect();
-        $verifS2 = collect();
+        $verifMap = collect();
 
         if (!empty($ids)) {
-            $verifS1 = Verificacion::whereIn('vehiculo_id', $ids)
-                ->where('anio', $anio)
-                ->whereBetween('mes_inicio', [1, 6])   // incluye registros antiguos (1-6) y los nuevos por bimestre
-                ->get(['id','vehiculo_id','fecha_verificacion','comentarios','mes_inicio','mes_fin']);
+            // Traemos sólo del año solicitado:
+            // - Si hay calendario: cv.anio = $anio
+            // - Si no hay calendario: YEAR(fecha_verificacion) = $anio
+            $verifs = Verificacion::query()
+                ->whereIn('vehiculo_id', $ids)
+                ->leftJoin('calendario_verificacion as cv', 'cv.id', '=', 'verificaciones.calendario_id')
+                ->where(function ($q) use ($anio) {
+                    $q->where('cv.anio', $anio)
+                      ->orWhereYear('fecha_verificacion', $anio);
+                })
+                ->get([
+                    'verificaciones.id',
+                    'verificaciones.vehiculo_id',
+                    'verificaciones.fecha_verificacion',
+                    'verificaciones.comentarios',
+                    'verificaciones.calendario_id',
+                ]);
 
-            $verifS2 = Verificacion::whereIn('vehiculo_id', $ids)
-                ->where('anio', $anio)
-                ->whereBetween('mes_inicio', [7, 12])
-                ->get(['id','vehiculo_id','fecha_verificacion','comentarios','mes_inicio','mes_fin']);
+            // Agrupar por vehículo y ordenar por fecha (más recientes primero)
+            $verifMap = $verifs
+                ->sortByDesc('fecha_verificacion')
+                ->groupBy('vehiculo_id');
         }
 
         // Preparar estructura para la vista
@@ -98,48 +126,60 @@ class ProgramaVerificacionController extends Controller
             if ($semestre && $semestre !== $s) continue;
             if (!isset($rangos[$s])) continue;
 
-            // Terminaciones: unión de las definidas en calendario y las que tienen vehículos
-            $terminacionesCal = $periodos->where('semestre', $s)->pluck('terminacion')->map(fn($t)=>(int)$t);
-            $terminacionesVeh = collect(array_keys($vehiculosPorTerminacion))->map(fn($t)=>(int)$t);
-            $terminaciones = $terminacionesCal->merge($terminacionesVeh)->unique()->sort()->values();
+            // Terminaciones a mostrar: SOLO las definidas en calendario para ese semestre
+            $terminaciones = $periodos->where('semestre', $s)
+                ->pluck('terminacion')->map(fn($t)=>(int)$t)->unique()->sort()->values();
 
-            // Si no hay nada, mostramos 0..9 (opcional)
             if ($terminaciones->isEmpty()) {
-                $terminaciones = collect(range(0,9));
+                // Si no hay calendario para ese semestre, podríamos caer a vehículos (raro)
+                $terminaciones = collect(array_keys($vehiculosPorTerminacion))->map(fn($t)=>(int)$t)->sort()->values();
+                if ($terminaciones->isEmpty()) {
+                    $terminaciones = collect(range(0,9));
+                }
             }
 
             $grupo = [];
-            $verifMap = ($s === 1 ? $verifS1 : $verifS2)->groupBy('vehiculo_id');
 
             foreach ($terminaciones as $dig) {
                 $bimestre = $bimestresPorSemestre[$s][$dig] ?? null;
+                if (!$bimestre) continue; // evita inconsistencias (p. ej., reglas anuales)
 
-                $desdeBi = $bimestre['desde'] ?? $rangos[$s]['desde']; // para el modal siempre debemos mandar algo
-                $hastaBi = $bimestre['hasta'] ?? $rangos[$s]['hasta'];
+                $desdeBi = $bimestre['desde'];
+                $hastaBi = $bimestre['hasta'];
+                $cvId    = $bimestre['cv_id'];
 
                 $lista = [
                     'pendientes'  => [],
                     'verificados' => [], // agrupados por fecha
-                    // << clave para la vista: permite mostrar el bimestre aun con 0 vehículos >>
-                    'bimestre'    => $bimestre ? [
-                        'desde' => $bimestre['desde'],
-                        'hasta' => $bimestre['hasta'],
-                    ] : null,
+                    'bimestre'    => ['desde' => $desdeBi, 'hasta' => $hastaBi],
                     'terminacion' => $dig,
                     'semestre'    => $s,
                 ];
 
                 foreach ($vehiculosPorTerminacion[$dig] ?? [] as $veh) {
-                    // Tomar la verificación más reciente del semestre
-                    $ver = $verifMap->get($veh->id, collect())->sortByDesc('fecha_verificacion')->first();
+                    $verList = $verifMap->get($veh->id, collect());
 
-                    if ($ver) {
-                        $fechaKey = Carbon::parse($ver->fecha_verificacion)->toDateString();
+                    // ¿Tiene verificación válida para ESTE bimestre?
+                    // a) enlazada al periodo (calendario_id)
+                    // b) o cuya fecha cae dentro del rango [desdeBi, hastaBi]
+                    $match = $verList->first(function ($ver) use ($cvId, $desdeBi, $hastaBi) {
+                        if ($ver->calendario_id && intval($ver->calendario_id) === $cvId) {
+                            return true;
+                        }
+                        if ($ver->fecha_verificacion) {
+                            $f = Carbon::parse($ver->fecha_verificacion);
+                            // usar "between" inclusivo para máxima compatibilidad
+                            return $f->between($desdeBi, $hastaBi, true);
+                        }
+                        return false;
+                    });
+
+                    if ($match) {
+                        $fechaKey = Carbon::parse($match->fecha_verificacion)->toDateString();
                         $lista['verificados'][$fechaKey] ??= [];
                         $lista['verificados'][$fechaKey][] = [
                             'vehiculo'     => $veh,
-                            'verificacion' => $ver,
-                            // para edición en modal, usamos SIEMPRE el bimestre de esta terminación
+                            'verificacion' => $match,
                             'desde'        => $desdeBi,
                             'hasta'        => $hastaBi,
                             'semestre'     => $s,
@@ -167,7 +207,7 @@ class ProgramaVerificacionController extends Controller
 
             $dataSemestres[$s] = [
                 'rango'        => $rangos[$s],       // cabecera del semestre
-                'terminaciones'=> $grupo,            // tarjetas por terminación (con bimestre propio)
+                'terminaciones'=> $grupo,            // tarjetas por terminación
             ];
         }
 
@@ -188,40 +228,62 @@ class ProgramaVerificacionController extends Controller
             'estado'      => ['required','string','max:255'],
             'fecha'       => ['required','date'],
             'comentarios' => ['nullable','string','max:500'],
-
-            // Definen el periodo programado (ahora bimestre de la terminación)
-            'desde'       => ['required','date'],
+            'desde'       => ['required','date'], // bimestre programado
             'hasta'       => ['required','date'],
         ]);
 
         $vehiculoId = (int) $data['vehiculo_id'];
+        $vehiculo   = Vehiculo::findOrFail($vehiculoId);
+
         $estadoNorm = $this->normalizeEstado($data['estado']);
         $fecha      = Carbon::parse($data['fecha'])->startOfDay();
         $desde      = Carbon::parse($data['desde'])->startOfDay();
         $hasta      = Carbon::parse($data['hasta'])->endOfDay();
 
-        // Upsert POR PERIODO programado (anio/mes_inicio/mes_fin) — ahora corresponde al BIMESTRE
         $anioPeriodo = (int) $desde->format('Y');
         $mesIni      = (int) $desde->format('n');
         $mesFin      = (int) $hasta->format('n');
 
-        $ver = Verificacion::where('vehiculo_id', $vehiculoId)
+        // Localizar el periodo de calendario por estado+terminación+año+meses
+        $terminacion = $this->ultimaCifraDePlaca($vehiculo->placa);
+        $cv = CalendarioVerificacion::query()
             ->where('anio', $anioPeriodo)
+            ->where('estado', $estadoNorm)
+            ->when($terminacion !== null, fn($q) => $q->where('terminacion', $terminacion))
             ->where('mes_inicio', $mesIni)
             ->where('mes_fin', $mesFin)
             ->first();
 
+        if (!$cv) {
+            // Fallback por fechas (solapamiento)
+            $cv = CalendarioVerificacion::query()
+                ->where('anio', $anioPeriodo)
+                ->where('estado', $estadoNorm)
+                ->when($terminacion !== null, fn($q) => $q->where('terminacion', $terminacion))
+                ->whereDate('vigente_desde', '<=', $hasta->toDateString())
+                ->whereDate('vigente_hasta', '>=', $desde->toDateString())
+                ->first();
+        }
+
+        // Buscar verificación existente para ese vehículo y periodo
+        $match = Verificacion::query()->where('vehiculo_id', $vehiculoId);
+        if ($cv) {
+            $match->where('calendario_id', $cv->id);
+        } else {
+            // Sin periodo localizado: usa misma fecha exacta como criterio de idempotencia
+            $match->whereDate('fecha_verificacion', $fecha->toDateString());
+        }
+        $ver = $match->orderByDesc('id')->first();
+
+        // Payload minimal compatible con tu esquema (sin anio / sin mes_* / sin fecha_programada_*)
         $payload = [
-            'vehiculo_id'             => $vehiculoId,
-            'estado'                  => $estadoNorm,
-            'fecha_verificacion'      => $fecha->toDateString(),  // puede ser fuera del periodo
-            'comentarios'             => $data['comentarios'] ?? null,
-            'resultado'               => 'APROBADO',
-            'fecha_programada_inicio' => $desde->toDateString(),
-            'fecha_programada_fin'    => $hasta->toDateString(),
-            'anio'                    => $anioPeriodo,
-            'mes_inicio'              => $mesIni,
-            'mes_fin'                 => $mesFin,
+            'vehiculo_id'        => $vehiculoId,
+            'fecha_verificacion' => $fecha->toDateString(),
+            'comentarios'        => $data['comentarios'] ?? null,
+            'calendario_id'      => $cv?->id,
+            // Si tu tabla tiene 'estado' o 'resultado', puedes descomentar:
+            // 'estado'          => $estadoNorm,
+            // 'resultado'       => 'APROBADO',
         ];
 
         if ($ver) {
@@ -239,7 +301,6 @@ class ProgramaVerificacionController extends Controller
     {
         $norm = $s ? Str::of($s)->ascii()->upper()->replaceMatches('/\s+/', ' ')->trim() : '';
         $val = (string) $norm;
-
         if (in_array($val, ['ESTADO DE MEXICO','MEXICO','EDO MEXICO','EDO. MEX','E DOMEX'], true)) {
             return 'EDO MEX';
         }
@@ -277,31 +338,21 @@ class ProgramaVerificacionController extends Controller
     }
 
     /**
-     * Obtiene el último dígito válido de la placa:
-     * - Si termina en número: ese mismo.
-     * - Si termina en letra o guion (u otro no-numérico): busca el último número ANTES, recorriendo hacia atrás.
-     * - Si no hay ningún número en toda la placa: devuelve null.
+     * Último dígito válido de la placa (si termina en letra, toma el último dígito previo).
      */
     protected function ultimaCifraDePlaca(?string $placa): ?int
     {
-        if (!$placa) {
-            return null;
-        }
+        if (!$placa) return null;
         $str = strtoupper(trim($placa));
         $len = strlen($str);
         if ($len === 0) return null;
 
-        // Si el último caracter es un dígito, úsalo
         $last = $str[$len - 1];
-        if (ctype_digit($last)) {
-            return intval($last);
-        }
-        // Si termina en letra/guion/u otro, recorre hacia atrás hasta hallar un dígito
+        if (ctype_digit($last)) return intval($last);
+
         for ($i = $len - 1; $i >= 0; $i--) {
-            if (ctype_digit($str[$i])) {
-                return intval($str[$i]);
-            }
+            if (ctype_digit($str[$i])) return intval($str[$i]);
         }
-        return null; // No hay dígitos en toda la placa
+        return null;
     }
 }

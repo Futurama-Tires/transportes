@@ -79,7 +79,7 @@
                                             'archived'  => 'bg-secondary',
                                         ];
                                     @endphp
-                                    <tr class="{{ $r->status === 'archived' ? 'is-archived' : '' }}">
+                                    <tr class="{{ $r->status === 'archived' ? 'is-archived' : '' }} ">
                                         <td class="fw-medium">
                                             <span class="text-ellipsis col-name" title="{{ trim($r->nombre.' '.($r->version ? '· '.$r->version : '')) }}">
                                                 {{ $r->nombre }}
@@ -103,9 +103,6 @@
                                             <div class="btn-group">
                                                 <a class="btn btn-sm btn-outline-primary" href="{{ route('verificacion-reglas.edit',$r) }}">
                                                     <i class="ti ti-pencil"></i> Editar
-                                                </a>
-                                                <a class="btn btn-sm btn-outline-indigo" href="{{ route('verificacion-reglas.generar.form',$r) }}">
-                                                    <i class="ti ti-refresh"></i> Regenerar
                                                 </a>
                                                 <form action="{{ route('verificacion-reglas.destroy',$r) }}" method="post"
                                                       onsubmit="return confirm('¿Eliminar la regla &quot;{{ $r->nombre }}&quot;? También se eliminarán sus periodos si tu FK usa ON DELETE CASCADE.');">
@@ -169,9 +166,7 @@
                 letter-spacing: .02em;
                 font-weight: 600;
             }
-            /* Apretar un poco las acciones sin saturar */
             .btn-group .btn { white-space: nowrap; }
-            /* Suavizar card y bordes de tabla */
             .card {
                 border: 0;
                 box-shadow: var(--tblr-shadow, 0 1px 2px rgba(0,0,0,.06));
@@ -179,7 +174,6 @@
             .card-table.table > :not(caption) > * > * {
                 border-bottom-color: var(--tblr-border-color);
             }
-            /* Filas archivadas ligeramente atenuadas */
             tr.is-archived td {
                 color: var(--tblr-secondary, #6c757d);
             }
