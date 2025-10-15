@@ -1,576 +1,634 @@
+Explicame como funciona el proceso de crear las reglas
+de verificación.
+
 <?php
 
 namespace App\Http\Controllers;
 
-use App\Models\CargaCombustible;
-use App\Models\CargaFoto;
-use App\Models\Operador;
-use App\Models\Vehiculo;
-use App\Models\User;
+use App\Models\VerificacionRegla;
+use App\Models\CalendarioVerificacion;
+use App\Models\VerificacionReglaEstado;
+use App\Models\VerificacionReglaDetalle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Carbon\Carbon;
 use Illuminate\Support\Str;
-use App\Notifications\NuevaCarga;
-use Illuminate\Support\Facades\Notification;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\CargasExport;
+use Carbon\Carbon;
 
-class CargaCombustibleController extends Controller
+class VerificacionReglaController extends Controller
 {
-    public function index(Request $request)
+    /* ===== Catálogos ===== */
+    protected function catalogoEstados(): array
     {
-        // 👉 Exportar a Excel con filtros/orden actuales (sin paginar)
-        if ($request->get('export') === 'xlsx') {
-            $filename = 'cargas_' . now()->format('Ymd_His') . '.xlsx';
-            return Excel::download(new CargasExport($request), $filename);
+        return [
+            'Aguascalientes','Baja California','Baja California Sur','Campeche','Chiapas','Chihuahua',
+            'Ciudad de México','Coahuila','Colima','Durango','Guanajuato','Guerrero','Hidalgo','Jalisco',
+            'México','Michoacán','Morelos','Nayarit','Nuevo León','Oaxaca','Puebla','Querétaro','Quintana Roo',
+            'San Luis Potosí','Sinaloa','Sonora','Tabasco','Tamaulipas','Tlaxcala','Veracruz','Yucatán','Zacatecas'
+        ];
+    }
+
+    protected function mesesES(): array
+    {
+        return [
+            1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',
+            7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'
+        ];
+    }
+
+    protected function normalizeEstado(?string $s): string
+    {
+        $norm = $s ? Str::of($s)->ascii()->upper()->replaceMatches('/\s+/', ' ')->trim() : '';
+        $val  = (string) $norm;
+        if (in_array($val, ['ESTADO DE MEXICO','MEXICO','EDO MEXICO','EDO. MEX','E DOMEX'], true)) {
+            return 'EDO MEX';
         }
+        return $val;
+    }
 
-        $filters = $request->only([
-            'search',
-            'vehiculo_id', 'operador_id',
-            'tipo_combustible',
-            'from', 'to',
-            'litros_min','litros_max',
-            'precio_min','precio_max',
-            'total_min','total_max',
-            'rend_min','rend_max',
-            'km_ini_min','km_ini_max',
-            'km_fin_min','km_fin_max',
-            'destino','custodio',
-            'estado',
-            'sort_by','sort_dir',
-        ]);
-
-        $vehiculos  = Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']);
-        $operadores = Operador::select('id','nombre','apellido_paterno','apellido_materno'])
-            ->orderBy('nombre')->orderBy('apellido_paterno')->get();
-
-        $tipos = CargaCombustible::TIPOS_COMBUSTIBLE;
-
-        $cargas = CargaCombustible::query()
-            ->with(['vehiculo','operador'])
-            ->filter($filters)
-            ->paginate(25)
-            ->withQueryString();
-
-        return view('cargas.index', compact('cargas','vehiculos','operadores','tipos'));
+    /* ===== UI CRUD ===== */
+    public function index()
+    {
+        $reglas = VerificacionRegla::withCount('periodos')->orderByDesc('created_at')->paginate(15);
+        return view('verificacion_reglas.index', ['reglas' => $reglas]);
     }
 
     public function create()
     {
-        return view('cargas.create', [
-            'carga'      => new CargaCombustible(),
-            'operadores' => Operador::orderBy('nombre')->get(),
-            'vehiculos'  => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
-            'tipos'      => CargaCombustible::TIPOS_COMBUSTIBLE,
+        // Defaults para precargar la tabla de terminaciones:
+        $defaultsSemestral = $this->defaultSemestralDetalles(); // tipo CAMe por bimestres
+        $defaultsAnual     = $this->defaultAnualDetalles();     // estilo Jalisco (1→Ene–Feb, 2→Feb–Mar, ...)
+
+        return view('verificacion_reglas.create', [
+            'catalogoEstados'  => $this->catalogoEstados(),
+            'meses'            => $this->mesesES(),
+            'defaultsSemestral'=> $defaultsSemestral,
+            'defaultsAnual'    => $defaultsAnual,
+            'anioDefault'      => now()->year,
         ]);
     }
 
+    public function edit(VerificacionRegla $verificacion_regla)
+    {
+        return view('verificacion_reglas.edit', [
+            'regla'           => $verificacion_regla,
+            'catalogoEstados' => $this->catalogoEstados(),
+        ]);
+    }
+
+    public function generarForm(VerificacionRegla $verificacion_regla)
+    {
+        return view('verificacion_reglas.generar', ['regla' => $verificacion_regla]);
+    }
+
+    /* ===== Store (1 PASO: crea y genera periodos del año elegido) ===== */
     public function store(Request $request)
     {
+        // Validación base de la regla + menú flexible
         $data = $request->validate([
-            'fecha'            => ['required', 'date'],
-            'precio'           => ['required', 'numeric', 'min:0'],
-            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
-            'litros'           => ['required', 'numeric', 'min:0.001'],
-            'total'            => ['required', 'numeric', 'min:0.01'], // total obligatorio (manual)
-            'custodio'         => ['nullable', 'string', 'max:255'],
-            'operador_id'      => ['required', 'exists:operadores,id'],
-            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
-            'km_final'         => ['required', 'integer', 'min:0'],    // lectura posterior (nuevo odómetro del vehículo)
-            'destino'          => ['nullable', 'string', 'max:255'],
-            'observaciones'    => ['nullable', 'string', 'max:2000'],
+            'nombre'          => ['required', 'string', 'max:255'],
+            'version'         => ['nullable', 'string', 'max:50'],
+            'frecuencia'      => ['required', Rule::in(['Semestral','Anual'])],
+            'notas'           => ['nullable','string'],
+
+            // Menú:
+            'anio'            => ['required','integer','min:2000','max:2999'],
+            'estados'         => ['required','array','min:1'],
+            'estados.*'       => ['string','max:100'],
+
+            // Detalles (tabla de terminaciones → meses)
+            'detalles'        => ['required','array'],
         ]);
 
-        // ✅ Todo lo creado en web sale Aprobada
-        $data['estado'] = 'Aprobada';
+        $insertados = 0;
 
-        return DB::transaction(function () use ($data) {
-            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+        DB::transaction(function () use ($data, &$insertados) {
+            $anio = (int) $data['anio'];
 
-            // 🔧 KM inicial: usar SIEMPRE el odómetro actual del vehículo (si es null => 0)
-            $kmInicial = (int) ($vehiculo->kilometros ?? 0);
+            // Normaliza estados seleccionados
+            $estadosOriginales = $data['estados'];
+            $estadosNorm = array_values(array_unique(array_map(
+                fn($e) => $this->normalizeEstado($e),
+                $estadosOriginales
+            )));
 
-            if ($data['km_final'] < $kmInicial) {
+            // 0) Validación extra de disponibilidad (evita choques por año+estado)
+            //    - Checa tabla puente verificacion_regla_estados (ocupación lógica)
+            //    - Checa también calendario_verificacion por robustez (ocupación materializada)
+            $choquesPivot = VerificacionReglaEstado::query()
+                ->where('anio', $anio)
+                ->whereIn('estado', $estadosNorm)
+                ->exists();
+
+            $choquesCal = DB::table('calendario_verificacion')
+                ->where('anio', $anio)
+                ->whereIn('estado', $estadosNorm)
+                ->exists();
+
+            if ($choquesPivot || $choquesCal) {
                 throw ValidationException::withMessages([
-                    'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial}).",
+                    'estados' => 'Uno o más estados ya están asignados en '.$anio.'. Elige otros estados o cambia el año.',
                 ]);
             }
 
-            // Derivados con base en (km_inicial del vehículo) y (km_final enviado)
-            $this->applyDerived($data, $kmInicial); // NO recalcula total
+            // 1) Crear la regla
+            $regla = VerificacionRegla::create([
+                'nombre'          => $data['nombre'],
+                'version'         => $data['version'] ?? null,
+                'status'          => 'published',
+                'vigencia_inicio' => Carbon::create($anio, 1, 1)->toDateString(),
+                'vigencia_fin'    => Carbon::create($anio, 12, 31)->toDateString(),
+                'frecuencia'      => $data['frecuencia'],
+                'estados'         => [], // dejamos vacío (usaremos tabla por año)
+                'notas'           => $data['notas'] ?? null,
+            ]);
 
-            $carga = new CargaCombustible();
-            $carga->forceFill($data)->save();
+            // 2) Guardar estados por AÑO (únicos por anio+estado en DB idealmente)
+            foreach ($estadosOriginales as $label) {
+                VerificacionReglaEstado::create([
+                    'regla_id' => $regla->id,
+                    'anio'     => $anio,
+                    'estado'   => $label, // normaliza en el mutator del modelo
+                ]);
+            }
 
-            // 🔁 Recalcular en cadena desde esta carga y actualizar odómetro del vehículo
-            $this->reflowFromCarga($carga, true);
+            // 3) Guardar DETALLES (terminación → meses)
+            // Estructura esperada:
+            //  - Semestral: detalles[d][1][mes_inicio], detalles[d][1][mes_fin], detalles[d][2][mes_inicio], detalles[d][2][mes_fin]
+            //  - Anual:     detalles[d][0][mes_inicio], detalles[d][0][mes_fin]
+            $seen = [];
+            foreach ($data['detalles'] as $terminacionStr => $porSemestre) {
+                $terminacion = (int) $terminacionStr;
 
-            // Notificación (después del commit)
-            $carga->loadMissing('vehiculo','operador');
-            DB::afterCommit(function () use ($carga) {
-                $destinatarios = User::role(['administrador','capturista'], 'web')->get();
-                Notification::send($destinatarios, new NuevaCarga($carga));
-            });
+                foreach ($porSemestre as $sem => $mm) {
+                    $semestre = (int) $sem; // 0 (anual), 1 o 2 (semestral)
+                    $mi = (int) ($mm['mes_inicio'] ?? 0);
+                    $mf = (int) ($mm['mes_fin'] ?? 0);
+                    if ($mi < 1 || $mi > 12 || $mf < 1 || $mf > 12) {
+                        continue; // ignora filas malformadas
+                    }
 
-            return redirect()->route('cargas.index')
-                ->with('success', 'Carga registrada y kilometraje recalculado correctamente.');
-        });
-    }
+                    $k = $terminacion.'|'.$semestre.'|'.$mi.'|'.$mf;
+                    if (isset($seen[$k])) continue;
+                    $seen[$k] = true;
 
-    public function edit(CargaCombustible $carga)
-    {
-        $carga->load(['fotos', 'vehiculo', 'operador']);
-
-        // 👉 Solo la más reciente puede editar KM (fecha desc, id desc)
-        $kmEditable = $this->isLatestCarga($carga->vehiculo_id, $carga->fecha, $carga->id);
-
-        return view('cargas.edit', [
-            'carga'        => $carga,
-            'operadores'   => Operador::orderBy('nombre')->get(),
-            'vehiculos'    => Vehiculo::orderBy('unidad')->get(['id','unidad','placa','kilometros']),
-            'tipos'        => CargaCombustible::TIPOS_COMBUSTIBLE,
-            'km_editable'  => $kmEditable, // <-- úsalo para deshabilitar el input en la vista
-        ]);
-    }
-
-    public function update(Request $request, CargaCombustible $carga)
-    {
-        $data = $request->validate([
-            'fecha'            => ['required', 'date'],
-            'precio'           => ['required', 'numeric', 'min:0'],
-            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
-            'litros'           => ['required', 'numeric', 'min:0.001'],
-            'total'            => ['required', 'numeric', 'min:0.01'], // total obligatorio (manual)
-            'custodio'         => ['nullable', 'string', 'max:255'],
-            'operador_id'      => ['required', 'exists:operadores,id'],
-            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
-            'km_final'         => ['required', 'integer', 'min:0'],    // lectura posterior (nuevo odómetro del vehículo)
-            'destino'          => ['nullable', 'string', 'max:255'],
-            'observaciones'    => ['nullable', 'string', 'max:2000'],
-            'estado'           => ['required', 'in:Pendiente,Aprobada'],
-        ]);
-
-        return DB::transaction(function () use ($carga, $data) {
-            // ⚖️ ¿La carga era la más reciente ANTES de editar?
-            // (La restricción se evalúa respecto al estado actual en BD)
-            $eraMasReciente = $this->isLatestCarga($carga->vehiculo_id, $carga->fecha, $carga->id);
-
-            // Cargar vehículo de destino (por si cambiaron vehiculo_id)
-            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
-
-            if ($eraMasReciente) {
-                // ✅ Si es la más reciente, se permite editar KM y se valida contra el odómetro actual
-                $kmInicial = (int) ($vehiculo->kilometros ?? 0);
-
-                if ($data['km_final'] < $kmInicial) {
-                    throw ValidationException::withMessages([
-                        'km_final' => "El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial}).",
+                    VerificacionReglaDetalle::create([
+                        'regla_id'   => $regla->id,
+                        'frecuencia' => $data['frecuencia'],
+                        'terminacion'=> $terminacion,
+                        'semestre'   => $semestre,
+                        'mes_inicio' => $mi,
+                        'mes_fin'    => $mf,
                     ]);
                 }
-            } else {
-                // 🚫 No es la más reciente → no se permite editar el kilometraje
-                // Forzar km_final al valor que ya tenía la carga
-                $data['km_final'] = (int) $carga->km_final;
-
-                // Para que los derivados del guardado queden coherentes de inmediato,
-                // calcula km_inicial con base en la NUEVA posición (fecha/vehículo) dentro de la cadena.
-                $prev = $this->findPrevCarga($vehiculo->id, $data['fecha'], $carga->id);
-                $kmInicial = (int) ($prev?->km_final ?? 0);
             }
 
-            // Derivados (después se hará reflow para toda la cadena)
-            $this->applyDerived($data, $kmInicial); // NO recalcula total
-
-            $carga->forceFill($data)->save();
-
-            // 🧭 Actualizar odómetro del vehículo solo si (después de guardar) esta carga quedó como la más reciente
-            $shouldUpdateVehicleOdometer = $this->isLatestCarga($vehiculo->id, $carga->fecha, $carga->id);
-
-            // 🔁 Recalcular en cadena desde ESTA carga
-            $this->reflowFromCarga($carga, $shouldUpdateVehicleOdometer);
-
-            return redirect()->route('cargas.index')
-                ->with('success', $eraMasReciente
-                    ? 'Carga actualizada; kilometraje y cadena recalculados.'
-                    : 'Carga actualizada (kilometraje bloqueado por no ser la más reciente); cadena recalculada.');
-        });
-    }
-
-    public function destroy(CargaCombustible $carga)
-    {
-        return DB::transaction(function () use ($carga) {
-            $vehiculoId = $carga->vehiculo_id;
-
-            // Guardar referencia del primer "siguiente" para reflow después del borrado
-            $siguiente = $this->findNextCarga($vehiculoId, $carga->fecha, $carga->id);
-
-            $deleted = $carga->delete();
-
-            // 🔁 Si había cargas posteriores, recalcular desde la primera siguiente y actualizar odómetro
-            if ($deleted && $siguiente) {
-                $this->reflowFromCarga($siguiente, true);
-            } else {
-                // 🔚 Si ya no hay siguientes, asegurar odómetro del vehículo según la nueva última
-                $vehiculo = Vehiculo::lockForUpdate()->find($vehiculoId);
-                if ($vehiculo) {
-                    $ultima = $this->latestCarga($vehiculoId);
-                    $vehiculo->update(['kilometros' => $ultima?->km_final]);
-                }
-            }
-
-            return redirect()->route('cargas.index')
-                ->with('success', $deleted ? 'Carga eliminada y kilometraje recalculado.' : 'No se pudo eliminar la carga.');
-        });
-    }
-
-    /** ===================== Revisión: Aprobar ===================== */
-
-    public function approve(Request $request, CargaCombustible $carga)
-    {
-        // Permitir solo a admin/capturista (Spatie)
-        if (!$request->user()->hasAnyRole(['administrador','capturista'])) {
-            abort(403, 'No autorizado.');
-        }
-
-        DB::transaction(function () use ($request, $carga) {
-            // Concurrencia: solo si sigue en Pendiente
-            $updated = CargaCombustible::whereKey($carga->id)
-                ->where('estado', CargaCombustible::ESTADO_PENDIENTE)
-                ->update([
-                    'estado'       => CargaCombustible::ESTADO_APROBADA,
-                    'revisado_por' => $request->user()->id,
-                    'revisado_en'  => now(),
-                ]);
-
-            if (!$updated) {
-                throw ValidationException::withMessages([
-                    'estado' => 'La carga ya fue aprobada o su estado cambió.'
-                ]);
-            }
+            // 4) GENERAR PERIODOS AUTOMÁTICAMENTE para el año elegido
+            $insertados = $this->generarPeriodosCore($regla, $anio, false);
         });
 
-        return back()->with('success', "Carga #{$carga->id} aprobada.");
+        return redirect()->route('verificacion-reglas.index')
+            ->with('success', 'Regla creada y periodos generados ('.$data['anio'].'). Registros: '.$insertados);
     }
 
-    // ===================== Helpers de cálculo =====================
-
-    /**
-     * Calcula y normaliza campos derivados:
-     * - mes
-     * - km_inicial (si es null => 0)
-     * - recorrido = max(0, km_final - km_inicial) si existe km_final
-     * - rendimiento = recorrido / litros
-     * - diferencia (misma lógica que tenías)
-     */
-    protected function applyDerived(array &$data, ?int $kmInicial): void
-    {
-        $data['mes'] = ucfirst(Carbon::parse($data['fecha'])->locale('es')->translatedFormat('F'));
-
-        // NO calcular total. Solo normalizar si viene.
-        if (isset($data['total'])) {
-            $data['total'] = round((float) $data['total'], 2);
-        }
-
-        // 👉 Si km_inicial es null, tómalo como 0 (evita errores de cálculo)
-        $kmBase = (int) ($kmInicial ?? 0);
-        $data['km_inicial'] = $kmBase;
-
-        // km_final debe venir en $data (lectura posterior / nuevo odómetro)
-        $kmFinal = isset($data['km_final']) ? (int) $data['km_final'] : null;
-
-        $recorrido = isset($kmFinal) ? max(0, $kmFinal - $kmBase) : null;
-        $data['recorrido'] = is_null($recorrido) ? null : (int)$recorrido;
-
-        $data['rendimiento'] = (!is_null($recorrido) && (float)$data['litros'] > 0)
-            ? round($recorrido / (float)$data['litros'], 2)
-            : null;
-
-        // Mantén tu lógica de diferencia (usa precio si lo tienes)
-        if (!is_null($recorrido) && isset($data['litros'], $data['precio'])) {
-            $data['diferencia'] = round(-(((float)$data['litros'] - ($recorrido / 14)) * (float)$data['precio']), 2);
-        } else {
-            $data['diferencia'] = null;
-        }
-    }
-
-    /**
-     * Recalcula en cadena km_inicial/recorrido/rendimiento/diferencia
-     * desde $start (incluido) hacia adelante, con orden (fecha asc, id asc).
-     * Al final, puede (opcionalmente) actualizar el odómetro del vehículo a la última carga.
-     *
-     * @param  CargaCombustible $start
-     * @param  bool $updateVehicleOdometer  Si true, actualiza Vehiculo.kilometros a la última carga.
-     */
-    protected function reflowFromCarga(CargaCombustible $start, bool $updateVehicleOdometer = true): void
-    {
-        $vehiculoId = $start->vehiculo_id;
-
-        // Carga inmediatamente anterior al inicio (para base de comparación)
-        $prev = $this->findPrevCarga($vehiculoId, $start->fecha, $start->id);
-
-        // Todas las cargas DESPUÉS de "start" (NO incluir "start")
-        $cadena = CargaCombustible::where('vehiculo_id', $vehiculoId)
-            ->where(function ($q) use ($start) {
-                $q->where('fecha', '>', $start->fecha)
-                  ->orWhere(function ($q2) use ($start) {
-                      // ⛔️ OJO: usamos > en id para NO duplicar $start
-                      $q2->where('fecha', $start->fecha)->where('id', '>', $start->id);
-                  });
-            })
-            ->orderBy('fecha', 'asc')->orderBy('id', 'asc')
-            ->get();
-
-        // Procesar primero la propia $start y luego las siguientes
-        $lista = collect([$start])->merge($cadena);
-
-        $anterior = $prev; // puede ser null
-        foreach ($lista as $c) {
-            $payload = [
-                'fecha'            => $c->fecha,
-                'precio'           => $c->precio,
-                'litros'           => $c->litros,
-                'total'            => $c->total,
-                'km_final'         => $c->km_final,        // lectura posterior
-                'tipo_combustible' => $c->tipo_combustible,
-            ];
-
-            // Para cada carga en la cadena, el km_inicial se toma del km_final de la anterior;
-            // si no hay anterior, se usa 0 (regla nueva).
-            $kmBase = $anterior?->km_final; // puede ser null, applyDerived lo tratará como 0
-            $this->applyDerived($payload, $kmBase);
-
-            // Actualiza SOLO los campos derivados para no tocar otros metadatos
-            $c->forceFill([
-                'mes'         => $payload['mes'],
-                'km_inicial'  => $payload['km_inicial'],
-                'recorrido'   => $payload['recorrido'],
-                'rendimiento' => $payload['rendimiento'],
-                'diferencia'  => $payload['diferencia'],
-            ])->save();
-
-            $anterior = $c;
-        }
-
-        // 🔚 Al final, opcionalmente, asegurar que el vehículo refleje la última carga cronológica
-        if ($updateVehicleOdometer) {
-            $vehiculo = Vehiculo::lockForUpdate()->find($vehiculoId);
-            if ($vehiculo) {
-                $ultima = $this->latestCarga($vehiculoId);
-                $vehiculo->update(['kilometros' => $ultima?->km_final]);
-            }
-        }
-    }
-
-    /**
-     * Última carga cronológica del vehículo (fecha desc, id desc)
-     */
-    protected function latestCarga(int $vehiculoId): ?CargaCombustible
-    {
-        return CargaCombustible::where('vehiculo_id', $vehiculoId)
-            ->orderBy('fecha','desc')->orderBy('id','desc')
-            ->first();
-    }
-
-    /**
-     * ¿Es (fecha,id) la última para el vehículo?
-     */
-    protected function isLatestCarga(int $vehiculoId, $fecha, int $id): bool
-    {
-        $ultima = $this->latestCarga($vehiculoId);
-        return $ultima && $ultima->fecha == $fecha && $ultima->id == $id;
-    }
-
-    /**
-     * Carga inmediatamente anterior a (fecha,id). Si $excludeId se pasa, lo excluye.
-     */
-    protected function findPrevCarga(int $vehiculoId, $fecha, ?int $excludeId = null): ?CargaCombustible
-    {
-        return CargaCombustible::where('vehiculo_id', $vehiculoId)
-            ->when($excludeId, fn($q) => $q->where('id','!=',$excludeId))
-            ->where(function ($q) use ($fecha, $excludeId) {
-                $q->where('fecha','<',$fecha)
-                  ->orWhere(function ($q2) use ($fecha, $excludeId) {
-                      $q2->where('fecha',$fecha);
-                      if ($excludeId) {
-                          $q2->where('id','<',$excludeId);
-                      } else {
-                          // si no hay exclude, simplemente tomar el menor id del mismo día
-                          $q2->where('id','<', PHP_INT_MAX);
-                      }
-                  });
-            })
-            ->orderBy('fecha','desc')->orderBy('id','desc')
-            ->first();
-    }
-
-    /**
-     * Carga inmediatamente posterior a (fecha,id)
-     */
-    protected function findNextCarga(int $vehiculoId, $fecha, int $id): ?CargaCombustible
-    {
-        return CargaCombustible::where('vehiculo_id', $vehiculoId)
-            ->where(function ($q) use ($fecha, $id) {
-                $q->where('fecha','>',$fecha)
-                  ->orWhere(function ($q2) use ($fecha, $id) {
-                      $q2->where('fecha',$fecha)->where('id','>',$id);
-                  });
-            })
-            ->orderBy('fecha','asc')->orderBy('id','asc')
-            ->first();
-    }
-
-    // ===================== API MÓVIL =====================
-
-    /**
-     * API móvil: crea carga y, si vienen imágenes temporales, las anexa (tabla carga_fotos).
-     * Entrada opcional:
-     *   - imagenes: [{tipo: 'ticket|voucher|odometro|extra', tmp_path: 'tmp/ocr/...'}]
-     */
-    public function storeApi(Request $request)
+    public function update(Request $request, VerificacionRegla $verificacion_regla)
     {
         $data = $request->validate([
-            'fecha'            => ['required', 'date'],
-            'precio'           => ['required', 'numeric', 'min:0'],
-            'tipo_combustible' => ['required', 'in:Magna,Diesel,Premium'],
-            'litros'           => ['required', 'numeric', 'min:0.001'],
-            'total'            => ['required', 'numeric', 'min:0.01'], // total obligatorio en API
-            'custodio'         => ['nullable', 'string', 'max:255'],
-            'vehiculo_id'      => ['required', 'exists:vehiculos,id'],
-            'km_final'         => ['required', 'integer', 'min:0'],    // lectura posterior (nuevo odómetro del vehículo)
-            'destino'          => ['nullable', 'string', 'max:255'],
-            'observaciones'    => ['nullable', 'string', 'max:2000'],
-            'imagenes'             => ['nullable', 'array'],
-            'imagenes.*.tipo'      => ['nullable', 'in:ticket,voucher,odometro,extra'],
-            'imagenes.*.tmp_path'  => ['required_with:imagenes', 'string'],
+            'nombre'     => ['required', 'string', 'max:255'],
+            'version'    => ['nullable', 'string', 'max:50'],
+            'status'     => ['required', Rule::in(['draft','published','archived'])],
+            'frecuencia' => ['required', Rule::in(['Semestral','Anual'])],
+            'notas'      => ['nullable','string'],
         ]);
 
-        $imagenes = $data['imagenes'] ?? [];
-        unset($data['imagenes']);
+        $verificacion_regla->update([
+            'nombre'     => $data['nombre'],
+            'version'    => $data['version'] ?? null,
+            'status'     => $data['status'],
+            'frecuencia' => $data['frecuencia'],
+            'notas'      => $data['notas'] ?? null,
+        ]);
 
-        $user = $request->user();
-        $operador = Operador::where('user_id', $user->id)->first();
+        return redirect()->route('verificacion-reglas.index')
+            ->with('success', 'Regla actualizada.');
+    }
 
-        if (!$operador) {
-            return response()->json(['message' => 'El usuario autenticado no tiene un operador asociado.'], 422);
-        }
+    public function destroy(VerificacionRegla $verificacion_regla)
+    {
+        // Si ya aplicaste CASCADE en la BD, con esto basta:
+        $verificacion_regla->delete();
 
-        // ✅ Todo lo que llega por API inicia como Pendiente
-        $data['estado'] = 'Pendiente';
+        return redirect()
+            ->route('verificacion-reglas.index')
+            ->with('success', 'Regla eliminada.');
+    }
 
-        return DB::transaction(function () use ($data, $operador, $imagenes) {
-            $vehiculo = Vehiculo::lockForUpdate()->findOrFail($data['vehiculo_id']);
+    /* ===== Generación usando ESTADOS (por año) + DETALLES ===== */
+    public function generar(Request $request, VerificacionRegla $verificacion_regla)
+    {
+        $request->validate([
+            'anio'         => ['required', 'integer', 'min:2000', 'max:2999'],
+            'sobrescribir' => ['nullable', 'boolean'],
+        ]);
 
-            // 🔧 KM inicial: odómetro actual del vehículo (si null => 0)
-            $kmInicial = (int) ($vehiculo->kilometros ?? 0);
+        $anio         = (int) $request->integer('anio');
+        $sobrescribir = (bool) $request->boolean('sobrescribir');
 
-            if ($data['km_final'] < $kmInicial) {
-                return response()->json([
-                    'errors' => ['km_final' => ["El KM final ({$data['km_final']}) no puede ser menor que el odómetro actual del vehículo ({$kmInicial})."]]
-                ], 422);
-            }
+        $count = $this->generarPeriodosCore($verificacion_regla, $anio, $sobrescribir);
 
-            $payload = $data;
-            $payload['operador_id'] = $operador->id;
-
-            $this->applyDerived($payload, $kmInicial); // NO recalcula total
-
-            $carga = new CargaCombustible();
-            $carga->forceFill($payload)->save();
-
-            // Mover imágenes si vienen
-            if (!empty($imagenes)) {
-                $this->attachTmpImagesToCarga($carga, $imagenes);
-            }
-
-            // 🔁 Recalcular en cadena desde esta carga y actualizar odómetro del vehículo
-            $this->reflowFromCarga($carga, true);
-
-            $carga->loadMissing('vehiculo','operador','fotos');
-
-            DB::afterCommit(function () use ($carga) {
-                $destinatarios = User::role(['administrador','capturista'], 'web')->get();
-                Notification::send($destinatarios, new NuevaCarga($carga));
-            });
-
-            return response()->json(
-                $carga->load([
-                    'vehiculo:id,unidad,placa',
-                    'operador:id,nombre,apellido_paterno,apellido_materno',
-                    'fotos:id,carga_id,tipo,path,mime,size,original_name'
-                ]),
-                201
-            );
-        });
+        return redirect()->route('verificacion-reglas.index')
+            ->with('success', "Periodos generados para {$verificacion_regla->nombre} ({$anio}). Registros: {$count}");
     }
 
     /**
-     * Mueve archivos temporales a PRIVADO.
-     * Acepta ambos orígenes durante la transición:
-     *   - PRIVADO: storage/app/tmp/ocr/...
-     *   - LEGADO (público): storage/app/public/tmp/ocr/...
-     * Los deja en: storage/app/cargas/{carga_id}/...
+     * Núcleo de generación de periodos: arma e inserta/upserta filas en calendario_verificacion.
+     * - Usa estados de la regla para ese año (pivot primero; JSON como fallback).
+     * - Si $sobrescribir, borra primero lo de ESA regla y año.
+     * - Retorna el total de filas existentes para esa regla y año tras la operación.
      */
-    protected function attachTmpImagesToCarga(CargaCombustible $carga, array $imagenes): void
+    private function generarPeriodosCore(VerificacionRegla $regla, int $anio, bool $sobrescribir = false): int
     {
-        $private = Storage::disk('local');  // destino privado
-        $public  = Storage::disk('public'); // legado (origen posible)
+        // Estados asignados a la regla para ese año (normalizados, únicos)
+        $estados = VerificacionReglaEstado::query()
+            ->where('regla_id', $regla->id)
+            ->where('anio', $anio)
+            ->pluck('estado')
+            ->map(fn($e) => mb_strtoupper(trim($e)))
+            ->unique()
+            ->values()
+            ->all();
 
-        $baseDir = "cargas/{$carga->id}";
-        if (!$private->exists($baseDir)) {
-            $private->makeDirectory($baseDir);
+        // Backward-compat: si no hay pivot, usa JSON de la regla (si existiera).
+        if (empty($estados) && is_array($regla->estados)) {
+            $estados = collect($regla->estados)
+                ->map(fn($e) => mb_strtoupper(trim($e)))
+                ->unique()
+                ->values()
+                ->all();
         }
 
-        foreach ($imagenes as $img) {
-            $tmp  = $img['tmp_path'] ?? null;
-            $tipo = $img['tipo'] ?? CargaFoto::EXTRA;
-
-            if (!$tmp || !is_string($tmp)) continue;
-            if (!str_starts_with($tmp, 'tmp/ocr/')) continue;
-
-            // Detecta en qué disco está la temporal
-            $sourceDisk = null;
-            if ($private->exists($tmp)) {
-                $sourceDisk = 'local';
-            } elseif ($public->exists($tmp)) {
-                $sourceDisk = 'public';
-            } else {
-                continue; // no existe en ninguno
-            }
-
-            $ext  = pathinfo($tmp, PATHINFO_EXTENSION) ?: 'jpg';
-            $name = ($tipo ?: 'extra') . '-' . now()->format('Ymd-His') . '-' . Str::random(6) . '.' . $ext;
-            $dest = $baseDir . '/' . $name;
-
-            // Mueve en-local o copia de public->local y borra origen
-            if ($sourceDisk === 'local') {
-                if (!$private->move($tmp, $dest)) {
-                    throw ValidationException::withMessages(['imagenes' => "No se pudo mover la imagen temporal {$tmp}."]);
-                }
-            } else {
-                try {
-                    $bytes = $public->get($tmp);
-                    $private->put($dest, $bytes);
-                    $public->delete($tmp);
-                } catch (\Throwable $e) {
-                    throw ValidationException::withMessages(['imagenes' => "No se pudo transferir la imagen temporal {$tmp} al almacenamiento privado."]);
-                }
-            }
-
-            $mime = $private->mimeType($dest);
-            $size = $private->size($dest);
-
-            CargaFoto::create([
-                'carga_id'      => $carga->id,
-                'tipo'          => $tipo,
-                'path'          => $dest,
-                'mime'          => $mime,
-                'size'          => $size,
-                'original_name' => null,
+        if (empty($estados)) {
+            throw ValidationException::withMessages([
+                'estados' => 'Esta regla no tiene estados asignados para el año seleccionado.',
             ]);
         }
+
+        // Trae los detalles tal como fueron guardados (una fila por terminación+semestre).
+        $detalles = VerificacionReglaDetalle::query()
+            ->where('regla_id', $regla->id)
+            ->orderBy('terminacion')
+            ->get(['terminacion','semestre','mes_inicio','mes_fin']);
+
+        if ($detalles->isEmpty()) {
+            throw ValidationException::withMessages([
+                'detalles' => 'La regla no tiene calendario por terminación configurado.',
+            ]);
+        }
+
+        // 1) Deduplicar detalles por combinación clave
+        $detalles = $detalles->unique(function ($d) {
+            return $d->terminacion.'|'.$d->semestre.'|'.$d->mes_inicio.'|'.$d->mes_fin;
+        })->values();
+
+        DB::transaction(function () use ($anio, $sobrescribir, $estados, $detalles, $regla) {
+            // 2) Si sobrescribe, borra lo previo de ESTA regla y año (y solo eso)
+            if ($sobrescribir) {
+                CalendarioVerificacion::query()
+                    ->where('regla_id', $regla->id)
+                    ->where('anio', $anio)
+                    ->delete();
+            }
+
+            // 3) Construye filas únicas por (estado, terminacion, mes_inicio, mes_fin, anio)
+            $rows     = [];
+            $seenKeys = [];
+
+            foreach ($estados as $estado) {
+                foreach ($detalles as $d) {
+                    $mi  = (int) $d->mes_inicio;
+                    $mf  = (int) $d->mes_fin;
+                    $sem = (int) $d->semestre; // 1,2 para Semestral; 0 para Anual
+
+                    // Fechas de vigencia dentro del mismo año
+                    $desde = Carbon::create($anio, $mi, 1)->startOfMonth();
+                    $hasta = Carbon::create($anio, $mf, 1)->endOfMonth();
+
+                    // Clave contra tu índice único (no incluye regla_id ni semestre)
+                    $uk = implode('|', [
+                        mb_strtoupper($estado),
+                        (int) $d->terminacion,
+                        $mi, $mf,
+                        $anio,
+                    ]);
+                    if (isset($seenKeys[$uk])) {
+                        continue; // evita duplicados en el propio lote
+                    }
+                    $seenKeys[$uk] = true;
+
+                    // Para anual: guardamos semestre 1 si cae en 1–6, 2 si cae en 7–12
+                    $semestreEfectivo = ($sem === 0) ? ($mf <= 6 ? 1 : 2) : $sem;
+
+                    $rows[] = [
+                        'estado'         => mb_strtoupper($estado),
+                        'terminacion'    => (int) $d->terminacion,
+                        'mes_inicio'     => $mi,
+                        'mes_fin'        => $mf,
+                        'semestre'       => $semestreEfectivo,
+                        'frecuencia'     => $regla->frecuencia, // "Semestral" | "Anual"
+                        'anio'           => $anio,
+                        'vigente_desde'  => $desde->toDateString(),
+                        'vigente_hasta'  => $hasta->toDateString(),
+                        'regla_id'       => $regla->id,
+                        'created_at'     => now(),
+                        'updated_at'     => now(),
+                    ];
+                }
+            }
+
+            if (empty($rows)) {
+                throw new \RuntimeException('No hay periodos a insertar (verifica los detalles).');
+            }
+
+            // 4) Inserta con tolerancia a colisiones del índice único
+            DB::table('calendario_verificacion')->upsert(
+                $rows,
+                ['estado','terminacion','mes_inicio','mes_fin','anio'], // columnas únicas (índice cal_verif_regla_unica)
+                ['regla_id','semestre','frecuencia','vigente_desde','vigente_hasta','updated_at'] // columnas a actualizar en choque
+            );
+        });
+
+        // Total resultante para esa REGLA y AÑO (útil para feedback)
+        $count = CalendarioVerificacion::query()
+            ->where('regla_id', $regla->id)
+            ->where('anio', $anio)
+            ->count();
+
+        return $count;
+    }
+
+    /* ===== Defaults para precarga en UI ===== */
+    protected function defaultSemestralDetalles(): array
+    {
+        // Mapeo
+        // S1: 5-6 Ene-Feb | 7-8 Feb-Mar | 3-4 Mar-Abr | 1-2 Abr-May | 9-0 May-Jun
+        // S2: 5-6 Jul-Ago | 7-8 Ago-Sep | 3-4 Sep-Oct | 1-2 Oct-Nov | 9-0 Nov-Dic
+        $mapS1 = [
+            5 => [1,2], 6 => [1,2],
+            7 => [2,3], 8 => [2,3],
+            3 => [3,4], 4 => [3,4],
+            1 => [4,5], 2 => [4,5],
+            9 => [5,6], 0 => [5,6],
+        ];
+
+        $out = [];
+        foreach (range(0,9) as $d) {
+            [$mi1, $mf1] = $mapS1[$d] ?? [1,2];
+            $mi2 = $mi1 + 6; if ($mi2 > 12) $mi2 -= 12;
+            $mf2 = $mf1 + 6; if ($mf2 > 12) $mf2 -= 12;
+
+            $out[$d][1]['mes_inicio'] = $mi1;
+            $out[$d][1]['mes_fin']    = $mf1;
+            $out[$d][2]['mes_inicio'] = $mi2;
+            $out[$d][2]['mes_fin']    = $mf2;
+        }
+        return $out;
+    }
+
+    protected function defaultAnualDetalles(): array
+    {
+        // Estilo Jalisco: 1→Ene–Feb, 2→Feb–Mar, ... 0→Nov–Dic
+        $map = [
+            1 => [1,2], 2 => [2,3], 3 => [3,4], 4 => [4,5], 5 => [5,6],
+            6 => [6,7], 7 => [7,8], 8 => [8,9], 9 => [9,10], 0 => [11,12],
+        ];
+        $out = [];
+        foreach (range(0,9) as $d) {
+            $mi = $map[$d][0] ?? 1;
+            $mf = $map[$d][1] ?? 2;
+            $out[$d][0]['mes_inicio'] = $mi;
+            $out[$d][0]['mes_fin']    = $mf;
+        }
+        return $out;
+    }
+
+    /* ===== Estados disponibles por AÑO (para el menú) ===== */
+    public function estadosDisponibles(Request $request)
+    {
+        $anio = (int) $request->query('anio', now()->year);
+
+        if ($anio < 2000 || $anio > 2999) {
+            return response()->json([
+                'ok'          => false,
+                'message'     => 'Año inválido',
+                'anio'        => $anio,
+                'disponibles' => [],
+                'ocupados'    => [],
+            ], 400);
+        }
+
+        // Estados ya ocupados (normalizados) EN CUALQUIER regla para ese año
+        $ocupados = VerificacionReglaEstado::where('anio', $anio)
+            ->pluck('estado')
+            ->map(fn($e) => $this->normalizeEstado($e))
+            ->unique()
+            ->values()
+            ->all();
+
+        $catalogo = $this->catalogoEstados();
+
+        $disponibles = [];
+        foreach ($catalogo as $label) {
+            $norm = $this->normalizeEstado($label);
+            if (!in_array($norm, $ocupados, true)) {
+                $disponibles[] = [
+                    'value' => $label, // el modelo normaliza al guardar
+                    'label' => $label,
+                ];
+            }
+        }
+
+        return response()->json([
+            'ok'          => true,
+            'anio'        => $anio,
+            'disponibles' => $disponibles,
+            'ocupados'    => $ocupados,
+        ]);
+    }
+}
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
+
+class VerificacionRegla extends Model
+{
+    use HasFactory;
+
+    protected $table = 'verificacion_reglas';
+
+    protected $fillable = [
+        'nombre',
+        'version',
+        'status',            // draft|published|archived
+        'vigencia_inicio',
+        'vigencia_fin',
+        'frecuencia',        // Semestral|Anual
+        'estados',           // (JSON legible) - opcional
+        'notas',
+    ];
+
+    protected $casts = [
+        'vigencia_inicio' => 'date',
+        'vigencia_fin'    => 'date',
+        'estados'         => 'array',
+    ];
+
+    /* ===================== Constantes / Helpers ===================== */
+
+    public const STATUS = ['draft','published','archived'];
+    public const FRECUENCIAS = ['Semestral','Anual'];
+
+    public static function normalizeEstado(?string $s): string
+    {
+        $norm = Str::of($s ?? '')
+            ->ascii()
+            ->upper()
+            ->replaceMatches('/\s+/', ' ')
+            ->trim()
+            ->toString();
+
+        if (in_array($norm, ['ESTADO DE MEXICO','MEXICO','EDO MEXICO','EDO. MEX','E DOMEX'], true)) {
+            return 'EDO MEX';
+        }
+        return $norm;
+    }
+
+    /** Estados normalizados para un año dado (prefiere tabla puente). */
+    public function estadosParaAnio(int $anio): \Illuminate\Support\Collection
+    {
+        $fromPivot = $this->estadosAsignados()
+            ->where('anio', $anio)
+            ->pluck('estado')
+            ->map(fn($e) => self::normalizeEstado($e))
+            ->unique()
+            ->values();
+
+        if ($fromPivot->isNotEmpty()) {
+            return $fromPivot;
+        }
+
+        // Backward-compat (si guardabas estados en JSON)
+        $json = collect($this->estados ?? [])
+            ->map(fn($e) => self::normalizeEstado($e))
+            ->unique()
+            ->values();
+
+        return $json;
+    }
+
+    /* ===================== Relaciones ===================== */
+
+    public function periodos()
+    {
+        return $this->hasMany(CalendarioVerificacion::class, 'regla_id');
+    }
+
+    public function detalles()
+    {
+        return $this->hasMany(VerificacionReglaDetalle::class, 'regla_id');
+    }
+
+    public function estadosAsignados()
+    {
+        return $this->hasMany(VerificacionReglaEstado::class, 'regla_id');
+    }
+
+    /* ===================== Scopes ===================== */
+
+    public function scopePublished(Builder $q): Builder
+    {
+        return $q->where('status', 'published');
+    }
+}
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class VerificacionReglaDetalle extends Model
+{
+    use HasFactory;
+
+    protected $table = 'verificacion_regla_detalles';
+
+    protected $fillable = [
+        'regla_id',
+        'frecuencia',  // "Semestral" | "Anual"
+        'terminacion',
+        'semestre',    // 0 (anual), 1, 2 (semestral)
+        'mes_inicio',
+        'mes_fin',
+    ];
+
+    protected $casts = [
+        'terminacion' => 'integer',
+        'semestre'    => 'integer',
+        'mes_inicio'  => 'integer',
+        'mes_fin'     => 'integer',
+    ];
+
+    public function regla()
+    {
+        return $this->belongsTo(VerificacionRegla::class, 'regla_id');
+    }
+}
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class VerificacionReglaEstado extends Model
+{
+    use HasFactory;
+
+    protected $table = 'verificacion_regla_estados';
+
+    protected $fillable = [
+        'regla_id',
+        'anio',
+        'estado',
+    ];
+
+    protected $casts = [
+        'anio' => 'integer',
+    ];
+
+    public function regla()
+    {
+        return $this->belongsTo(VerificacionRegla::class, 'regla_id');
+    }
+
+    /* Normalización automática del estado al guardar */
+    public function setEstadoAttribute($value): void
+    {
+        $this->attributes['estado'] = VerificacionRegla::normalizeEstado($value);
+    }
+
+    /* Scopes útiles */
+    public function scopePorAnio($q, ?int $anio)
+    {
+        return $anio ? $q->where('anio', $anio) : $q;
     }
 }
