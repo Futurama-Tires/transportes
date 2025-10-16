@@ -16,9 +16,10 @@
 
         <!-- CSS + JS -->
         @vite([
-        'resources/css/app.css',
-        'resources/js/app.js',
+            'resources/css/app.css',
+            'resources/js/app.js',
         ])
+
 
         <!-- Material Symbols / Icons -->
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />

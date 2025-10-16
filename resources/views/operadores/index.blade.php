@@ -117,7 +117,7 @@
                         <h2 class="page-title mb-0">Gestión de Operadores</h2>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('operadores.create') }}" class="btn btn-primary">
+                        <a href="{{ route('operadores.create') }}" class="btn btn-danger">
                             <i class="ti ti-plus me-1"></i>
                             Agregar Nuevo Operador
                         </a>
@@ -155,7 +155,7 @@
                                         placeholder="Buscar…"
                                         aria-label="Búsqueda global"
                                     >
-                                    <button class="btn btn-primary" type="submit">
+                                    <button class="btn btn-danger" type="submit">
                                         <i class="ti ti-search me-1" aria-hidden="true"></i>Buscar
                                     </button>
                                 </div>
@@ -164,14 +164,14 @@
                             {{-- Acciones --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
                                 <a href="{{ route('operadores.index', array_merge(request()->only($keepParams), ['export' => 'xlsx'])) }}"
-                                   class="btn btn-outline-success" title="Exportar a Excel">
+                                   class="btn btn-outline-dark" title="Exportar a Excel">
                                     <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
                                     <span>Exportar</span>
                                 </a>
 
                                 <button
                                     type="button"
-                                    class="btn btn-outline-secondary position-relative"
+                                    class="btn btn-outline-dark position-relative"
                                     data-bs-toggle="offcanvas"
                                     data-bs-target="#filtersOffcanvas"
                                     aria-controls="filtersOffcanvas"
@@ -247,8 +247,8 @@
                     <div class="offcanvas-footer d-flex justify-content-between align-items-center p-3 border-top">
                         <a href="{{ route('operadores.index') }}" class="btn btn-link">Limpiar filtros</a>
                         <div>
-                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="offcanvas">Cerrar</button>
-                            <button type="submit" class="btn btn-primary">
+                            <button type="button" class="btn btn-outline-dark me-2" data-bs-dismiss="offcanvas">Cerrar</button>
+                            <button type="submit" class="btn btn-danger">
                                 <i class="ti ti-filter me-1" aria-hidden="true"></i>Aplicar filtros
                             </button>
                         </div>
@@ -321,7 +321,7 @@
                                         <div class="d-inline-flex gap-1">
                                             {{-- Editar --}}
                                             <a href="{{ route('operadores.edit', $op) }}"
-                                               class="btn btn-outline-secondary btn-sm"
+                                               class="btn btn-outline-dark btn-sm"
                                                title="Editar">
                                                 <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
                                             </a>
@@ -335,7 +335,7 @@
                                             >
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
                                                     <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
                                                 </button>
                                             </form>
@@ -359,11 +359,11 @@
                                             </p>
                                             <div class="empty-action">
                                                 @if($search !== '')
-                                                    <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
+                                                    <a href="{{ route('operadores.index') }}" class="btn btn-outline-dark">
                                                         Limpiar filtros
                                                     </a>
                                                 @endif
-                                                <a href="{{ route('operadores.create') }}" class="btn btn-primary">
+                                                <a href="{{ route('operadores.create') }}" class="btn btn-danger">
                                                     <i class="ti ti-plus me-2" aria-hidden="true"></i>Agregar Nuevo Operador
                                                 </a>
                                             </div>

@@ -243,7 +243,7 @@
                         </span>
                         Cancelar
                     </a>
-                    <button class="btn btn-primary ms-auto d-inline-flex align-items-center gap-2" type="submit">
+                    <button class="btn btn-danger ms-auto d-inline-flex align-items-center gap-2" type="submit">
                         {{-- Icon: device-floppy (save) --}}
                         <span class="material-symbols-outlined">
                         save

@@ -33,7 +33,7 @@
                     </div>
 
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('tarjetas-comodin.create') }}" class="btn btn-primary">
+                        <a href="{{ route('tarjetas-comodin.create') }}" class="btn btn-danger">
                             <i class="ti ti-plus me-1"></i>
                             Nueva tarjeta
                         </a>
@@ -74,7 +74,7 @@
                                            class="form-control"
                                            placeholder="Buscar..."
                                            aria-label="Búsqueda global">
-                                    <button class="btn btn-primary" type="submit">
+                                    <button class="btn btn-danger" type="submit">
                                         <i class="ti ti-search me-1"></i>Buscar
                                     </button>
                                 </div>
@@ -85,7 +85,7 @@
 
                                 {{-- Botón Filtros (abre Offcanvas) --}}
                                 <button type="button"
-                                        class="btn btn-outline-secondary position-relative"
+                                        class="btn btn-outline-dark position-relative"
                                         data-bs-toggle="offcanvas"
                                         data-bs-target="#filtersOffcanvas"
                                         aria-controls="filtersOffcanvas">
@@ -219,8 +219,8 @@
                     <div class="offcanvas-footer d-flex justify-content-between align-items-center p-3 border-top">
                         <a href="{{ route('tarjetas-comodin.index') }}" class="btn btn-link">Limpiar filtros</a>
                         <div>
-                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="offcanvas">Cerrar</button>
-                            <button type="submit" class="btn btn-primary">
+                            <button type="button" class="btn btn-outline-dark me-2" data-bs-dismiss="offcanvas">Cerrar</button>
+                            <button type="submit" class="btn btn-danger">
                                 <i class="ti ti-filter me-1"></i>Aplicar filtros
                             </button>
                         </div>
@@ -275,7 +275,7 @@
                                             </span>
                                             @if($hasNip)
                                                 <button type="button"
-                                                        class="btn btn-outline-secondary btn-sm toggle-nip"
+                                                        class="btn btn-outline-dark btn-sm toggle-nip"
                                                         aria-label="Mostrar NIP" title="Mostrar NIP">
                                                     <i class="ti ti-eye"></i>
                                                     <span class="ms-1 d-none d-sm-inline">Mostrar</span>
@@ -318,7 +318,7 @@
 
                                             {{-- Editar --}}
                                             <a href="{{ route('tarjetas-comodin.edit', $tarjeta) }}"
-                                               class="btn btn-outline-secondary btn-sm"
+                                               class="btn btn-outline-dark btn-sm"
                                                title="Editar">
                                                 <i class="ti ti-edit me-1"></i>Editar
                                             </a>
@@ -330,7 +330,7 @@
                                                   onsubmit="return confirm('¿Seguro que quieres eliminar la tarjeta {{ $tarjeta->numero_tarjeta }}?');">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
                                                     <i class="ti ti-trash me-1"></i>Eliminar
                                                 </button>
                                             </form>
@@ -354,11 +354,11 @@
                                             </p>
                                             <div class="empty-action">
                                                 @if(request()->hasAny(['search','estado','tiene_nip','from','to','ultimos4']))
-                                                    <a href="{{ route('tarjetas-comodin.index') }}" class="btn btn-outline-secondary">
+                                                    <a href="{{ route('tarjetas-comodin.index') }}" class="btn btn-outline-dark">
                                                         Limpiar filtros
                                                     </a>
                                                 @endif
-                                                <a href="{{ route('tarjetas-comodin.create') }}" class="btn btn-primary">
+                                                <a href="{{ route('tarjetas-comodin.create') }}" class="btn btn-danger">
                                                     <i class="ti ti-plus me-2"></i>Nueva tarjeta
                                                 </a>
                                             </div>

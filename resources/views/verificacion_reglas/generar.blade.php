@@ -11,7 +11,7 @@
                     </div>
                 </div>
                 <div class="col-auto ms-auto">
-                    <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-outline-secondary">
+                    <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-outline-dark">
                         <i class="ti ti-arrow-left"></i> Volver
                     </a>
                 </div>

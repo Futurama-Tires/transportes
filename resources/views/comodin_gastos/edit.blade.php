@@ -5,7 +5,7 @@
                 <h2 class="page-title mb-0">
                     <i class="ti ti-receipt"></i> Editar Gasto
                 </h2>
-                <a href="{{ route('comodin-gastos.index', ['tarjeta' => $gasto->tarjeta_comodin_id]) }}" class="btn btn-outline-secondary">
+                <a href="{{ route('comodin-gastos.index', ['tarjeta' => $gasto->tarjeta_comodin_id]) }}" class="btn btn-outline-dark">
                     <i class="ti ti-arrow-left"></i> Volver
                 </a>
             </div>
@@ -43,7 +43,7 @@
                     </div>
                 </div>
                 <div class="card-footer text-end">
-                    <button class="btn btn-primary"><i class="ti ti-device-floppy"></i> Guardar cambios</button>
+                    <button class="btn btn-danger"><i class="ti ti-device-floppy"></i> Guardar cambios</button>
                 </div>
             </form>
         </div>

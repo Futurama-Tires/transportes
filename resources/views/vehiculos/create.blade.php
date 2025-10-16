@@ -11,7 +11,7 @@
                         </h2>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-dark">
                             <i class="ti ti-arrow-left me-1"></i>
                             Volver al listado
                         </a>
@@ -258,11 +258,11 @@
 
                     {{-- Footer acciones --}}
                     <div class="card-footer d-flex justify-content-end gap-2">
-                        <a href="{{ url()->previous() ?: route('vehiculos.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ url()->previous() ?: route('vehiculos.index') }}" class="btn btn-outline-dark">
                             <i class="ti ti-x me-1"></i>
                             Cancelar
                         </a>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-danger">
                             <i class="ti ti-device-floppy me-1"></i>
                             Guardar
                         </button>

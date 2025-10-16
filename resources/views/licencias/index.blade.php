@@ -16,7 +16,7 @@
                         <h2 class="page-title mb-0">Licencias de conducir</h2>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('licencias.create') }}" class="btn btn-primary">
+                        <a href="{{ route('licencias.create') }}" class="btn btn-danger">
                             <span class="material-symbols-outlined me-1 align-middle">add</span>Nueva licencia
                         </a>
                     </div>
@@ -50,17 +50,17 @@
                                         value="{{ $search }}"
                                         class="form-control"
                                         placeholder="Buscar por folio, tipo, emisor, estado de emisión…">
-                                    <button class="btn btn-primary" type="submit">
+                                    <button class="btn btn-danger" type="submit">
                                         <span class="material-symbols-outlined me-1 align-middle">search</span>Buscar
                                     </button>
                                 </div>
                             </div>
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                <button class="btn btn-outline-secondary" type="button"
+                                <button class="btn btn-outline-dark" type="button"
                                         data-bs-toggle="offcanvas" data-bs-target="#filters" aria-controls="filters">
                                     <span class="material-symbols-outlined me-1 align-middle">tune</span>Filtros
                                 </button>
-                                <a href="{{ route('licencias.index') }}" class="btn btn-outline-secondary">
+                                <a href="{{ route('licencias.index') }}" class="btn btn-outline-dark">
                                     Limpiar
                                 </a>
                             </div>
@@ -96,7 +96,7 @@
                         {{-- Se elimina filtro por Operador ID --}}
                     </div>
                     <div class="offcanvas-footer p-3 border-top">
-                        <button type="submit" class="btn btn-primary w-100">
+                        <button type="submit" class="btn btn-danger w-100">
                             <span class="material-symbols-outlined me-1 align-middle">filter_alt</span>Aplicar filtros
                         </button>
                     </div>
@@ -154,13 +154,13 @@
                                         @endif
                                     </td>
                                     <td class="text-end">
-                                        <a href="{{ route('licencias.edit', $l) }}" class="btn btn-outline-secondary btn-sm">
+                                        <a href="{{ route('licencias.edit', $l) }}" class="btn btn-outline-dark btn-sm">
                                             <span class="material-symbols-outlined me-1 align-middle">edit</span>Editar
                                         </a>
                                         <form action="{{ route('licencias.destroy', $l) }}" method="POST" class="d-inline"
                                               onsubmit="return confirm('¿Eliminar esta licencia? Esta acción borra sus archivos.');">
                                             @csrf @method('DELETE')
-                                            <button class="btn btn-danger btn-sm">
+                                            <button class="btn btn-outline-danger btn-sm">
                                                 <span class="material-symbols-outlined me-1 align-middle">delete</span>Eliminar
                                             </button>
                                         </form>

@@ -17,7 +17,7 @@
                         </div>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('licencias.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('licencias.index') }}" class="btn btn-outline-dark">
                             <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver
                         </a>
                     </div>
@@ -120,8 +120,8 @@
                         </div>
 
                         <div class="d-flex justify-content-end gap-2 mt-3">
-                            <a href="{{ route('licencias.index') }}" class="btn btn-outline-secondary">Cancelar</a>
-                            <button class="btn btn-primary" type="submit">
+                            <a href="{{ route('licencias.index') }}" class="btn btn-outline-dark">Cancelar</a>
+                            <button class="btn btn-danger" type="submit">
                                 <span class="material-symbols-outlined me-1 align-middle">save</span>Guardar cambios
                             </button>
                         </div>
@@ -166,15 +166,15 @@
                                             </div>
                                         </div>
                                         <div class="d-flex gap-2">
-                                            <a href="{{ route('licencias.archivos.inline', $a) }}" class="btn btn-outline-secondary btn-sm" target="_blank" title="Ver">
+                                            <a href="{{ route('licencias.archivos.inline', $a) }}" class="btn btn-outline-dark btn-sm" target="_blank" title="Ver">
                                                 <span class="material-symbols-outlined">visibility</span>
                                             </a>
-                                            <a href="{{ route('licencias.archivos.download', $a) }}" class="btn btn-outline-secondary btn-sm" title="Descargar">
+                                            <a href="{{ route('licencias.archivos.download', $a) }}" class="btn btn-outline-dark btn-sm" title="Descargar">
                                                 <span class="material-symbols-outlined">download</span>
                                             </a>
                                             <form action="{{ route('licencias.archivos.destroy', $a) }}" method="POST" onsubmit="return confirm('¿Eliminar archivo {{ $a->nombre_original }}?');">
                                                 @csrf @method('DELETE')
-                                                <button class="btn btn-danger btn-sm" title="Eliminar">
+                                                <button class="btn btn-outline-danger btn-sm" title="Eliminar">
                                                     <span class="material-symbols-outlined">delete</span>
                                                 </button>
                                             </form>

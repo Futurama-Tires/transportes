@@ -25,17 +25,17 @@
             {{-- Mensajes por rol --}}
             <div class="mb-3">
                 @role('administrador')
-                    <div class="alert alert-success py-2 mb-2" role="alert">
+                    <div class="alert alert-danger py-2 mb-2" role="alert">
                         <i class="ti ti-shield-check me-2"></i> Perfil: Administrador
                     </div>
                 @endrole
                 @role('capturista')
-                    <div class="alert alert-primary py-2 mb-2" role="alert">
+                    <div class="alert alert-danger py-2 mb-2" role="alert">
                         <i class="ti ti-edit me-2"></i> Perfil: Capturista
                     </div>
                 @endrole
                 @role('operador')
-                    <div class="alert alert-warning py-2 mb-2" role="alert">
+                    <div class="alert alert-danger py-2 mb-2" role="alert">
                         <i class="ti ti-steering-wheel me-2"></i> Perfil: Operador
                     </div>
                 @endrole

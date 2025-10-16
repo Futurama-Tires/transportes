@@ -48,8 +48,8 @@
         @endif
 
         <div>
-            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="offcanvas">{{ $closeLabel }}</button>
-            <button type="submit" class="btn btn-primary">
+            <button type="button" class="btn btn-outline-dark me-2" data-bs-dismiss="offcanvas">{{ $closeLabel }}</button>
+            <button type="submit" class="btn btn-danger">
                 <i class="ti ti-filter me-1" aria-hidden="true"></i>{{ $submitLabel }}
             </button>
         </div>

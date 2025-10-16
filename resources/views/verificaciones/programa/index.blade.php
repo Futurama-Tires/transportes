@@ -70,7 +70,7 @@
                                 </select>
                             </div>
                             <div class="col-12 col-md-auto">
-                                <button class="btn btn-primary">
+                                <button class="btn btn-danger">
                                     <i class="ti ti-filter me-1"></i> Aplicar
                                 </button>
                             </div>
@@ -215,7 +215,7 @@
                                                                             @endif
                                                                         </div>
                                                                         <div class="ms-2">
-                                                                            <button class="btn btn-sm btn-outline-secondary"
+                                                                            <button class="btn btn-sm btn-outline-dark"
                                                                                 data-bs-toggle="modal"
                                                                                 data-bs-target="#modalMarcar"
                                                                                 data-vehiculo="{{ $v->id }}"
@@ -293,7 +293,7 @@
                 </div>
                 <div class="modal-footer">
                     <a class="btn btn-link link-secondary" data-bs-dismiss="modal">Cancelar</a>
-                    <button class="btn btn-primary">
+                    <button class="btn btn-danger">
                         <i class="ti ti-device-floppy"></i> Guardar
                     </button>
                 </div>

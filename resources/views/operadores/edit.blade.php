@@ -10,7 +10,7 @@
                         <h2 class="page-title mb-0">Editar un Operador</h2>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-dark">
                             <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver al listado
                         </a>
                     </div>
@@ -376,8 +376,8 @@
                     {{-- FOOTER del form: un único botón que guarda TODO --}}
                     <div class="col-12">
                         <div class="d-flex justify-content-end gap-2 mt-4">
-                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">Cancelar</a>
-                            <button type="submit" class="btn btn-primary">
+                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-dark">Cancelar</a>
+                            <button type="submit" class="btn btn-danger">
                                 <span class="material-symbols-outlined me-1 align-middle">save</span> Guardar todo
                             </button>
                         </div>
@@ -393,7 +393,7 @@
                     </h3>
                     <div>
                         <a href="{{ route('licencias.create', ['operador_id' => $operador->id]) }}"
-                           class="btn btn-primary btn-sm">
+                           class="btn btn-outline-danger btn-sm">
                             <span class="material-symbols-outlined me-1 align-middle">add</span>Agregar licencia
                         </a>
                     </div>
@@ -445,7 +445,7 @@
                                                 @else
                                                     <div class="d-flex gap-1 flex-wrap">
                                                         @foreach($l->archivos as $a)
-                                                            <a href="{{ route('licencias.archivos.inline', $a) }}" class="btn btn-outline-secondary btn-xs" target="_blank" rel="noopener" title="{{ $a->nombre_original }}">
+                                                            <a href="{{ route('licencias.archivos.inline', $a) }}" class="btn btn-outline-dark btn-xs" target="_blank" rel="noopener" title="{{ $a->nombre_original }}">
                                                                 <span class="material-symbols-outlined" style="font-size:18px;">visibility</span>
                                                             </a>
                                                         @endforeach
@@ -453,13 +453,13 @@
                                                 @endif
                                             </td>
                                             <td class="text-end">
-                                                <a href="{{ route('licencias.edit', $l) }}" class="btn btn-outline-secondary btn-sm">
+                                                <a href="{{ route('licencias.edit', $l) }}" class="btn btn-outline-dark btn-sm">
                                                     <span class="material-symbols-outlined me-1 align-middle">edit</span>Editar
                                                 </a>
                                                 <form action="{{ route('licencias.destroy', $l) }}" method="POST" class="d-inline"
                                                       onsubmit="return confirm('¿Eliminar la licencia seleccionada? Esta acción borrará sus archivos.');">
                                                     @csrf @method('DELETE')
-                                                    <button class="btn btn-danger btn-sm">
+                                                    <button class="btn btn-outline-danger btn-sm">
                                                         <span class="material-symbols-outlined me-1 align-middle">delete</span>Eliminar
                                                     </button>
                                                 </form>

@@ -21,7 +21,7 @@
 
                     {{-- CTA principal --}}
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('verificacion-reglas.create') }}" class="btn btn-primary">
+                        <a href="{{ route('verificacion-reglas.create') }}" class="btn btn-danger">
                             <i class="ti ti-plus me-1" aria-hidden="true"></i>
                             <span>Nueva regla</span>
                         </a>

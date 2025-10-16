@@ -44,11 +44,11 @@
                     </div>
                     <div class="col-auto ms-auto d-print-none">
                         <div class="btn-list">
-                            <a href="{{ route('tarjetas.index') }}" class="btn btn-outline-secondary">
+                            <a href="{{ route('tarjetas.index') }}" class="btn btn-outline-dark">
                                 <span class="material-symbols-outlined me-1 align-middle">arrow_back</span>
                                 Volver
                             </a>
-                            <a href="{{ route('tarjetas.edit', $tarjeta) }}" class="btn btn-primary">
+                            <a href="{{ route('tarjetas.edit', $tarjeta) }}" class="btn btn-danger">
                                 <span class="material-symbols-outlined me-1 align-middle">edit</span>
                                 Editar
                             </a>
@@ -298,7 +298,7 @@
                                 <span>Fotos del vehículo</span>
                             </h4>
                             <div class="d-flex gap-2">
-                                <a id="managePhotosLink" href="#" class="btn btn-outline-secondary btn-sm">
+                                <a id="managePhotosLink" href="#" class="btn btn-outline-dark btn-sm">
                                     <span class="material-symbols-outlined me-1 align-middle">add_photo_alternate</span>
                                     Gestionar fotos
                                 </a>
@@ -347,11 +347,11 @@
                 </div>
 
                 <div class="modal-footer">
-                    <a id="editVehicleLink" href="#" class="btn btn-outline-secondary">
+                    <a id="editVehicleLink" href="#" class="btn btn-outline-dark">
                         <span class="material-symbols-outlined me-1 align-middle">edit</span>
                         Editar vehículo
                     </a>
-                    <button class="btn btn-primary" data-bs-dismiss="modal">Cerrar</button>
+                    <button class="btn btn-danger" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>

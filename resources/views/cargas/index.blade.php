@@ -69,7 +69,7 @@
                         <h2 class="page-title mb-0">Cargas de Combustible</h2>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('cargas.create') }}" class="btn btn-primary">
+                        <a href="{{ route('cargas.create') }}" class="btn btn-danger">
                             <i class="ti ti-plus me-1" aria-hidden="true"></i><span>Agregar Nueva Carga</span>
                         </a>
                     </div>
@@ -98,7 +98,7 @@
                                     <span class="input-group-text" id="icon-search"><i class="ti ti-search" aria-hidden="true"></i></span>
                                     <input type="text" name="search" value="{{ $rq('search') }}" class="form-control"
                                            placeholder="Buscar…" aria-label="Término de búsqueda" aria-describedby="icon-search">
-                                    <button class="btn btn-primary" type="submit">
+                                    <button class="btn btn-danger" type="submit">
                                         <i class="ti ti-search me-1" aria-hidden="true"></i>Buscar
                                     </button>
                                 </div>
@@ -106,12 +106,12 @@
 
                             {{-- Acciones --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                <a href="{{ $exportHref }}" class="btn btn-outline-success" title="Exportar a Excel">
+                                <a href="{{ $exportHref }}" class="btn btn-outline-dark" title="Exportar a Excel">
                                     <i class="ti ti-brand-excel me-1" aria-hidden="true"></i><span>Exportar</span>
                                 </a>
 
                                 <button type="button"
-                                        class="btn btn-outline-secondary position-relative"
+                                        class="btn btn-outline-dark position-relative"
                                         data-bs-toggle="offcanvas"
                                         data-bs-target="#filtersOffcanvas"
                                         aria-controls="filtersOffcanvas"
@@ -252,8 +252,8 @@
                     <x-slot name="footer">
                         <a href="{{ route('cargas.index') }}" class="btn btn-link">Limpiar filtros</a>
                         <div class="d-flex">
-                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="offcanvas">Cerrar</button>
-                            <button type="submit" class="btn btn-primary">
+                            <button type="button" class="btn btn-outline-dark me-2" data-bs-dismiss="offcanvas">Cerrar</button>
+                            <button type="submit" class="btn btn-danger">
                                 <i class="ti ti-filter me-1" aria-hidden="true"></i>Aplicar filtros
                             </button>
                         </div>
@@ -323,11 +323,11 @@
 
                                     <td class="text-end text-nowrap" style="min-width:15rem;">
                                         <div class="d-inline-flex gap-1">
-                                            <a href="{{ route('cargas.edit',$c->id) }}" class="btn btn-outline-secondary btn-sm" title="Editar">
+                                            <a href="{{ route('cargas.edit',$c->id) }}" class="btn btn-outline-dark btn-sm" title="Editar">
                                                 <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
                                             </a>
                                             @if($rowId>0)
-                                                <button type="submit" class="btn btn-danger btn-sm" form="del-{{ $rowId }}"
+                                                <button type="submit" class="btn btn-outline-danger btn-sm" form="del-{{ $rowId }}"
                                                         onclick="event.stopPropagation(); return confirm('¿Seguro que quieres eliminar?');"
                                                         title="Eliminar">
                                                     <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
@@ -345,7 +345,7 @@
                                             <p class="empty-title">No hay datos</p>
                                             <div class="empty-action">
                                                 @if($hasFilters)
-                                                    <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">Limpiar filtros</a>
+                                                    <a href="{{ route('cargas.index') }}" class="btn btn-outline-dark">Limpiar filtros</a>
                                                 @endif
                                             </div>
                                         </div>

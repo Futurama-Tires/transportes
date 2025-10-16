@@ -9,7 +9,7 @@
                         <h2 class="page-title mb-0">Nueva licencia</h2>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('licencias.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('licencias.index') }}" class="btn btn-outline-dark">
                             <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver
                         </a>
                     </div>
@@ -114,8 +114,8 @@
                 </div>
 
                 <div class="d-flex justify-content-end gap-2 mt-4">
-                    <a href="{{ route('licencias.index') }}" class="btn btn-outline-secondary">Cancelar</a>
-                    <button class="btn btn-primary" type="submit">
+                    <a href="{{ route('licencias.index') }}" class="btn btn-outline-dark">Cancelar</a>
+                    <button class="btn btn-danger" type="submit">
                         <span class="material-symbols-outlined me-1 align-middle">save</span>Guardar
                     </button>
                 </div>

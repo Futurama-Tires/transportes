@@ -45,7 +45,7 @@
 
                     {{-- CTA: ir a filtros (ancla segura) --}}
                     <div class="col-auto ms-auto">
-                        <a href="#filtrosForm" class="btn btn-primary">
+                        <a href="#filtrosForm" class="btn btn-danger">
                             <i class="ti ti-adjustments me-1" aria-hidden="true"></i>
                             <span>Filtros</span>
                         </a>
@@ -116,8 +116,8 @@
                         </div>
 
                         <div class="col-12 col-md-6 d-flex align-items-end gap-2">
-                            <button type="submit" class="btn btn-primary">Aplicar filtros</button>
-                            <a href="{{ route('reportes.index') }}" class="btn btn-outline-secondary">Limpiar</a>
+                            <button type="submit" class="btn btn-danger">Aplicar filtros</button>
+                            <a href="{{ route('reportes.index') }}" class="btn btn-outline-dark">Limpiar</a>
                         </div>
                     </form>
                 </div>
@@ -172,7 +172,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h3 class="card-title mb-0">Rendimiento vs Índice Estándar (km/L)</h3>
                             <div class="btn-group">
-                                <a id="exp-rendimiento-pdf" href="#" class="btn btn-outline-secondary" aria-disabled="true">Exportar PDF</a>
+                                <a id="exp-rendimiento-pdf" href="#" class="btn btn-outline-dark" aria-disabled="true">Exportar PDF</a>
                             </div>
                         </div>
                         <div class="card mb-3">
@@ -209,7 +209,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h3 class="card-title mb-0">Costo por km & Gasto</h3>
                             <div class="btn-group">
-                                <a id="exp-costokm-pdf" href="#" class="btn btn-outline-secondary" aria-disabled="true">Exportar PDF</a>
+                                <a id="exp-costokm-pdf" href="#" class="btn btn-outline-dark" aria-disabled="true">Exportar PDF</a>
                             </div>
                         </div>
                         <div class="card mb-3"><div class="card-body">
@@ -244,7 +244,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h3 class="card-title mb-0">Auditoría de cargas y anomalías</h3>
                             <div class="btn-group">
-                                <a id="exp-auditoria-pdf" href="#" class="btn btn-outline-secondary" aria-disabled="true">Exportar PDF</a>
+                                <a id="exp-auditoria-pdf" href="#" class="btn btn-outline-dark" aria-disabled="true">Exportar PDF</a>
                             </div>
                         </div>
 
@@ -260,7 +260,7 @@
                                 Mostrando: <span id="auditoria-filter-badge" class="badge bg-secondary">Todas</span>
                             </div>
                             <div class="btn-group">
-                                <button id="auditoria-clear-filter" class="btn btn-sm btn-outline-secondary" disabled>Quitar filtro</button>
+                                <button id="auditoria-clear-filter" class="btn btn-sm btn-outline-dark" disabled>Quitar filtro</button>
                             </div>
                         </div>
 
@@ -291,7 +291,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h3 class="card-title mb-0">Verificación anual: Verificados vs Sin verificar</h3>
                             <div class="btn-group">
-                                <a id="exp-verificacion-pdf" href="#" class="btn btn-outline-secondary" aria-disabled="true">Exportar PDF</a>
+                                <a id="exp-verificacion-pdf" href="#" class="btn btn-outline-dark" aria-disabled="true">Exportar PDF</a>
                             </div>
                         </div>
                         <div class="card mb-3"><div class="card-body">

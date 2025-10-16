@@ -38,7 +38,7 @@
 
                 </div>
                 <div class="col-auto ms-auto">
-                    <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-outline-secondary">
+                    <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-outline-dark">
                         <i class="ti ti-arrow-left"></i> Volver
                     </a>
                 </div>
@@ -92,7 +92,7 @@
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="btn-select-all">
                                     <i class="ti ti-checkbox"></i> Seleccionar todos
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-clear-all">
+                                <button type="button" class="btn btn-sm btn-outline-dark" id="btn-clear-all">
                                     <i class="ti ti-square"></i> Limpiar
                                 </button>
                             </div>
@@ -246,7 +246,7 @@
 
             <div class="card-footer d-flex justify-content-end">
                 <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-link">Cancelar</a>
-                <button id="btn-guardar" class="btn btn-primary" disabled>
+                <button id="btn-guardar" class="btn btn-danger" disabled>
                     <i class="ti ti-device-floppy"></i> Guardar regla
                 </button>
             </div>

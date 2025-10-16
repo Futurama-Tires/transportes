@@ -55,10 +55,10 @@
                     </div>
 
                     <div class="d-flex gap-2">
-                        <a href="{{ url()->previous() }}" class="btn btn-outline-secondary">
+                        <a href="{{ url()->previous() }}" class="btn btn-outline-dark">
                             Volver
                         </a>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-danger">
                             Enviar enlace
                         </button>
                     </div>

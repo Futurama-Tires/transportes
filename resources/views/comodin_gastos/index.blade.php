@@ -28,7 +28,7 @@
                     </div>
                     <div class="col-auto ms-auto">
                         @if($tarjetaId)
-                            <a href="{{ route('tarjetas-comodin.gastos.create', $tarjetaId) }}" class="btn btn-primary">
+                            <a href="{{ route('tarjetas-comodin.gastos.create', $tarjetaId) }}" class="btn btn-danger">
                                 <i class="ti ti-plus me-1"></i>Nuevo gasto
                             </a>
                         @endif
@@ -67,7 +67,7 @@
                                            class="form-control"
                                            placeholder="Buscar por concepto…"
                                            aria-label="Búsqueda por concepto">
-                                    <button class="btn btn-primary" type="submit">
+                                    <button class="btn btn-danger" type="submit">
                                         <i class="ti ti-search me-1"></i>Buscar
                                     </button>
                                 </div>
@@ -83,7 +83,7 @@
 
                                 {{-- Botón Filtros (abre Offcanvas) --}}
                                 <button type="button"
-                                        class="btn btn-outline-secondary position-relative"
+                                        class="btn btn-outline-dark position-relative"
                                         data-bs-toggle="offcanvas"
                                         data-bs-target="#filtersOffcanvas"
                                         aria-controls="filtersOffcanvas">
@@ -215,8 +215,8 @@
                     <div class="offcanvas-footer d-flex justify-content-between align-items-center p-3 border-top">
                         <a href="{{ route('comodin-gastos.index') }}" class="btn btn-link">Limpiar filtros</a>
                         <div>
-                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="offcanvas">Cerrar</button>
-                            <button type="submit" class="btn btn-primary">
+                            <button type="button" class="btn btn-outline-dark me-2" data-bs-dismiss="offcanvas">Cerrar</button>
+                            <button type="submit" class="btn btn-danger">
                                 <i class="ti ti-filter me-1"></i>Aplicar filtros
                             </button>
                         </div>
@@ -254,7 +254,7 @@
                                     <td class="text-end">
                                         <div class="d-inline-flex gap-1">
                                             <a href="{{ route('gastos.edit', $g) }}"
-                                               class="btn btn-outline-secondary btn-sm"
+                                               class="btn btn-outline-dark btn-sm"
                                                title="Editar">
                                                 <i class="ti ti-edit me-1"></i>Editar
                                             </a>
@@ -262,7 +262,7 @@
                                             @if($rowId > 0)
                                                 <button
                                                     type="submit"
-                                                    class="btn btn-danger btn-sm"
+                                                    class="btn btn-outline-danger btn-sm"
                                                     form="del-{{ $rowId }}"
                                                     onclick="event.stopPropagation(); return confirm('¿Eliminar gasto?');"
                                                     title="Eliminar">
@@ -289,12 +289,12 @@
                                             </p>
                                             <div class="empty-action">
                                                 @if(request()->hasAny(['search','tarjeta','desde','hasta','monto_min','monto_max']))
-                                                    <a href="{{ route('comodin-gastos.index') }}" class="btn btn-outline-secondary">
+                                                    <a href="{{ route('comodin-gastos.index') }}" class="btn btn-outline-dark">
                                                         Limpiar filtros
                                                     </a>
                                                 @endif
                                                 @if($tarjetaId)
-                                                    <a href="{{ route('tarjetas-comodin.gastos.create', $tarjetaId) }}" class="btn btn-primary">
+                                                    <a href="{{ route('tarjetas-comodin.gastos.create', $tarjetaId) }}" class="btn btn-danger">
                                                         <i class="ti ti-plus me-2"></i>Nuevo gasto
                                                     </a>
                                                 @endif

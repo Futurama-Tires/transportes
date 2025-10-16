@@ -33,7 +33,7 @@
           </div>
         </div>
         <div class="col-auto ms-auto">
-          <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-outline-secondary">
+          <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-outline-dark">
             <i class="ti ti-arrow-left"></i> Volver
           </a>
         </div>
@@ -207,7 +207,7 @@
 
       <div class="card-footer d-flex justify-content-end flex-wrap">
         <div>
-          <button class="btn btn-primary">
+          <button class="btn btn-danger">
             <i class="ti ti-device-floppy"></i> Guardar cambios
           </button>
         </div>

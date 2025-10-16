@@ -36,7 +36,7 @@
                         <h2 class="page-title mb-0">Editar Carga de Combustible</h2>
                     </div>
                     <div class="col-auto ms-auto d-flex align-items-center gap-2">
-                        <a href="{{ route('cargas.index') }}" class="btn btn-primary">
+                        <a href="{{ route('cargas.index') }}" class="btn btn-danger">
                             <i class="ti ti-arrow-left me-1"></i> Volver a la lista
                         </a>
                     </div>
@@ -279,7 +279,7 @@
 
                                 <div class="d-flex gap-2">
                                     <a href="{{ route('cargas.index') }}" class="btn btn-link">Cancelar</a>
-                                    <button type="submit" class="btn btn-primary">
+                                    <button type="submit" class="btn btn-danger">
                                         <i class="ti ti-device-floppy me-1"></i> Guardar cambios
                                     </button>
                                 </div>
@@ -314,7 +314,7 @@
                                 </div>
                             </div>
                             <div class="card-footer text-end">
-                                <a href="{{ route('cargas.index') }}" class="btn btn-outline-secondary">
+                                <a href="{{ route('cargas.index') }}" class="btn btn-outline-dark">
                                     <i class="ti ti-arrow-left me-1"></i> Volver
                                 </a>
                             </div>
@@ -361,7 +361,7 @@
                                     <option value="extra" selected>Extra</option>
                                 </select>
                                 <input type="file" name="image" class="form-control" style="width:260px" accept="image/*" required>
-                                <button type="submit" class="btn btn-primary">
+                                <button type="submit" class="btn btn-danger">
                                     <i class="ti ti-upload me-1"></i> Subir foto
                                 </button>
                             </form>

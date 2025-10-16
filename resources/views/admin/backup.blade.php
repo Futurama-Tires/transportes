@@ -19,7 +19,7 @@
 
                     {{-- Botón volver al menú principal --}}
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('dashboard') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('dashboard') }}" class="btn btn-outline-dark">
                             <i class="ti ti-arrow-left me-1" aria-hidden="true"></i>
                             Volver al menú principal
                         </a>
@@ -76,7 +76,7 @@
                             {{-- Botón siempre habilitado --}}
                             <form method="POST" action="{{ route('admin.backup.download') }}">
                                 @csrf
-                                <button type="submit" class="btn btn-primary">
+                                <button type="submit" class="btn btn-danger">
                                     <i class="ti ti-download me-1" aria-hidden="true"></i> Descargar SQL
                                 </button>
                             </form>

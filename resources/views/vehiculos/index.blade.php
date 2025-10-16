@@ -54,7 +54,7 @@
                             <h2 class="page-title mb-0">Gestión de vehículos</h2>
                         </div>
                         <div class="col-auto ms-auto">
-                            <a href="{{ route('vehiculos.create') }}" class="btn btn-primary">
+                            <a href="{{ route('vehiculos.create') }}" class="btn btn-danger">
                                 <i class="ti ti-plus me-1" aria-hidden="true"></i>
                                 <span>Agregar Vehículo</span>
                             </a>
@@ -94,7 +94,7 @@
                                             aria-label="Término de búsqueda"
                                             aria-describedby="icon-search"
                                         >
-                                        <button class="btn btn-primary" type="submit">
+                                        <button class="btn btn-danger" type="submit">
                                             <i class="ti ti-search me-1" aria-hidden="true"></i>Buscar
                                         </button>
                                     </div>
@@ -104,7 +104,7 @@
                                 <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
                                     {{-- Botón único: Exportar Excel --}}
                                     <a href="{{ $exportHref }}"
-                                    class="btn btn-outline-success"
+                                    class="btn btn-outline-dark"
                                     title="Exportar a Excel">
                                         <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
                                         <span>Exportar</span>
@@ -113,7 +113,7 @@
                                     {{-- Botón Filtros --}}
                                     <button
                                         type="button"
-                                        class="btn btn-outline-secondary position-relative"
+                                        class="btn btn-outline-dark position-relative"
                                         data-bs-toggle="offcanvas"
                                         data-bs-target="#filtersOffcanvas"
                                         aria-controls="filtersOffcanvas"
@@ -323,7 +323,7 @@
                                         <td class="text-end">
                                             <div class="d-inline-flex gap-1">
                                                 <button type="button"
-                                                        class="btn btn-outline-secondary btn-sm btn-view-veh"
+                                                        class="btn btn-outline-dark btn-sm btn-view-veh"
                                                         data-bs-toggle="modal"
                                                         data-bs-target="#vehicleModal"
                                                         data-veh='@json($vehData, JSON_UNESCAPED_UNICODE)'
@@ -332,7 +332,7 @@
                                                 </button>
 
                                                 <a href="{{ route('vehiculos.edit', $v) }}"
-                                                   class="btn btn-outline-secondary btn-sm"
+                                                   class="btn btn-outline-dark btn-sm"
                                                    title="Editar">
                                                     <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
                                                 </a>
@@ -343,7 +343,7 @@
                                                       onsubmit="return confirm('¿Eliminar el vehículo #{{ $v->id }}?');">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
                                                         <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
                                                     </button>
                                                 </form>
@@ -367,11 +367,11 @@
                                                 </p>
                                                 <div class="empty-action">
                                                     @if(request()->hasAny(['search','id','unidad','placa','serie','anio_min','anio_max','propietario','marca']))
-                                                        <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-secondary">
+                                                        <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-dark">
                                                             Limpiar filtros
                                                         </a>
                                                     @endif
-                                                    <a href="{{ route('vehiculos.create') }}" class="btn btn-primary">
+                                                    <a href="{{ route('vehiculos.create') }}" class="btn btn-danger">
                                                         <i class="ti ti-plus me-2" aria-hidden="true"></i>Agregar Vehículo
                                                     </a>
                                                 </div>
@@ -474,7 +474,7 @@
                             <div class="card-header d-flex align-items-center justify-content-between">
                                 <h4 class="card-title mb-0">Fotos del vehículo</h4>
                                 <div class="d-flex gap-2">
-                                    <a id="managePhotosLink" href="#" class="btn btn-outline-secondary btn-sm">
+                                    <a id="managePhotosLink" href="#" class="btn btn-outline-dark btn-sm">
                                         <i class="ti ti-photo-plus me-1" aria-hidden="true"></i>Gestionar fotos
                                     </a>
                                     <button id="openGalleryBtn" type="button" class="btn btn-dark btn-sm d-none">
@@ -520,10 +520,10 @@
                     </div>
 
                     <div class="modal-footer">
-                        <a id="editVehicleLink" href="#" class="btn btn-outline-secondary">
+                        <a id="editVehicleLink" href="#" class="btn btn-outline-dark">
                             <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar vehículo
                         </a>
-                        <button class="btn btn-primary" data-bs-dismiss="modal">Cerrar</button>
+                        <button class="btn btn-danger" data-bs-dismiss="modal">Cerrar</button>
                     </div>
                 </div>
             </div>

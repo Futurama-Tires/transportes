@@ -54,7 +54,7 @@
                         <h2 class="page-title mb-0">Gestión de Capturistas</h2>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('capturistas.create') }}" class="btn btn-primary">
+                        <a href="{{ route('capturistas.create') }}" class="btn btn-danger">
                             <i class="ti ti-user-plus me-1" aria-hidden="true"></i>
                             <span>Agregar Nuevo Capturista</span>
                         </a>
@@ -97,7 +97,7 @@
                                         aria-label="Término de búsqueda"
                                         aria-describedby="icon-search"
                                     >
-                                    <button class="btn btn-primary" type="submit">
+                                    <button class="btn btn-danger" type="submit">
                                         <i class="ti ti-search me-1" aria-hidden="true"></i>Buscar
                                     </button>
                                 </div>
@@ -108,7 +108,7 @@
 
                                 {{-- Exportar (genera URL con ?export=xlsx preservando filtros) --}}
                                 <a href="{{ route('capturistas.index', array_merge(request()->except('page'), ['export' => 'xlsx'])) }}"
-                                   class="btn btn-outline-success"
+                                   class="btn btn-outline-dark"
                                    title="Exportar a Excel">
                                     <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
                                     <span>Exportar</span>
@@ -117,7 +117,7 @@
                                 {{-- Filtros (offcanvas sin overlay) --}}
                                 <button
                                     type="button"
-                                    class="btn btn-outline-secondary position-relative"
+                                    class="btn btn-outline-dark position-relative"
                                     data-bs-toggle="offcanvas"
                                     data-bs-target="#filtersOffcanvas"
                                     aria-controls="filtersOffcanvas"
@@ -200,8 +200,8 @@
                     <div class="offcanvas-footer d-flex justify-content-between align-items-center p-3 border-top">
                         <a href="{{ route('capturistas.index') }}" class="btn btn-link">Limpiar filtros</a>
                         <div>
-                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="offcanvas">Cerrar</button>
-                            <button type="submit" class="btn btn-primary">
+                            <button type="button" class="btn btn-outline-dark me-2" data-bs-dismiss="offcanvas">Cerrar</button>
+                            <button type="submit" class="btn btn-danger">
                                 <i class="ti ti-filter me-1" aria-hidden="true"></i>Aplicar filtros
                             </button>
                         </div>
@@ -259,14 +259,14 @@
                                         <div class="d-inline-flex gap-1">
                                             {{-- Ver (usa edit como placeholder si no hay ruta show) --}}
                                             <a href="{{ route('capturistas.edit', $cap) }}"
-                                               class="btn btn-outline-secondary btn-sm"
+                                               class="btn btn-outline-dark btn-sm"
                                                title="Ver">
                                                 <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
                                             </a>
 
                                             {{-- Editar --}}
                                             <a href="{{ route('capturistas.edit', $cap) }}"
-                                               class="btn btn-outline-secondary btn-sm"
+                                               class="btn btn-outline-dark btn-sm"
                                                title="Editar">
                                                 <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
                                             </a>
@@ -279,7 +279,7 @@
                                                 onsubmit="return confirm('¿Seguro que deseas eliminar a {{ $nombre !== '' ? $nombre : 'este capturista' }}?');">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
                                                     <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
                                                 </button>
                                             </form>
@@ -304,11 +304,11 @@
                                             </p>
                                             <div class="empty-action">
                                                 @if($search !== '')
-                                                    <a href="{{ route('capturistas.index') }}" class="btn btn-outline-secondary">
+                                                    <a href="{{ route('capturistas.index') }}" class="btn btn-outline-dark">
                                                         Limpiar filtros
                                                     </a>
                                                 @endif
-                                                <a href="{{ route('capturistas.create') }}" class="btn btn-primary">
+                                                <a href="{{ route('capturistas.create') }}" class="btn btn-danger">
                                                     <i class="ti ti-user-plus me-2" aria-hidden="true"></i>Agregar Nuevo Capturista
                                                 </a>
                                             </div>

@@ -15,7 +15,7 @@
                 <div class="col-auto ms-auto d-print-none">
                     <br>
                     <div class="btn-list">
-                        <a href="{{ route('tarjetas.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('tarjetas.index') }}" class="btn btn-outline-dark">
                             <i class="ti ti-arrow-left me-1"></i>
                             Volver al listado
                         </a>
@@ -107,7 +107,7 @@
                                             placeholder="••••"
                                             inputmode="numeric"
                                         >
-                                        <button type="button" id="toggle-nip" class="btn btn-outline-secondary" aria-label="Mostrar/ocultar NIP">
+                                        <button type="button" id="toggle-nip" class="btn btn-outline-dark" aria-label="Mostrar/ocultar NIP">
                                             <i class="ti ti-eye"></i>
                                         </button>
                                     </div>
@@ -147,7 +147,7 @@
                             </div>
 
                             <div class="card-footer d-flex gap-2">
-                                <button type="submit" class="btn btn-primary">
+                                <button type="submit" class="btn btn-danger">
                                     <i class="ti ti-device-floppy me-1"></i>
                                     Actualizar
                                 </button>

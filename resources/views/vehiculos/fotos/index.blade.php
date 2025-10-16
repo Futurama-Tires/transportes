@@ -24,11 +24,11 @@
                 </div>
                 <div class="col-auto ms-auto d-print-none">
                     <div class="btn-list">
-                        <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-dark">
                             <i class="ti ti-arrow-left me-1"></i>
                             Volver al listado
                         </a>
-                        <a href="{{ route('vehiculos.edit', $vehiculo) }}" class="btn btn-primary">
+                        <a href="{{ route('vehiculos.edit', $vehiculo) }}" class="btn btn-danger">
                             <i class="ti ti-edit me-1"></i>
                             Editar vehículo
                         </a>
@@ -167,7 +167,7 @@
                                                 <div class="ms-auto">
                                                     <div class="btn-list">
                                                         <a href="{{ route('vehiculos.fotos.show', $foto) }}" target="_blank"
-                                                           class="btn btn-outline-secondary btn-icon"
+                                                           class="btn btn-outline-dark btn-icon"
                                                            data-bs-toggle="tooltip" data-bs-title="Abrir en nueva pestaña">
                                                             <i class="ti ti-eye"></i>
                                                         </a>

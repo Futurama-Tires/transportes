@@ -10,7 +10,7 @@
                         <h2 class="page-title mb-0">Registrar un nuevo Operador</h2>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-dark">
                             <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver al listado
                         </a>
                     </div>
@@ -308,7 +308,7 @@
                                         <span id="fotos-count">0</span> seleccionada(s)
                                     </div>
                                     <div class="btn-group">
-                                        <button type="button" id="btn-clear-fotos" class="btn btn-outline-secondary btn-sm" disabled>
+                                        <button type="button" id="btn-clear-fotos" class="btn btn-outline-dark btn-sm" disabled>
                                             <span class="material-symbols-outlined align-middle me-1">delete</span>Quitar todas
                                         </button>
                                     </div>
@@ -323,8 +323,8 @@
                     {{-- FOOTER del form: un único botón que guarda TODO --}}
                     <div class="col-12">
                         <div class="d-flex justify-content-end gap-2 mt-4">
-                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-secondary">Cancelar</a>
-                            <button type="submit" class="btn btn-primary">
+                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-dark">Cancelar</a>
+                            <button type="submit" class="btn btn-danger">
                                 <span class="material-symbols-outlined me-1 align-middle">person_add</span> Guardar operador
                             </button>
                         </div>
