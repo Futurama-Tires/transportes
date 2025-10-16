@@ -1,7 +1,5 @@
 {{-- resources/views/licencias/create.blade.php --}}
 <x-app-layout>
-    @vite(['resources/js/app.js'])
-
     <x-slot name="header">
         <div class="page-header d-print-none">
             <div class="container-xl">

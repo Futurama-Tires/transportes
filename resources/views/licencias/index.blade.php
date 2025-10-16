@@ -1,7 +1,5 @@
 {{-- resources/views/licencias/index.blade.php --}}
 <x-app-layout>
-    @vite(['resources/js/app.js'])
-
     @php
         $q       = request();
         $search  = $q->input('search', '');

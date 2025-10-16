@@ -2,7 +2,8 @@
      Vista Index (Tabler + Bootstrap) para la gestión de Vehículos
 --}}
 <x-app-layout>
-    @vite(['resources/js/app.js', 'resources/js/vehiculos/index.js', 'resources/css/gallery.css'])
+    @vite('resources/js/app.js')
+
 
     <div id="vehiculos-app"
          data-base-photo="{{ url('/vehiculos/fotos') }}"

@@ -1,7 +1,5 @@
 {{-- resources/views/cargas/edit.blade.php — versión Tabler ejecutiva (total auto y editable) --}}
 <x-app-layout>
-    @vite(['resources/js/app.js'])
-
     @php
         /** @var \App\Models\CargaCombustible $carga */
         $isEdit = isset($carga) && $carga->exists;

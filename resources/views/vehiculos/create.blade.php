@@ -1,8 +1,5 @@
 {{-- resources/views/vehiculos/create.blade.php — Versión Tabler (con íconos y estilo ejecutivo) --}}
 <x-app-layout>
-    {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
-    @vite(['resources/js/app.js'])
-
     {{-- ===== HEADER ===== --}}
     <x-slot name="header">
         <div class="page-header d-print-none">

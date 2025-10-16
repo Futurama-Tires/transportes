@@ -6,24 +6,16 @@
 --}}
 
 <x-app-layout>
-    {{-- Si tu layout ya incluye Vite y app.js, puedes retirar esta línea --}}
-    @vite(['resources/js/app.js'])
-
     @php
-        /**
-         * Parámetros de consulta y utilidades de la vista.
-         */
         $q        = request();
         $ignored  = ['search','page','sort_by','sort_dir'];
 
-        // Conteo de filtros activos (excluye búsqueda, orden y paginación).
         $activeCount = collect($q->except($ignored))->filter(
             fn($v) => is_array($v)
                 ? collect($v)->filter(fn($x) => $x !== null && $x !== '')->isNotEmpty()
                 : $v !== null && $v !== ''
         )->count();
 
-        // Búsqueda y orden por defecto.
         $search  = $q->input('search', '');
         $sortBy  = $q->input('sort_by', 'nombre_completo');
         $sortDir = $q->input('sort_dir', 'asc');
@@ -31,27 +23,19 @@
         /** @var \Illuminate\Pagination\LengthAwarePaginator|\Illuminate\Contracts\Pagination\Paginator|iterable $p */
         $p = $capturistas;
 
-        // Opciones de ordenamiento visibles.
         $sortOptions = [
             'nombre_completo' => 'Nombre completo',
             'email'           => 'Correo electrónico',
             'id'              => 'ID',
         ];
 
-        // Datos de paginación (defensivos frente a distintos tipos de paginator).
-        $total     = method_exists($p, 'total')      ? (int) $p->total()      : (is_iterable($p) ? collect($p)->count() : 0);
-        $firstItem = method_exists($p, 'firstItem')  ? $p->firstItem()        : null;
-        $lastItem  = method_exists($p, 'lastItem')   ? $p->lastItem()         : null;
-        $current   = method_exists($p, 'currentPage')? $p->currentPage()      : 1;
-        $lastPage  = method_exists($p, 'lastPage')   ? $p->lastPage()         : 1;
+        $total     = method_exists($p, 'total')       ? (int) $p->total() : (is_iterable($p) ? collect($p)->count() : 0);
+        $firstItem = method_exists($p, 'firstItem')   ? $p->firstItem()   : null;
+        $lastItem  = method_exists($p, 'lastItem')    ? $p->lastItem()    : null;
+        $current   = method_exists($p, 'currentPage') ? $p->currentPage() : 1;
+        $lastPage  = method_exists($p, 'lastPage')    ? $p->lastPage()    : 1;
 
-        // Parámetros que deben conservarse en enlaces.
         $keepParams = ['search','sort_by','sort_dir'];
-
-        // URL de exportación a Excel (preserva filtros actuales salvo la página).
-        $exportHref = \Illuminate\Support\Facades\Route::has('capturistas.export')
-            ? route('capturistas.export', $q->except('page'))
-            : '#';
     @endphp
 
     {{-- ================= HEADER ================= --}}
@@ -59,15 +43,13 @@
         <div class="page-header d-print-none">
             <div class="container-xl">
                 <div class="row g-2 align-items-center">
-                    <ol class="breadcrumb">
-                                <li class="breadcrumb-item">
-                                    <a>Inicio</a>
-                                </li>
-                                <li class="breadcrumb-item">
-                                    <a>Panel</a>
-                                </li>
-                                <li class="breadcrumb-item active" aria-current="page">Gestión de Capturistas</li>
-                            </ol>
+                    <div class="col-12">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a>Inicio</a></li>
+                            <li class="breadcrumb-item"><a>Panel</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Gestión de Capturistas</li>
+                        </ol>
+                    </div>
                     <div class="col">
                         <h2 class="page-title mb-0">Gestión de Capturistas</h2>
                     </div>
@@ -93,8 +75,8 @@
                 </div>
             @endif
 
-            {{-- ================= FORM GLOBAL (GET) ================= --}}
-            <form method="GET" action="{{ route('capturistas.index') }}" autocomplete="off" novalidate aria-label="Búsqueda y filtros de capturistas">
+            {{-- ================= FORM GLOBAL (GET) SOLO PARA FILTROS/BÚSQUEDA ================= --}}
+            <form id="filtersForm" method="GET" action="{{ route('capturistas.index') }}" autocomplete="off" novalidate aria-label="Búsqueda y filtros de capturistas">
 
                 {{-- ===== Toolbar: búsqueda + exportación + filtros ===== --}}
                 <div class="card mb-3">
@@ -124,14 +106,13 @@
                             {{-- Acciones rápidas --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
 
-                                {{-- Exportar (botón único con ícono de Excel) --}}
+                                {{-- Exportar (genera URL con ?export=xlsx preservando filtros) --}}
                                 <a href="{{ route('capturistas.index', array_merge(request()->except('page'), ['export' => 'xlsx'])) }}"
-                                class="btn btn-outline-success"
-                                title="Exportar a Excel">
-                                <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
-                                <span>Exportar</span>
+                                   class="btn btn-outline-success"
+                                   title="Exportar a Excel">
+                                    <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
+                                    <span>Exportar</span>
                                 </a>
-
 
                                 {{-- Filtros (offcanvas sin overlay) --}}
                                 <button
@@ -172,7 +153,7 @@
                     </div>
                 </div>
 
-                {{-- ================= OFFCANVAS DE FILTROS ================= --}}
+                {{-- ================= OFFCANVAS DE FILTROS (DENTRO DEL MISMO FORM) ================= --}}
                 <div
                     class="offcanvas offcanvas-end"
                     tabindex="-1"
@@ -210,7 +191,7 @@
                             </div>
                         </div>
 
-                        {{-- Espacio reservado para filtros adicionales futuros --}}
+                        {{-- Espacio para filtros futuros --}}
                         <div class="mb-2">
                             <div class="text-secondary small">Cuando existan más campos filtrables en el modelo, agréguelos aquí.</div>
                         </div>
@@ -227,139 +208,137 @@
                     </div>
                 </div>
                 {{-- /OFFCANVAS --}}
+            </form>
+            {{-- ===== FIN DEL FORM GET (IMPORTANTE: NO ENVUELVE LA TABLA) ===== --}}
 
-                {{-- ================= TABLA ================= --}}
-                <div class="card">
-                    <div class="table-responsive">
-                        <table class="table table-vcenter table-striped table-hover">
-                            <thead>
-                                <tr class="text-uppercase text-secondary small">
-                                    <th class="text-center text-nowrap">#</th>
-                                    <th>Nombre completo</th>
-                                    <th>Correo electrónico</th>
-                                    <th class="text-end">Acciones</th>
+            {{-- ================= TABLA ================= --}}
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-vcenter table-striped table-hover">
+                        <thead>
+                            <tr class="text-uppercase text-secondary small">
+                                <th class="text-center text-nowrap">#</th>
+                                <th>Nombre completo</th>
+                                <th>Correo electrónico</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($p as $cap)
+                                @php
+                                    $nombre = $cap->nombre_completo
+                                        ?? trim(collect([$cap->nombre ?? '', $cap->apellido_paterno ?? '', $cap->apellido_materno ?? ''])
+                                            ->filter(fn($x) => $x !== '')
+                                            ->implode(' '));
+
+                                    $correo = data_get($cap, 'user.email', '—');
+                                @endphp
+                                <tr>
+                                    {{-- Numeración por página --}}
+                                    <td class="text-center text-nowrap">{{ $loop->iteration }}</td>
+
+                                    {{-- Nombre --}}
+                                    <td class="text-nowrap">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="avatar avatar-sm avatar-rounded bg-azure-lt" aria-hidden="true">
+                                                <i class="ti ti-user"></i>
+                                            </span>
+                                            <div class="lh-1">
+                                                <div class="fw-semibold">{{ $nombre !== '' ? $nombre : 'Capturista' }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {{-- Correo (truncado con title) --}}
+                                    <td class="text-nowrap">
+                                        <div class="text-truncate" style="max-width: 280px" title="{{ $correo }}">{{ $correo }}</div>
+                                    </td>
+
+                                    {{-- Acciones --}}
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1">
+                                            {{-- Ver (usa edit como placeholder si no hay ruta show) --}}
+                                            <a href="{{ route('capturistas.edit', $cap) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Ver">
+                                                <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
+                                            </a>
+
+                                            {{-- Editar --}}
+                                            <a href="{{ route('capturistas.edit', $cap) }}"
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Editar">
+                                                <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
+                                            </a>
+
+                                            {{-- Eliminar (FORM INDEPENDIENTE, SIN NESTING) --}}
+                                            <form
+                                                action="{{ route('capturistas.destroy', $cap) }}"
+                                                method="POST"
+                                                class="d-inline"
+                                                onsubmit="return confirm('¿Seguro que deseas eliminar a {{ $nombre !== '' ? $nombre : 'este capturista' }}?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
+                                                    <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($p as $cap)
-                                    @php
-                                        // Nombre completo; utiliza accessor si existe, de lo contrario lo compone.
-                                        $nombre = $cap->nombre_completo
-                                            ?? trim(collect([$cap->nombre ?? '', $cap->apellido_paterno ?? '', $cap->apellido_materno ?? ''])
-                                                ->filter(fn($x) => $x !== '')
-                                                ->implode(' '));
-
-                                        // Correo desde la relación user; muestra guion si no existe.
-                                        $correo = data_get($cap, 'user.email', '—');
-                                    @endphp
-                                    <tr>
-                                        {{-- Numeración por página --}}
-                                        <td class="text-center text-nowrap">{{ $loop->iteration }}</td>
-
-                                        {{-- Nombre --}}
-                                        <td class="text-nowrap">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="avatar avatar-sm avatar-rounded bg-azure-lt" aria-hidden="true">
-                                                    <i class="ti ti-user"></i>
-                                                </span>
-                                                <div class="lh-1">
-                                                    <div class="fw-semibold">{{ $nombre !== '' ? $nombre : 'Capturista' }}</div>
-                                                </div>
+                            @empty
+                                {{-- Estado vacío con componente de Tabler --}}
+                                <tr>
+                                    <td colspan="4" class="py-6">
+                                        <div class="empty">
+                                            <div class="empty-icon">
+                                                <i class="ti ti-users-off" aria-hidden="true"></i>
                                             </div>
-                                        </td>
-
-                                        {{-- Correo (truncado con title) --}}
-                                        <td class="text-nowrap">
-                                            <div class="text-truncate" style="max-width: 280px" title="{{ $correo }}">{{ $correo }}</div>
-                                        </td>
-
-                                        {{-- Acciones --}}
-                                        <td class="text-end">
-                                            <div class="d-inline-flex gap-1">
-                                                {{-- Ver (usa edit como placeholder si no hay ruta show) --}}
-                                                <a href="{{ route('capturistas.edit', $cap) }}"
-                                                   class="btn btn-outline-secondary btn-sm"
-                                                   title="Ver">
-                                                    <i class="ti ti-eye me-1" aria-hidden="true"></i>Ver
-                                                </a>
-
-                                                {{-- Editar --}}
-                                                <a href="{{ route('capturistas.edit', $cap) }}"
-                                                   class="btn btn-outline-secondary btn-sm"
-                                                   title="Editar">
-                                                    <i class="ti ti-edit me-1" aria-hidden="true"></i>Editar
-                                                </a>
-
-                                                {{-- Eliminar --}}
-                                                <form
-                                                    action="{{ route('capturistas.destroy', $cap) }}"
-                                                    method="POST"
-                                                    class="d-inline"
-                                                    onsubmit="return confirm('¿Seguro que deseas eliminar a {{ $nombre !== '' ? $nombre : 'este capturista' }}?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="btn btn-danger btn-sm" title="Eliminar">
-                                                        <i class="ti ti-trash me-1" aria-hidden="true"></i>Eliminar
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    {{-- Estado vacío con componente de Tabler --}}
-                                    <tr>
-                                        <td colspan="4" class="py-6">
-                                            <div class="empty">
-                                                <div class="empty-icon">
-                                                    <i class="ti ti-users-off" aria-hidden="true"></i>
-                                                </div>
-                                                <p class="empty-title">No hay datos</p>
-                                                <p class="empty-subtitle text-secondary">
-                                                    @if($search !== '')
-                                                        No se encontraron resultados con los filtros aplicados.
-                                                    @else
-                                                        Aún no has registrado capturistas.
-                                                    @endif
-                                                </p>
-                                                <div class="empty-action">
-                                                    @if($search !== '')
-                                                        <a href="{{ route('capturistas.index') }}" class="btn btn-outline-secondary">
-                                                            Limpiar filtros
-                                                        </a>
-                                                    @endif
-                                                    <a href="{{ route('capturistas.create') }}" class="btn btn-primary">
-                                                        <i class="ti ti-user-plus me-2" aria-hidden="true"></i>Agregar Nuevo Capturista
+                                            <p class="empty-title">No hay datos</p>
+                                            <p class="empty-subtitle text-secondary">
+                                                @if($search !== '')
+                                                    No se encontraron resultados con los filtros aplicados.
+                                                @else
+                                                    Aún no has registrado capturistas.
+                                                @endif
+                                            </p>
+                                            <div class="empty-action">
+                                                @if($search !== '')
+                                                    <a href="{{ route('capturistas.index') }}" class="btn btn-outline-secondary">
+                                                        Limpiar filtros
                                                     </a>
-                                                </div>
+                                                @endif
+                                                <a href="{{ route('capturistas.create') }}" class="btn btn-primary">
+                                                    <i class="ti ti-user-plus me-2" aria-hidden="true"></i>Agregar Nuevo Capturista
+                                                </a>
                                             </div>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {{-- ================= PAGINACIÓN ================= --}}
+            @if(method_exists($p, 'links'))
+                <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
+                    <p class="text-secondary small mb-2 mb-sm-0">
+                        @if($total === 0)
+                            Mostrando 0 resultados
+                        @elseif($total === 1)
+                            Resultado <strong>(1 de 1)</strong>
+                        @else
+                            Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> —
+                            Mostrando <strong>{{ $firstItem }}–{{ $lastItem }}</strong> de <strong>{{ $total }}</strong> resultados
+                        @endif
+                    </p>
+                    <div>
+                        {{ $p->appends($q->only($keepParams))->links() }}
                     </div>
                 </div>
-
-                {{-- ================= PAGINACIÓN ================= --}}
-                @if(method_exists($p, 'links'))
-                    <div class="d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between mt-3">
-                        <p class="text-secondary small mb-2 mb-sm-0">
-                            @if($total === 0)
-                                Mostrando 0 resultados
-                            @elseif($total === 1)
-                                Resultado <strong>(1 de 1)</strong>
-                            @else
-                                Página <strong>{{ $current }}</strong> de <strong>{{ $lastPage }}</strong> —
-                                Mostrando <strong>{{ $firstItem }}–{{ $lastItem }}</strong> de <strong>{{ $total }}</strong> resultados
-                            @endif
-                        </p>
-                        <div>
-                            {{ $p->appends($q->only($keepParams))->links() }}
-                        </div>
-                    </div>
-                @endif
-
-            </form>
+            @endif
 
             {{-- ================= FOOTER ================= --}}
             <div class="text-center text-secondary small py-4">

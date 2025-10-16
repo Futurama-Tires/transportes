@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Tabler e iconos (sin ~) */
-@import "@tabler/icons-webfont/dist/tabler-icons.min.css";
-@import "@tabler/core/dist/css/tabler.min.css";
-@import "@tabler/core/dist/css/tabler-vendors.min.css";
 /* Tus estilos */
 nav[role="navigation"] > div:first-child {
     display: none !important;

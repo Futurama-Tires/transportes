@@ -1,8 +1,5 @@
 {{-- resources/views/tarjetas_comodin/index.blade.php — versión Tabler (toolbar, offcanvas filtros, acciones separadas) --}}
 <x-app-layout>
-    {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
-    @vite(['resources/js/app.js'])
-
     @php
         // Contar filtros activos (excluye búsqueda, orden y paginación)
         $ignored = ['search','page','sort_by','sort_dir'];

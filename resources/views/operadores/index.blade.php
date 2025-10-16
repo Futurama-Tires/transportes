@@ -1,8 +1,6 @@
 {{-- resources/views/operadores/index.blade.php — versión Tabler (acciones separadas, filtros en offcanvas y numeración continua) --}}
 <x-app-layout>
     {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
-    @vite(['resources/js/app.js'])
-
     @php
         // Parámetros y utilidades reutilizables en toda la vista
         $q        = request();

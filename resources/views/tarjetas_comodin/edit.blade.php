@@ -1,7 +1,5 @@
 {{-- resources/views/tarjetas_comodin/edit.blade.php --}}
 <x-app-layout>
-    @vite(['resources/js/app.js'])
-
     {{-- Encabezado (Tabler) --}}
     <div class="page-header d-print-none mb-3">
         <div class="container-xl">

@@ -1,8 +1,5 @@
 {{-- resources/views/vehiculos/tanques/edit.blade.php — Versión Tabler ejecutiva (1 tanque por vehículo) --}}
 <x-app-layout>
-    {{-- Quita esta línea si tu layout ya inyecta app.js --}}
-    @vite(['resources/js/app.js'])
-
     {{-- ===== HEADER ===== --}}
     <x-slot name="header">
         <div class="page-header d-print-none">

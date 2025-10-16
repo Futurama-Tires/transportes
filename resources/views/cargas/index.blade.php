@@ -1,7 +1,5 @@
 {{-- resources/views/cargas_combustible/index.blade.php --}}
 <x-app-layout>
-    @vite(['resources/js/app.js'])
-
     @php
         /* ================= Utilidades y constantes ================= */
         $ignored      = ['search','page','sort_by','sort_dir'];

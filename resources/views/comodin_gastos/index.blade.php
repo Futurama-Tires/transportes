@@ -1,7 +1,5 @@
 {{-- resources/views/comodin_gastos/index.blade.php --}}
 <x-app-layout>
-    @vite(['resources/js/app.js'])
-
     @php
         // Cuenta filtros activos (excluye búsqueda, orden, paginación y export)
         $ignored = ['search','page','sort_by','sort_dir','export'];

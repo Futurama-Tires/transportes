@@ -1,7 +1,5 @@
 {{-- resources/views/operadores/create.blade.php — campos ordenados lógicamente y accesibles --}}
 <x-app-layout>
-    @vite(['resources/js/app.js'])
-
     {{-- HEADER --}}
     <x-slot name="header">
         <div class="page-header d-print-none">

@@ -165,3 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(cargarNotificaciones, 15000);
 });
 
+if (document.getElementById('vehiculos-app')) {
+  import('./vehiculos/index.js');    // se compila como chunk y queda en el manifest
+}
+

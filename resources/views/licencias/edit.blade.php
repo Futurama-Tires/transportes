@@ -1,7 +1,5 @@
 {{-- resources/views/licencias/edit.blade.php --}}
 <x-app-layout>
-    @vite(['resources/js/app.js'])
-
     @php
         $op = $licencia->operador;
         $nombre = $op?->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));

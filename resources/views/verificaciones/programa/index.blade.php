@@ -1,8 +1,6 @@
 {{-- resources/views/programa_verificacion/index.blade.php --}}
 <x-app-layout>
-    {{-- Si tu layout ya incluye Vite y app.js, puedes quitar esta línea --}}
-    @vite(['resources/js/app.js'])
-
+    
     {{-- ================= HEADER (estilo de cargas) ================= --}}
     <x-slot name="header">
         <div class="page-header d-print-none">

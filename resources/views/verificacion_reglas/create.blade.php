@@ -1,7 +1,5 @@
 {{-- resources/views/verificacion_reglas/create.blade.php --}}
 <x-app-layout>
-    @vite(['resources/js/app.js'])
-
     <style>
         /* Ajustes sutiles de layout y tabla */
         .page-header .page-title { margin-bottom: .25rem; }

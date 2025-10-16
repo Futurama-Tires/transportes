@@ -1,7 +1,5 @@
 {{-- resources/views/verificacion_reglas/edit.blade.php --}}
 <x-app-layout>
-  @vite(['resources/js/app.js'])
-
   <style>
     /* Pulido sutil y distribución */
     .page-header .page-title { margin-bottom: .25rem; }

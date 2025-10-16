@@ -1,7 +1,5 @@
 {{-- resources/views/verificacion_reglas/index.blade.php --}}
 <x-app-layout>
-    @vite(['resources/js/app.js'])
-
     {{-- ================= HEADER (estilo de cargas) ================= --}}
     <x-slot name="header">
         <div class="page-header d-print-none">
