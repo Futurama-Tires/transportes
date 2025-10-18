@@ -8,6 +8,7 @@ use App\Models\VehiculoFoto;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 // === Exportación Excel ===
@@ -25,14 +26,13 @@ class VehiculoController extends Controller
     /** Listado con filtros y paginación. */
     public function index(Request $request)
     {
-        // Si viene ?export=xlsx, exportamos SIN paginar, con los filtros/orden actuales
         if ($request->get('export') === 'xlsx') {
             $filename = 'vehiculos_' . now()->format('Ymd_His') . '.xlsx';
             return Excel::download(new VehiculosExport($request), $filename);
         }
 
-        $sortBy  = $request->get('sort_by', 'unidad'); // ← default: unidad
-        $sortDir = $request->get('sort_dir', 'asc');   // ← default: asc
+        $sortBy  = $request->get('sort_by', 'unidad');
+        $sortDir = $request->get('sort_dir', 'asc');
 
         $vehiculos = Vehiculo::with(['tarjetaSiVale','tanques','fotos'])
             ->filter($request->all())
@@ -58,13 +58,11 @@ class VehiculoController extends Controller
 
     public function store(Request $request)
     {
-        // Validación de campos del vehículo (incluye poliza_latino/qualitas)
         $data = $this->validateVehiculo($request);
 
-        // Crear vehículo
         $vehiculo = Vehiculo::create($data);
 
-        // Si vienen fotos en el create, validarlas y guardarlas (opcional)
+        // Subida de fotos (disco PRIVADO)
         if ($request->hasFile('fotos')) {
             $request->validate([
                 'fotos'   => ['array'],
@@ -75,12 +73,12 @@ class VehiculoController extends Controller
                 'fotos.*.max'   => 'Cada imagen no debe superar los 8 MB.',
             ]);
 
+            $disk = 'local';
             foreach ($request->file('fotos', []) as $file) {
                 $dir = "vehiculos/{$vehiculo->id}";
                 $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
 
-                // Guarda en disco local (privado)
-                $relativePath = $file->storeAs($dir, $filename, 'local');
+                $relativePath = $file->storeAs($dir, $filename, $disk);
 
                 VehiculoFoto::create([
                     'vehiculo_id' => $vehiculo->id,
@@ -106,15 +104,25 @@ class VehiculoController extends Controller
         return view('vehiculos.edit', compact('vehiculo', 'tarjetas'));
     }
 
+    /**
+     * UPDATE ahora:
+     * - Actualiza datos del vehículo
+     * - Elimina las fotos MARCADAS en 'fotos_eliminar[]' (pertenecientes al vehículo)
+     * - Sube y registra nuevas fotos en el mismo submit
+     * Todo se procesa al pulsar "Guardar cambios".
+     */
     public function update(Request $request, Vehiculo $vehiculo)
     {
-        // Validación de campos del vehículo (incluye poliza_latino/qualitas)
+        // Validación datos del vehículo
         $data = $this->validateVehiculo($request, $vehiculo->id);
 
-        // Actualizar vehículo
-        $vehiculo->update($data);
+        // Validación mínima para arrays auxiliares
+        $request->validate([
+            'fotos_eliminar' => ['sometimes', 'array'],
+            'fotos_eliminar.*' => ['integer'],
+        ]);
 
-        // Si se agregan nuevas fotos desde el formulario de edición
+        // Validación de nuevas fotos (si vienen)
         if ($request->hasFile('fotos')) {
             $request->validate([
                 'fotos'   => ['array'],
@@ -124,24 +132,75 @@ class VehiculoController extends Controller
                 'fotos.*.mimes' => 'Formatos permitidos: jpg, jpeg, png, webp.',
                 'fotos.*.max'   => 'Cada imagen no debe superar los 8 MB.',
             ]);
-
-            foreach ($request->file('fotos', []) as $file) {
-                $dir = "vehiculos/{$vehiculo->id}";
-                $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
-
-                // Guarda en disco local (privado)
-                $relativePath = $file->storeAs($dir, $filename, 'local');
-
-                VehiculoFoto::create([
-                    'vehiculo_id' => $vehiculo->id,
-                    'ruta'        => $relativePath,
-                    'orden'       => 0,
-                ]);
-            }
         }
 
-        return redirect()->route('vehiculos.index')
-            ->with('success', 'Vehículo actualizado correctamente.');
+        $disk = 'local';
+        $agregadas = 0;
+        $eliminadas = 0;
+
+        DB::beginTransaction();
+
+        try {
+            // 1) Actualizar datos del vehículo
+            $vehiculo->update($data);
+
+            // 2) Eliminar las fotos marcadas (si vienen)
+            $idsEliminar = collect($request->input('fotos_eliminar', []))
+                ->filter(fn($id) => is_numeric($id))
+                ->map(fn($id) => (int)$id)
+                ->values();
+
+            if ($idsEliminar->isNotEmpty()) {
+                $fotos = $vehiculo->fotos()->whereIn('id', $idsEliminar)->get();
+
+                foreach ($fotos as $foto) {
+                    // borrar archivo físico (disco PRIVADO)
+                    Storage::disk($disk)->delete($foto->ruta);
+                    $foto->delete();
+                    $eliminadas++;
+                }
+            }
+
+            // 3) Subir nuevas fotos (si vienen)
+            if ($request->hasFile('fotos')) {
+                foreach ($request->file('fotos', []) as $file) {
+                    $dir = "vehiculos/{$vehiculo->id}";
+                    $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+
+                    $relativePath = $file->storeAs($dir, $filename, $disk);
+
+                    VehiculoFoto::create([
+                        'vehiculo_id' => $vehiculo->id,
+                        'ruta'        => $relativePath,
+                        'orden'       => 0,
+                    ]);
+
+                    $agregadas++;
+                }
+            }
+
+            DB::commit();
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            // Nota: si falló después de haber subido fotos nuevas,
+            // no hay rollback automático de archivos. Se podría
+            // implementar un recolector si quieres máxima consistencia.
+            report($e);
+
+            return back()
+                ->withInput()
+                ->withErrors(['general' => 'Ocurrió un error al guardar. Intenta de nuevo.']);
+        }
+
+        $msg = 'Vehículo actualizado correctamente.';
+        $detalles = [];
+        if ($eliminadas > 0) $detalles[] = "{$eliminadas} foto(s) eliminada(s)";
+        if ($agregadas  > 0) $detalles[] = "{$agregadas} foto(s) agregada(s)";
+        if (!empty($detalles)) $msg .= ' ' . implode(' · ', $detalles) . '.';
+
+        return redirect()->route('vehiculos.index')->with('success', $msg);
     }
 
     public function destroy(Vehiculo $vehiculo)
@@ -170,14 +229,12 @@ class VehiculoController extends Controller
                 Rule::unique('vehiculos', 'placa')->ignore($vehiculoId),
             ],
             'estado'                    => ['nullable', 'string', 'max:255'],
-            // Tabla real en tu BD (según dump): tarjetassivale
             'tarjeta_si_vale_id'        => ['nullable', 'exists:tarjetassivale,id'],
             'nip'                       => ['nullable', 'string', 'max:255'],
             'fec_vencimiento'           => ['nullable', 'string', 'max:255'],
             'vencimiento_t_circulacion' => ['nullable', 'string', 'max:255'],
             'cambio_placas'             => ['nullable', 'string', 'max:255'],
             'poliza_hdi'                => ['nullable', 'string', 'max:255'],
-            // Nuevos campos
             'poliza_latino'             => ['nullable', 'string', 'max:255'],
             'poliza_qualitas'           => ['nullable', 'string', 'max:255'],
         ], [

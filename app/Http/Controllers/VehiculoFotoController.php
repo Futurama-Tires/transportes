@@ -13,47 +13,41 @@ class VehiculoFotoController extends Controller
 {
     public function __construct()
     {
-        // Solo admin y capturista
         $this->middleware(['auth', 'role:administrador|capturista']);
     }
 
-    /**
-     * Página para gestionar fotos de un vehículo.
-     */
+    /** Página para gestionar fotos de un vehículo (vista dedicada). */
     public function index(Vehiculo $vehiculo)
     {
         $vehiculo->load('fotos');
         return view('vehiculos.fotos.index', compact('vehiculo'));
     }
 
-    /**
-     * Subir una o varias fotos (privadas).
-     * Se guardan en storage/app/vehiculos/{vehiculo_id}/...
-     */
+    /** Subir una o varias fotos (almacenadas en DISCO PRIVADO: 'local'). */
     public function store(Request $request, Vehiculo $vehiculo)
     {
         $request->validate([
             'fotos'   => ['required', 'array'],
-            'fotos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'], // 8MB c/u
+            'fotos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
         ], [
-            'fotos.required'   => 'Selecciona al menos una imagen.',
-            'fotos.*.image'    => 'Cada archivo debe ser una imagen.',
-            'fotos.*.mimes'    => 'Formatos permitidos: jpg, jpeg, png, webp.',
-            'fotos.*.max'      => 'Cada imagen no debe superar los 8 MB.',
+            'fotos.required' => 'Selecciona al menos una imagen.',
+            'fotos.*.image'  => 'Cada archivo debe ser una imagen.',
+            'fotos.*.mimes'  => 'Formatos permitidos: jpg, jpeg, png, webp.',
+            'fotos.*.max'    => 'Cada imagen no debe superar los 8 MB.',
         ]);
 
         $saved = 0;
+        $disk  = 'local'; // PRIVADO
 
         foreach ($request->file('fotos', []) as $file) {
             $dir = "vehiculos/{$vehiculo->id}";
             $filename = now()->format('Ymd_His') . '_' . $vehiculo->id . '_' . Str::uuid() . '.' . $file->getClientOriginalExtension();
 
-            // Guarda en disco local (privado)
-            $relativePath = $file->storeAs($dir, $filename, 'local');
+            $relativePath = $file->storeAs($dir, $filename, $disk);
 
             VehiculoFoto::create([
                 'vehiculo_id' => $vehiculo->id,
-                'ruta'        => $relativePath, // p. ej. vehiculos/5/20250909_120101_5_uuid.jpg
+                'ruta'        => $relativePath,
                 'orden'       => 0,
             ]);
 
@@ -64,32 +58,14 @@ class VehiculoFotoController extends Controller
     }
 
     /**
-     * Eliminar una foto (y su archivo físico).
-     */
-    public function destroy(Vehiculo $vehiculo, VehiculoFoto $foto)
-    {
-        // Seguridad: que la foto pertenezca al vehículo de la URL
-        abort_unless($foto->vehiculo_id === $vehiculo->id, 404);
-
-        // Borra archivo si existe
-        Storage::disk('local')->delete($foto->ruta);
-
-        // Borra registro
-        $foto->delete();
-
-        return back()->with('success', 'Foto eliminada.');
-    }
-
-    /**
-     * Servir la imagen (privada) al navegador.
+     * Mostrar una foto PRIVADA por ID (ruta directa: /vehiculos/fotos/{foto}).
+     * NOTA: solo recibe el modelo 'VehiculoFoto' para evitar 404 por binding.
      */
     public function show(VehiculoFoto $foto)
     {
-        // El middleware ya exige auth + rol
         $path = Storage::disk('local')->path($foto->ruta);
-
-        if (! file_exists($path)) {
-            abort(404);
+        if (!is_file($path)) {
+            abort(404, 'Imagen no encontrada.');
         }
 
         $mime = File::mimeType($path) ?: 'application/octet-stream';
@@ -97,6 +73,21 @@ class VehiculoFotoController extends Controller
         return response()->file($path, [
             'Content-Type'  => $mime,
             'Cache-Control' => 'private, max-age=0, no-cache, no-store, must-revalidate',
+            'Pragma'        => 'no-cache',
         ]);
+    }
+
+    /**
+     * Eliminar una foto (y su archivo físico).
+     * Se mantiene para pantallas dedicadas; en edición principal se elimina por marcado.
+     */
+    public function destroy(Vehiculo $vehiculo, VehiculoFoto $foto)
+    {
+        abort_unless($foto->vehiculo_id === $vehiculo->id, 404);
+
+        Storage::disk('local')->delete($foto->ruta);
+        $foto->delete();
+
+        return back()->with('success', 'Foto eliminada.');
     }
 }

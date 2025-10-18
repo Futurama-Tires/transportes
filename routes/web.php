@@ -118,7 +118,7 @@ Route::middleware('auth')->group(function () {
         })->name('leer');
     });
 
-    // Marcar TODAS las notificaciones no leídas del usuario (se deja fuera del grupo para conservar el nombre plano si ya existe en front)
+    // Marcar TODAS las notificaciones no leídas del usuario
     Route::post('/leer-todas', function (Request $request) {
         $user = $request->user();
         $user->unreadNotifications()->update(['read_at' => now()]);
@@ -133,7 +133,7 @@ Route::middleware('auth')->group(function () {
         // Capturistas
         Route::resource('capturistas', CapturistaController::class);
 
-        // Backups (se centraliza en un solo prefijo, evitando duplicados)
+        // Backups
         Route::prefix('admin/backup')->name('admin.backup.')->group(function () {
             Route::get('/',          [AdminBackupController::class, 'index'])->name('index');
             Route::post('/download', [AdminBackupController::class, 'download'])->name('download'); // POST para evitar prefetch
@@ -174,22 +174,30 @@ Route::middleware('auth')->group(function () {
         Route::get('comodin-gastos', [ComodinGastoController::class, 'index'])
             ->name('comodin-gastos.index');
 
-        // Gastos anidados a Tarjeta Comodín (shallow: edit/update/destroy fuera del prefijo)
+        // Gastos anidados a Tarjeta Comodín (shallow)
         Route::scopeBindings()->group(function () {
             Route::resource('tarjetas-comodin.gastos', ComodinGastoController::class)
                 ->only(['create', 'store', 'edit', 'update', 'destroy'])
                 ->shallow();
         });
 
-        /* -------------------------- Fotos: Vehículos ----------------------- */
-        Route::prefix('vehiculos')->name('vehiculos.')->scopeBindings()->group(function () {
-            Route::get('{vehiculo}/fotos',           [VehiculoFotoController::class, 'index'])->name('fotos.index');
-            Route::post('{vehiculo}/fotos',          [VehiculoFotoController::class, 'store'])->name('fotos.store');
-            Route::delete('{vehiculo}/fotos/{foto}', [VehiculoFotoController::class, 'destroy'])->name('fotos.destroy');
-        });
-        // Visualización directa por ID
+        /* -------------------------- Fotos: Vehículos -----------------------
+         * Vista/gestión principal: marcar para eliminar y guardar en VehiculoController@update.
+         * Aquí dejamos:
+         *  - RUTA DIRECTA para mostrar foto (solo {foto}) => nombre: vehiculos.fotos.show
+         *  - RUTAS ANIDADAS para index/store/destroy con scopeBindings.
+         *  (Eliminamos duplicados y evitamos definir 'show' en el resource anidado).
+         * ------------------------------------------------------------------ */
+
+        // Mostrar foto PRIVADA por ID (directa) - nombre usado en la vista de edición
         Route::get('vehiculos/fotos/{foto}', [VehiculoFotoController::class, 'show'])
             ->name('vehiculos.fotos.show');
+
+        // Rutas anidadas (sin 'show' para no colisionar con la directa)
+        Route::scopeBindings()->group(function () {
+            Route::resource('vehiculos.fotos', VehiculoFotoController::class)
+                ->only(['index', 'store', 'destroy']);
+        });
 
         /* -------------------------- Fotos: Operadores ---------------------- */
         Route::prefix('operadores')->name('operadores.')->scopeBindings()->group(function () {

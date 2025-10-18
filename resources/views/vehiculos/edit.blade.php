@@ -28,7 +28,9 @@
     <div class="page-body">
         <div class="container-xl">
 
-            {{-- ===== FORM PRINCIPAL (UPDATE) ===== --}}
+            {{-- ===== FORM PRINCIPAL (UPDATE) =====
+                 NOTA: Este formulario ahora también envuelve la sección de "Fotografías actuales"
+                 para que los checkboxes de eliminación viajen en el mismo submit. --}}
             <form id="vehiculo-form" method="POST" action="{{ route('vehiculos.update', $vehiculo) }}" novalidate enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
@@ -40,6 +42,11 @@
                         Revisa los campos marcados y vuelve a intentar.
                     </div>
                 @endif
+                @error('general')
+                    <div class="alert alert-danger" role="alert">
+                        <i class="ti ti-alert-triangle me-2"></i>{{ $message }}
+                    </div>
+                @enderror
 
                 <div class="card">
                     <div class="card-header justify-content-between">
@@ -186,7 +193,7 @@
                                 @error('cambio_placas') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
-                            {{-- Póliza HDI --}}
+                            {{-- Pólizas --}}
                             <div class="col-12 col-md-6">
                                 <label for="poliza_hdi" class="form-label">Póliza HDI</label>
                                 <div class="input-icon">
@@ -196,7 +203,6 @@
                                 @error('poliza_hdi') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
-                            {{-- Póliza Latino --}}
                             <div class="col-12 col-md-6">
                                 <label for="poliza_latino" class="form-label">Póliza Latino</label>
                                 <div class="input-icon">
@@ -206,7 +212,6 @@
                                 @error('poliza_latino') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
-                            {{-- Póliza Qualitas --}}
                             <div class="col-12 col-md-6">
                                 <label for="poliza_qualitas" class="form-label">Póliza Qualitas</label>
                                 <div class="input-icon">
@@ -233,6 +238,82 @@
                         @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                     </div>
 
+                    {{-- ===== FOTOS ACTUALES (DENTRO DEL MISMO FORM) ===== --}}
+                    <div class="card-body border-top">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h3 class="card-title d-flex align-items-center gap-2 mb-0">
+                                <i class="ti ti-photo"></i>
+                                Fotografías actuales
+                            </h3>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-secondary-lt">
+                                    {{ $vehiculo->fotos->count() }} foto(s)
+                                </span>
+                                <span id="marcadasBadge" class="badge bg-red-lt d-none">
+                                    0 seleccionadas
+                                </span>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnSelectAll">
+                                        <i class="ti ti-checkbox me-1"></i>Seleccionar todo
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnClearAll">
+                                        <i class="ti ti-square-off me-1"></i>Limpiar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if($vehiculo->fotos->isEmpty())
+                            <div class="empty">
+                                <div class="empty-icon"><i class="ti ti-photo-off"></i></div>
+                                <p class="empty-title">Este vehículo aún no tiene fotografías</p>
+                            </div>
+                        @else
+                            @php
+                                $oldEliminar = collect(old('fotos_eliminar', []))->map(fn($v)=> (int)$v)->all();
+                            @endphp
+
+                            <div class="row g-2">
+                                @foreach($vehiculo->fotos as $foto)
+                                    @php $checked = in_array($foto->id, $oldEliminar, true); @endphp
+                                    <div class="col-6 col-sm-4 col-md-3">
+                                        <div class="card photo-card h-100 position-relative {{ $checked ? 'is-selected' : '' }}">
+                                            <a href="{{ route('vehiculos.fotos.show', $foto) }}"
+                                               target="_blank" rel="noopener noreferrer" title="Abrir en nueva pestaña" class="d-block">
+                                                <div class="img-responsive img-responsive-4x3 card-img-top"
+                                                     style="background-image: url('{{ route('vehiculos.fotos.show', $foto) }}')"></div>
+                                            </a>
+
+                                            <div class="card-body py-2">
+                                                <label class="form-check m-0 w-100 d-flex align-items-center gap-2">
+                                                    <input class="form-check-input foto-check" type="checkbox"
+                                                           name="fotos_eliminar[]"
+                                                           value="{{ $foto->id }}"
+                                                           @checked($checked)
+                                                           data-photo-card
+                                                    >
+                                                    <span class="form-check-label small text-danger fw-semibold">
+                                                        Marcar para eliminar al guardar
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            {{-- Overlay de selección (visual) --}}
+                                            <div class="photo-overlay-check">
+                                                <i class="ti ti-check"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <div class="mt-2 text-secondary small d-none d-md-block">
+                                <i class="ti ti-info-circle me-1"></i>
+                                Tip: puedes abrir la imagen en una nueva pestaña y marcar la casilla para eliminarla. Todo se aplica al presionar <b>Guardar cambios</b>.
+                            </div>
+                        @endif
+                    </div>
+
                     {{-- Footer acciones --}}
                     <div class="card-footer d-flex justify-content-end gap-2">
                         <a href="{{ url()->previous() ?: route('vehiculos.index') }}" class="btn btn-outline-dark">
@@ -245,62 +326,6 @@
                 </div>
             </form>
 
-            {{-- ===== FOTOS ACTUALES ===== --}}
-            <div class="card mt-3">
-                <div class="card-header justify-content-between">
-                    <h3 class="card-title d-flex align-items-center gap-2 mb-0">
-                        <i class="ti ti-photo"></i>
-                        Fotografías actuales
-                    </h3>
-                    <span class="badge bg-secondary-lt">
-                        {{ $vehiculo->fotos->count() }} foto(s)
-                    </span>
-                </div>
-                <div class="card-body">
-                    @if($vehiculo->fotos->isEmpty())
-                        <div class="empty">
-                            <div class="empty-icon"><i class="ti ti-photo-off"></i></div>
-                            <p class="empty-title">Este vehículo aún no tiene fotografías</p>
-                        </div>
-                    @else
-                        <div class="row g-2">
-                            @foreach($vehiculo->fotos as $foto)
-                                <div class="col-6 col-sm-4 col-md-3">
-                                    <div class="card card-link position-relative">
-                                        {{-- Área visible de la imagen --}}
-                                        <div class="img-responsive img-responsive-4x3 card-img-top"
-                                             style="background-image: url('{{ route('vehiculos.fotos.show', $foto) }}')"></div>
-
-                                        {{-- Abrir directamente en otra pestaña --}}
-                                        <a href="{{ route('vehiculos.fotos.show', $foto) }}"
-                                           target="_blank" rel="noopener noreferrer"
-                                           title="Abrir en nueva pestaña"
-                                           class="stretched-link"></a>
-
-                                        {{-- Eliminar foto --}}
-                                        <form method="POST"
-                                              action="{{ route('vehiculos.fotos.destroy', [$vehiculo, $foto]) }}"
-                                              onsubmit="return confirm('¿Eliminar esta foto?')"
-                                              class="position-absolute top-0 end-0 m-1 z-3">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-danger btn-icon btn-sm position-relative">
-                                                <i class="ti ti-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-
-                        <div class="mt-3 text-secondary small d-none d-md-block">
-                            <i class="ti ti-info-circle me-1"></i>
-                            Tip: haz clic en cualquier foto para abrirla en una nueva pestaña.
-                        </div>
-                    @endif
-                </div>
-            </div>
-
             {{-- FOOTER --}}
             <div class="text-center text-secondary small py-4">
                 © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
@@ -308,10 +333,88 @@
         </div>
     </div>
 
-    {{-- ===== SIN MODAL NI JS --}}
     <style>
-        /* Asegura que el botón de borrar quede por encima del enlace expandido */
-        .card .btn.position-relative,
-        .card .btn.z-3 { z-index: 3; }
+        /* Tarjeta de foto con overlay cuando está seleccionada */
+        .photo-card {
+            transition: transform .12s ease, box-shadow .12s ease;
+        }
+        .photo-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0,0,0,.08);
+        }
+        .photo-card.is-selected {
+            outline: 2px solid var(--tblr-red, #f03e3e);
+            outline-offset: 0;
+        }
+        .photo-overlay-check {
+            position: absolute;
+            inset: .5rem .5rem auto auto;
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 50%;
+            background: rgba(240,62,62,.95); /* rojo */
+            color: #fff;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            z-index: 2;
+            box-shadow: 0 2px 8px rgba(0,0,0,.2);
+        }
+        .photo-card.is-selected .photo-overlay-check {
+            display: flex;
+        }
     </style>
+
+    <script>
+        (function () {
+            const checks = Array.from(document.querySelectorAll('.foto-check'));
+            const badge  = document.getElementById('marcadasBadge');
+            const btnAll = document.getElementById('btnSelectAll');
+            const btnClr = document.getElementById('btnClearAll');
+
+            function syncCardState(input) {
+                const card = input.closest('.photo-card');
+                if (!card) return;
+                card.classList.toggle('is-selected', input.checked);
+            }
+
+            function refreshBadge() {
+                const total = checks.filter(ch => ch.checked).length;
+                if (total > 0) {
+                    badge.textContent = `${total} seleccionadas`;
+                    badge.classList.remove('d-none');
+                } else {
+                    badge.classList.add('d-none');
+                }
+            }
+
+            checks.forEach(ch => {
+                // estado inicial (por si viene del old())
+                syncCardState(ch);
+                ch.addEventListener('change', () => {
+                    syncCardState(ch);
+                    refreshBadge();
+                });
+            });
+
+            if (btnAll) {
+                btnAll.addEventListener('click', () => {
+                    checks.forEach(ch => ch.checked = true);
+                    checks.forEach(syncCardState);
+                    refreshBadge();
+                });
+            }
+            if (btnClr) {
+                btnClr.addEventListener('click', () => {
+                    checks.forEach(ch => ch.checked = false);
+                    checks.forEach(syncCardState);
+                    refreshBadge();
+                });
+            }
+
+            // pinta badge al cargar
+            refreshBadge();
+        })();
+    </script>
 </x-app-layout>
