@@ -4,7 +4,6 @@
 <x-app-layout>
     @vite('resources/js/app.js')
 
-
     <div id="vehiculos-app"
          data-base-photo="{{ url('/vehiculos/fotos') }}"
          data-base-veh="{{ url('/vehiculos') }}">
@@ -42,14 +41,10 @@
                 <div class="container-xl">
                     <div class="row g-2 align-items-center">
                         <ol class="breadcrumb">
-                                <li class="breadcrumb-item">
-                                    <a>Inicio</a>
-                                </li>
-                                <li class="breadcrumb-item">
-                                    <a>Panel</a>
-                                </li>
-                                <li class="breadcrumb-item active" aria-current="page">Gestión de vehículos</li>
-                            </ol>
+                            <li class="breadcrumb-item"><a>Inicio</a></li>
+                            <li class="breadcrumb-item"><a>Panel</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Gestión de vehículos</li>
+                        </ol>
                         <div class="col">
                             <h2 class="page-title mb-0">Gestión de vehículos</h2>
                         </div>
@@ -104,12 +99,12 @@
                                 <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
                                     {{-- Botón único: Exportar Excel --}}
                                     <a href="{{ $exportHref }}"
-                                    class="btn btn-outline-dark"
-                                    title="Exportar a Excel">
+                                       class="btn btn-outline-dark"
+                                       title="Exportar a Excel">
                                         <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
                                         <span>Exportar</span>
                                     </a>
-                                    
+
                                     {{-- Botón Filtros --}}
                                     <button
                                         type="button"
@@ -268,19 +263,20 @@
                                             // Datos de tarjeta (objeto)
                                             'tarjeta_si_vale' => [
                                                 'numero_tarjeta'    => $tarjetaNumero,
-                                                'nip'               => $tarjetaNip,          // <- NIP correcto desde la relación
+                                                'nip'               => $tarjetaNip,
                                                 'fecha_vencimiento' => $fechaTarjeta,
                                             ],
 
                                             // Campos para el modal (nivel raíz)
-                                            'nip'                       => $tarjetaNip,      // <- disponible directo
-                                            'fec_vencimiento'           => $fechaTarjeta,    // <- desde tarjeta
+                                            'nip'                       => $tarjetaNip,
+                                            'fec_vencimiento'           => $fechaTarjeta,
                                             'vencimiento_t_circulacion' => $v->vencimiento_t_circulacion ?? null,
                                             'cambio_placas'             => $v->cambio_placas ?? null,
                                             'poliza_hdi'      => $v->poliza_hdi ?? null,
                                             'poliza_latino'   => $v->poliza_latino ?? null,
                                             'poliza_qualitas' => $v->poliza_qualitas ?? null,
 
+                                            // SOLO IDs (se construye la URL en el front)
                                             'fotos'   => isset($v->fotos) ? $v->fotos->map(fn($f) => ['id' => $f->id])->values() : [],
 
                                             // Tanque 1–1 (objeto)
@@ -307,8 +303,6 @@
 
                                             // URLs útiles para el modal
                                             'urls' => [
-                                                'create_tanque' => route('vehiculos.tanques.create', $v),
-                                                'edit_tanque'   => $t->id ? route('vehiculos.tanques.edit', [$v, $t->id]) : null,
                                                 'edit_vehicle'  => route('vehiculos.edit', $v),
                                             ],
                                         ];
@@ -419,7 +413,7 @@
             </div>
         </div>
 
-        {{-- MODAL DETALLE (completo) --}}
+        {{-- MODAL DETALLE (sin galería/carrusel) --}}
         <div class="modal modal-blur fade" id="vehicleModal" tabindex="-1" aria-labelledby="vehicleModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-scrollable modal-xl">
                 <div class="modal-content">
@@ -450,17 +444,14 @@
                                     <div class="col-6 col-md-4"><div class="text-secondary small">Ubicación</div><div class="fw-semibold" data-v="ubicacion">—</div></div>
                                     <div class="col-6 col-md-4"><div class="text-secondary small">Estado</div><div class="fw-semibold" data-v="estado">—</div></div>
                                     <div class="col-6 col-md-4"><div class="text-secondary small">Motor</div><div class="fw-semibold" data-v="motor">—</div></div>
-
                                     {{-- Odómetro --}}
                                     <div class="col-6 col-md-4"><div class="text-secondary small">Kilometraje (km)</div><div class="fw-semibold" data-v="kilometros">—</div></div>
-
                                     {{-- Tarjeta / documentos --}}
                                     <div class="col-6 col-md-4"><div class="text-secondary small">Tarjeta SiVale</div><div class="fw-semibold" data-v="tarjeta">—</div></div>
                                     <div class="col-6 col-md-4"><div class="text-secondary small">NIP</div><div class="fw-semibold" data-v="nip">—</div></div>
                                     <div class="col-6 col-md-4"><div class="text-secondary small">Venc. tarjeta</div><div class="fw-semibold" data-v="fec_vencimiento">—</div></div>
                                     <div class="col-6 col-md-4"><div class="text-secondary small">Venc. circ.</div><div class="fw-semibold" data-v="vencimiento_t_circulacion">—</div></div>
                                     <div class="col-6 col-md-4"><div class="text-secondary small">Cambio de placas</div><div class="fw-semibold" data-v="cambio_placas">—</div></div>
-
                                     {{-- Pólizas --}}
                                     <div class="col-12"><div class="text-secondary small">Póliza HDI</div><div class="fw-semibold" data-v="poliza_hdi">—</div></div>
                                     <div class="col-12"><div class="text-secondary small">Póliza Latino</div><div class="fw-semibold" data-v="poliza_latino">—</div></div>
@@ -469,18 +460,10 @@
                             </div>
                         </div>
 
-                        {{-- Fotos --}}
+                        {{-- Fotos (abrir en nueva pestaña) --}}
                         <div class="card mb-3">
                             <div class="card-header d-flex align-items-center justify-content-between">
                                 <h4 class="card-title mb-0">Fotos del vehículo</h4>
-                                <div class="d-flex gap-2">
-                                    <a id="managePhotosLink" href="#" class="btn btn-outline-dark btn-sm">
-                                        <i class="ti ti-photo-plus me-1" aria-hidden="true"></i>Gestionar fotos
-                                    </a>
-                                    <button id="openGalleryBtn" type="button" class="btn btn-dark btn-sm d-none">
-                                        <i class="ti ti-slideshow me-1" aria-hidden="true"></i>Ver galería
-                                    </button>
-                                </div>
                             </div>
                             <div class="card-body">
                                 <div id="photosEmpty" class="text-secondary small">Este vehículo no tiene fotos.</div>
@@ -490,11 +473,8 @@
 
                         {{-- Tanque --}}
                         <div class="card">
-                            <div class="card-header d-flex align-items-center justify-content-between">
+                            <div class="card-header">
                                 <h4 class="card-title mb-0">Tanque de combustible</h4>
-                                <a id="addTankLink" href="#" class="btn btn-success btn-sm">
-                                    <i class="ti ti-square-rounded-plus me-1" aria-hidden="true"></i><span id="addTankText">Agregar</span>
-                                </a>
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
@@ -529,44 +509,11 @@
             </div>
         </div>
 
-        {{-- MODAL GALERÍA (estilos en gallery.css) --}}
-        <div class="modal modal-blur fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 class="modal-title h4" id="galleryModalLabel">
-                            <i class="ti ti-photo me-2" aria-hidden="true"></i>Galería de fotos
-                        </h3>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                    </div>
-
-                    <div class="modal-body">
-                        <div id="galleryCarousel" class="carousel slide" data-bs-interval="false" data-bs-touch="true">
-                            <div class="carousel-inner" id="galleryInner"></div>
-                            <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
-                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                <span class="visually-hidden">Anterior</span>
-                            </button>
-                            <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
-                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                <span class="visually-hidden">Siguiente</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="thumbs" id="galleryThumbs"></div>
-                </div>
-            </div>
-        </div>
-
     </div>
 
-    {{-- ====== SCRIPT: pinta datos (incluye NIP) y tanque en el modal ====== --}}
+    {{-- ====== SCRIPT: pinta datos, tanque y FOTOS (grid sin galería) ====== --}}
     <script>
     (() => {
-      const appEl = document.getElementById('vehiculos-app');
-      const baseVeh = appEl?.getAttribute('data-base-veh') || '/vehiculos';
-
       function nf(n) {
         if (n === null || n === undefined || n === '') return '—';
         const num = Number(n);
@@ -607,56 +554,99 @@
         setTextByDataV('poliza_qualitas', veh?.poliza_qualitas ?? '—');
       }
 
+      function renderTank(veh) {
+        const tbody = document.getElementById('tanksTbody');
+        const t = veh?.tanque || (veh?.tanques && veh.tanques[0]) || null;
+        if (!tbody) return;
+        if (t) {
+          tbody.innerHTML = `
+            <tr>
+              <td>${t.cantidad_tanques ?? '—'}</td>
+              <td>${t.tipo_combustible ?? '—'}</td>
+              <td>${nf(t.capacidad_litros)}</td>
+              <td>${nf(t.rendimiento_estimado)}</td>
+              <td>${nf(t.km_recorre)}</td>
+              <td>${t.costo_tanque_lleno != null ? '$' + nf(t.costo_tanque_lleno) : '—'}</td>
+            </tr>`;
+        } else {
+          tbody.innerHTML = `<tr><td colspan="6" class="text-secondary small">Este vehículo no tiene tanque.</td></tr>`;
+        }
+      }
+
+      // ===== Fotos =====
+      function buildPhotoUrl(id) {
+        const app = document.getElementById('vehiculos-app');
+        const base = app?.dataset?.basePhoto || '';
+        return `${base}/${id}`;
+      }
+
+      function clearPhotos() {
+        const grid = document.getElementById('photosGrid');
+        const empty = document.getElementById('photosEmpty');
+        if (grid) grid.innerHTML = '';
+        if (empty) empty.classList.remove('d-none');
+      }
+
+      function renderPhotos(veh) {
+        const fotos = Array.isArray(veh?.fotos) ? veh.fotos : [];
+        const grid = document.getElementById('photosGrid');
+        const empty = document.getElementById('photosEmpty');
+
+        // Limpia anteriores
+        clearPhotos();
+
+        if (!grid) return;
+
+        if (!fotos.length) {
+          if (empty) empty.classList.remove('d-none');
+          return;
+        }
+
+        // Hay fotos
+        if (empty) empty.classList.add('d-none');
+
+        const fragGrid = document.createDocumentFragment();
+        fotos.forEach((f, idx) => {
+          const col = document.createElement('div');
+          col.className = 'col-6 col-md-4 col-lg-3';
+
+          const url = buildPhotoUrl(f.id);
+
+          const a = document.createElement('a');
+          a.href = url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.className = 'd-block border rounded overflow-hidden';
+          a.title = `Abrir foto ${idx + 1} en nueva pestaña`;
+
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = `Foto del vehículo #${veh?.id ?? ''}`;
+          img.className = 'img-fluid';
+          img.loading = 'lazy';
+          img.referrerPolicy = 'no-referrer';
+          img.onerror = () => { img.alt = 'No se pudo cargar la imagen'; };
+
+          a.appendChild(img);
+          col.appendChild(a);
+          fragGrid.appendChild(col);
+        });
+        grid.appendChild(fragGrid);
+      }
+
+      // ====== Hook principal al abrir el modal ======
       document.querySelectorAll('.btn-view-veh').forEach(btn => {
         btn.addEventListener('click', () => {
           const veh = JSON.parse(btn.getAttribute('data-veh') || '{}');
 
-          // Links generales
-          const editVehicleLink   = document.getElementById('editVehicleLink');
-          const managePhotosLink  = document.getElementById('managePhotosLink');
+          // Link Editar
+          const editVehicleLink = document.getElementById('editVehicleLink');
           if (editVehicleLink && veh?.urls?.edit_vehicle)  editVehicleLink.href  = veh.urls.edit_vehicle;
-          if (managePhotosLink && veh?.urls?.edit_vehicle) managePhotosLink.href = veh.urls.edit_vehicle + '#fotos';
 
-          // === Pinta datos básicos, tarjeta, NIP y vencimientos ===
+          // Datos básicos + tanque + fotos
           setBasics(veh);
-
-          // Render tanque 1–1
-          const tbody        = document.getElementById('tanksTbody');
-          const addTankLink  = document.getElementById('addTankLink');
-          const addTankText  = document.getElementById('addTankText');
-          const t = veh?.tanque || (veh?.tanques && veh.tanques[0]) || null;
-
-          if (tbody) {
-            if (t) {
-              tbody.innerHTML = `
-                <tr>
-                  <td>${t.cantidad_tanques ?? '—'}</td>
-                  <td>${t.tipo_combustible ?? '—'}</td>
-                  <td>${nf(t.capacidad_litros)}</td>
-                  <td>${nf(t.rendimiento_estimado)}</td>
-                  <td>${nf(t.km_recorre)}</td>
-                  <td>${t.costo_tanque_lleno != null ? '$' + nf(t.costo_tanque_lleno) : '—'}</td>
-                </tr>
-              `;
-            } else {
-              tbody.innerHTML = `<tr><td colspan="6" class="text-secondary small">Este vehículo no tiene tanque.</td></tr>`;
-            }
-          }
-
-          // Botón Agregar/Editar
-          if (addTankLink && addTankText) {
-            if (t) {
-              addTankText.textContent = 'Editar';
-              addTankLink.classList.remove('btn-success');
-              addTankLink.classList.add('btn-warning');
-              addTankLink.href = veh?.urls?.edit_tanque || `${baseVeh}/${veh.id}/tanques/${t.id}/edit`;
-            } else {
-              addTankText.textContent = 'Agregar';
-              addTankLink.classList.remove('btn-warning');
-              addTankLink.classList.add('btn-success');
-              addTankLink.href = veh?.urls?.create_tanque || `${baseVeh}/${veh.id}/tanques/create`;
-            }
-          }
+          renderTank(veh);
+          renderPhotos(veh);
         });
       });
     })();
