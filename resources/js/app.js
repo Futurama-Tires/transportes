@@ -11,6 +11,8 @@ import '@tabler/core/dist/js/tabler.min.js';
 window.Alpine = Alpine;
 Alpine.start();
 
+import './reportes/index.js';
+
 // ---------------- Notificaciones (polling navbar) ----------------
 function csrf() {
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';

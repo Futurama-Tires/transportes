@@ -1,0 +1,1410 @@
+Ayudame con lo siguiente, he hecho cambios en las verificaciones y en el calendario de verificacion.
+Al parecer eso hizo que el reporte de verificaciones dejase de funcionar, te paso el reporte controller así
+como los archivos relacionados con las verificaciones. Corrige el reporte controller y dame el código completo.
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Models\Vehiculo;
+use App\Models\Operador;
+use App\Models\Verificacion;
+use App\Services\PdfService;
+
+class ReporteController extends Controller
+{
+    /** Vista dashboard */
+    public function index(Request $request)
+    {
+        $vehiculosOptions = Vehiculo::query()
+            ->select('id', 'placa', 'unidad', 'marca', 'anio', 'estado')
+            ->orderBy('placa')
+            ->get();
+
+        $operadoresOptions = Operador::query()
+            ->select('id', 'nombre', 'apellido_paterno', 'apellido_materno')
+            ->orderBy('nombre')
+            ->get();
+
+        return view('reportes.index', compact('vehiculosOptions', 'operadoresOptions'));
+    }
+
+    /** ------------------------ Helpers ------------------------ */
+    private function buildWhere(Request $r, array &$params): string
+    {
+        $w = [];
+        if ($r->filled('desde')) { $w[] = "cc.fecha >= ?"; $params[] = $r->input('desde'); }
+        if ($r->filled('hasta')) { $w[] = "cc.fecha <= ?"; $params[] = $r->input('hasta'); }
+
+        $vehiculos = (array) $r->input('vehiculos', []);
+        if (count($vehiculos)) {
+            $w[] = "cc.vehiculo_id IN (" . implode(',', array_fill(0, count($vehiculos), '?')) . ")";
+            array_push($params, ...$vehiculos);
+        }
+
+        $operadores = (array) $r->input('operadores', []);
+        if (count($operadores)) {
+            $w[] = "cc.operador_id IN (" . implode(',', array_fill(0, count($operadores), '?')) . ")";
+            array_push($params, ...$operadores);
+        }
+
+        if ($r->filled('destino')) {
+            $w[] = "cc.destino LIKE ?";
+            $params[] = '%' . $r->input('destino') . '%';
+        }
+
+        if ($r->filled('tipo_comb')) {
+            $w[] = "LOWER(cc.tipo_combustible) = LOWER(?)";
+            $params[] = $r->input('tipo_comb');
+        }
+
+        return count($w) ? ('WHERE ' . implode(' AND ', $w)) : '';
+    }
+
+    /** Paginación en memoria para arreglos resultantes (por defecto 25) */
+    private function paginate(array $rows, Request $r, int $defaultPerPage = 25): array
+    {
+        $page    = max(1, (int)$r->input('page', 1));
+        $perPage = min(200, max(1, (int)$r->input('per_page', $defaultPerPage)));
+
+        $total    = count($rows);
+        $lastPage = (int) max(1, ceil($total / $perPage));
+        $page     = min($page, $lastPage);
+        $offset   = ($page - 1) * $perPage;
+
+        $data = array_slice($rows, $offset, $perPage);
+
+        return [
+            'data' => array_values($data),
+            'meta' => [
+                'total'        => $total,
+                'per_page'     => $perPage,
+                'current_page' => $page,
+                'last_page'    => $lastPage,
+                'from'         => $total ? ($offset + 1) : 0,
+                'to'           => $total ? min($offset + $perPage, $total) : 0,
+            ],
+        ];
+    }
+
+    private function numbers(array $rows): array
+    {
+        $litros = 0; $gasto = 0; $km = 0;
+        foreach ($rows as $r) {
+            $litros += (float)($r['litros'] ?? 0);
+            $gasto  += (float)($r['gasto'] ?? 0);
+            $km     += (float)($r['km_recorridos'] ?? $r['km'] ?? 0);
+        }
+        $costoKm = $km > 0 ? $gasto / $km : 0;
+        return [
+            'litros'   => round($litros, 2),
+            'gasto'    => round($gasto, 2),
+            'km'       => round($km, 2),
+            'costo_km' => round($costoKm, 4),
+        ];
+    }
+
+    private function filtroResumen(Request $r): array
+    {
+        return [
+            'desde'       => $r->input('desde'),
+            'hasta'       => $r->input('hasta'),
+            'vehiculos'   => (array)$r->input('vehiculos', []),
+            'operadores'  => (array)$r->input('operadores', []),
+            'destino'     => $r->input('destino'),
+            'tipo_comb'   => $r->input('tipo_comb'),
+            'anio'        => $r->input('anio'),
+        ];
+    }
+
+    /** Helper: label "unidad - placa" con fallback decente */
+    private function makeVehiculoLabel(?string $unidad, ?string $placa): string
+    {
+        $u = trim((string)($unidad ?? ''));
+        $p = trim((string)($placa ?? ''));
+        if ($u !== '' && $p !== '') return $u.' - '.$p;
+        return $u !== '' ? $u : $p;
+    }
+
+    /** Normaliza chart_uri **/
+    private function normalizeChartUri(?string $raw): ?string
+    {
+        if (!$raw) return null;
+        $raw = trim($raw);
+        if (str_starts_with($raw, 'data:image/')) return $raw; // OK
+        if (preg_match('#^https?://#i', $raw)) return $raw;    // Requiere isRemoteEnabled=true
+        if (preg_match('/^[A-Za-z0-9+\/\=\r\n]+$/', $raw) && strlen($raw) > 200) {
+            return 'data:image/png;base64,' . preg_replace('/\s+/', '', $raw);
+        }
+        return null;
+    }
+
+    /** ------------------------ 1) Rendimiento vs Índice ------------------------ */
+    private function queryRendimiento(Request $r): array
+    {
+        $params = [];
+        $where  = $this->buildWhere($r, $params);
+
+        $sql = "
+            SELECT
+                cc.vehiculo_id,
+                v.placa,
+                v.unidad,
+                cc.operador_id,
+                TRIM(CONCAT(o.nombre, ' ', o.apellido_paterno, ' ', COALESCE(o.apellido_materno,''))) AS operador_nombre,
+                SUM(COALESCE(cc.recorrido, GREATEST(0, cc.km_final - cc.km_inicial))) AS km_recorridos,
+                SUM(cc.litros)  AS litros,
+                SUM(cc.total)   AS gasto,
+                COUNT(*)        AS num_cargas,
+                t.indice_estandar AS indice_estandar
+            FROM cargas_combustible cc
+            JOIN vehiculos v   ON v.id = cc.vehiculo_id
+            LEFT JOIN operadores o ON o.id = cc.operador_id
+            LEFT JOIN (
+                SELECT vehiculo_id, MAX(rendimiento_estimado) AS indice_estandar
+                FROM tanques
+                GROUP BY vehiculo_id
+            ) t ON t.vehiculo_id = v.id
+            $where
+            GROUP BY cc.vehiculo_id, v.placa, v.unidad, cc.operador_id, operador_nombre, t.indice_estandar
+            ORDER BY v.placa ASC, operador_nombre ASC
+        ";
+
+        $rows = collect(DB::select($sql, $params))->map(function ($r) {
+            $rendReal = ((float)$r->litros > 0) ? ((float)$r->km_recorridos / (float)$r->litros) : 0.0;
+            $indice   = $r->indice_estandar !== null ? (float)$r->indice_estandar : null;
+            $desvPct  = ($indice ?? 0) > 0 ? (($rendReal / $indice) - 1.0) * 100.0 : null;
+
+            $vehiculo_label = $this->makeVehiculoLabel($r->unidad, $r->placa);
+
+            return [
+                'vehiculo_id'    => (int)$r->vehiculo_id,
+                'placa'          => $r->placa,
+                'unidad'         => $r->unidad,
+                'vehiculo_label' => $vehiculo_label,
+                'operador_id'    => $r->operador_id ? (int)$r->operador_id : null,
+                'operador'       => $r->operador_nombre,
+                'km_recorridos'  => round((float)$r->km_recorridos, 2),
+                'litros'         => round((float)$r->litros, 2),
+                'gasto'          => round((float)$r->gasto, 2),
+                'num_cargas'     => (int)$r->num_cargas,
+                'indice'         => $indice !== null ? round($indice, 2) : null,
+                'rend_real'      => round($rendReal, 3),
+                'desviacion_pct' => $desvPct !== null ? round($desvPct, 2) : null,
+            ];
+        })->values()->all();
+
+        // Gráfica por vehículo (usar misma etiqueta)
+        $byVehiculo = collect($rows)->groupBy('vehiculo_id')->map(function ($grp) {
+            $km     = collect($grp)->sum('km_recorridos');
+            $litros = collect($grp)->sum('litros');
+            $rend   = $litros > 0 ? $km / $litros : 0;
+            $indice = $grp->first()['indice'];
+            return [
+                'vehiculo_id'    => $grp->first()['vehiculo_id'],
+                'placa'          => $grp->first()['placa'],
+                'unidad'         => $grp->first()['unidad'],
+                'vehiculo_label' => $grp->first()['vehiculo_label'],
+                'rend_real'      => round($rend, 3),
+                'indice'         => $indice !== null ? round($indice, 3) : null,
+            ];
+        })->values();
+
+        $chart = [
+            'categories' => $byVehiculo->pluck('vehiculo_label')->all(),
+            'series'     => [
+                ['name' => 'Rendimiento real (km/L)', 'data' => $byVehiculo->pluck('rend_real')->all()],
+            ],
+        ];
+        if ($byVehiculo->pluck('indice')->filter(fn($x)=>$x !== null)->count()) {
+            $chart['series'][] = ['name' => 'Índice estándar (km/L)', 'data' => $byVehiculo->pluck('indice')->map(fn($x)=>$x ?? 0)->all()];
+        }
+
+        return ['rows'=>$rows, 'kpis'=>$this->numbers($rows), 'chart'=>$chart];
+    }
+
+    public function rendimientoJson(Request $r)
+    {
+        $res = $this->queryRendimiento($r);
+        $pag = $this->paginate($res['rows'], $r, 25);
+
+        return response()->json([
+            'kpis'       => $res['kpis'],
+            'table'      => $pag['data'],        // <-- sólo esta página
+            'pagination' => $pag['meta'],        // <-- metadatos de paginación
+            'chart'      => $res['chart'],       // <-- gráfica con dataset completo (filtrado)
+            'params'     => $r->all(),
+        ]);
+    }
+
+    public function exportRendimientoPdf(Request $r, PdfService $pdf)
+    {
+        $res = $this->queryRendimiento($r);
+        $data = [
+            'titulo'    => 'Rendimiento vs Índice Estándar (km/L)',
+            'filtros'   => $this->filtroResumen($r),
+            'kpis'      => $res['kpis'],
+            'rows'      => $res['rows'], // exporta todo (sin paginar)
+            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
+        ];
+        return $pdf->streamFromView('reportes.pdf.rendimiento', $data, 'rendimiento-vs-indice.pdf', 'A4', 'portrait');
+    }
+
+    /** ------------------------ 2) Costo por km ------------------------ */
+    private function queryCostoKm(Request $r): array
+    {
+        $params = [];
+        $where  = $this->buildWhere($r, $params);
+
+        $sql = "
+            SELECT
+                cc.vehiculo_id,
+                v.placa,
+                v.unidad,
+                cc.operador_id,
+                TRIM(CONCAT(o.nombre, ' ', o.apellido_paterno, ' ', COALESCE(o.apellido_materno,''))) AS operador_nombre,
+                SUM(COALESCE(cc.recorrido, GREATEST(0, cc.km_final - cc.km_inicial))) AS km_recorridos,
+                SUM(cc.litros)  AS litros,
+                SUM(cc.total)   AS gasto,
+                COUNT(*)        AS num_cargas
+            FROM cargas_combustible cc
+            JOIN vehiculos v   ON v.id = cc.vehiculo_id
+            LEFT JOIN operadores o ON o.id = cc.operador_id
+            $where
+            GROUP BY cc.vehiculo_id, v.placa, v.unidad, cc.operador_id, operador_nombre
+            ORDER BY v.placa ASC, operador_nombre ASC
+        ";
+
+        $rows = collect(DB::select($sql, $params))->map(function ($r) {
+            $km = (float)$r->km_recorridos;
+            $litros = (float)$r->litros;
+            $gasto = (float)$r->gasto;
+            $costoKm = $km > 0 ? $gasto / $km : 0;
+            $precioProm = $litros > 0 ? $gasto / $litros : 0;
+
+            $vehiculo_label = $this->makeVehiculoLabel($r->unidad, $r->placa);
+
+            return [
+                'vehiculo_id'    => (int)$r->vehiculo_id,
+                'placa'          => $r->placa,
+                'unidad'         => $r->unidad,
+                'vehiculo_label' => $vehiculo_label,
+                'operador_id'    => $r->operador_id ? (int)$r->operador_id : null,
+                'operador'       => $r->operador_nombre,
+                'litros'         => round($litros, 2),
+                'gasto'          => round($gasto, 2),
+                'km'             => round($km, 2),
+                'costo_km'       => round($costoKm, 4),
+                'precio_prom'    => round($precioProm, 3),
+                'num_cargas'     => (int)$r->num_cargas,
+            ];
+        })->values()->all();
+
+        return ['rows'=>$rows, 'kpis'=>$this->numbers($rows)];
+    }
+
+    public function costoKmJson(Request $r)
+    {
+        $res = $this->queryCostoKm($r);
+        $pag = $this->paginate($res['rows'], $r, 25);
+
+        return response()->json([
+            'kpis'       => $res['kpis'],
+            'table'      => $pag['data'],
+            'pagination' => $pag['meta'],
+            'chart'      => [
+                'categories' => collect($res['rows'])->pluck('vehiculo_label')->all(),
+                'series'     => [
+                    ['name' => '$ / km',     'data' => collect($res['rows'])->pluck('costo_km')->all()],
+                    ['name' => '$ / L prom', 'data' => collect($res['rows'])->pluck('precio_prom')->all()],
+                ],
+            ],
+            'params' => $r->all(),
+        ]);
+    }
+
+    public function exportCostoKmPdf(Request $r, PdfService $pdf)
+    {
+        $res = $this->queryCostoKm($r);
+        $data = [
+            'titulo'    => 'Costo por km & Gasto de combustible',
+            'filtros'   => $this->filtroResumen($r),
+            'kpis'      => $res['kpis'],
+            'rows'      => $res['rows'], // exporta todo (sin paginar)
+            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
+        ];
+        return $pdf->streamFromView('reportes.pdf.costo_km', $data, 'costo-por-km.pdf', 'A4', 'portrait');
+    }
+
+    /** ------------------------ 3) Auditoría ------------------------ */
+    private function queryAuditoria(Request $r): array
+    {
+        $params = [];
+        $where  = $this->buildWhere($r, $params);
+
+        $sql = "
+            WITH base AS (
+                SELECT
+                    cc.id, cc.fecha, cc.vehiculo_id, cc.operador_id,
+                    cc.litros, cc.precio, cc.total,
+                    cc.km_inicial, cc.km_final,
+                    v.placa,
+                    v.unidad,
+                    t.capacidad_litros,
+                    TRIM(CONCAT(o.nombre, ' ', o.apellido_paterno, ' ', COALESCE(o.apellido_materno,''))) AS operador_nombre
+                FROM cargas_combustible cc
+                JOIN vehiculos v ON v.id = cc.vehiculo_id
+                LEFT JOIN operadores o ON o.id = cc.operador_id
+                LEFT JOIN tanques t ON t.vehiculo_id = cc.vehiculo_id
+                $where
+            ),
+            ord AS (
+                SELECT
+                    base.*,
+                    (base.km_final IS NOT NULL AND base.km_inicial IS NOT NULL AND base.km_final < base.km_inicial) AS flag_km_invertido,
+                    (base.capacidad_litros IS NOT NULL AND base.litros > base.capacidad_litros) AS flag_excede_capacidad,
+                    COUNT(*) OVER (PARTITION BY base.vehiculo_id, base.fecha, base.litros, base.total) AS dup_count
+                FROM base
+            ),
+            stats AS (
+                SELECT AVG(precio) AS avg_p, STDDEV_SAMP(precio) AS sd_p FROM base WHERE precio IS NOT NULL
+            )
+            SELECT
+                ord.id, ord.fecha, ord.placa, ord.unidad, ord.vehiculo_id, ord.operador_id,
+                ord.operador_nombre,
+                ord.litros, ord.precio, ord.total, ord.capacidad_litros,
+                ord.km_inicial, ord.km_final, ord.dup_count,
+                ord.flag_km_invertido,
+                ord.flag_excede_capacidad,
+                (CASE
+                    WHEN ord.precio IS NULL THEN 0
+                    WHEN (SELECT sd_p FROM stats) IS NULL THEN 0
+                    WHEN ord.precio > (SELECT avg_p + 2*sd_p FROM stats) THEN 1
+                    WHEN ord.precio < (SELECT avg_p - 2*sd_p FROM stats) THEN 1
+                    ELSE 0
+                END) AS flag_precio_outlier,
+                (ord.dup_count > 1) AS flag_posible_duplicado
+            FROM ord
+            ORDER BY flag_excede_capacidad DESC, flag_km_invertido DESC, flag_precio_outlier DESC, ord.fecha DESC
+            LIMIT 500
+        ";
+
+        $rows = collect(DB::select($sql, $params))->map(function ($r) {
+            $flags = [];
+            if ($r->flag_excede_capacidad) $flags[] = 'Excede capacidad';
+            if ($r->flag_km_invertido)     $flags[] = 'KM invertido';
+            if ($r->flag_precio_outlier)   $flags[] = 'Precio atípico';
+            if ($r->flag_posible_duplicado)$flags[] = 'Posible duplicado';
+
+            $vehiculo_label = $this->makeVehiculoLabel($r->unidad, $r->placa);
+
+            $opName = trim((string)($r->operador_nombre ?? ''));
+            $opName = $opName !== '' ? $opName : null;
+
+            return [
+                'id'            => (int)$r->id,
+                'fecha'         => (string)$r->fecha,
+                'vehiculo_id'   => (int)$r->vehiculo_id,
+                'placa'         => $r->placa,
+                'unidad'        => $r->unidad,
+                'vehiculo_label'=> $vehiculo_label,
+                'operador_id'   => $r->operador_id ? (int)$r->operador_id : null,
+                'operador'      => $opName,
+                'litros'        => round((float)$r->litros, 2),
+                'precio'        => $r->precio !== null ? round((float)$r->precio, 3) : null,
+                'total'         => round((float)$r->total, 2),
+                'cap_litros'    => $r->capacidad_litros !== null ? round((float)$r->capacidad_litros, 1) : null,
+                'km_inicial'    => $r->km_inicial,
+                'km_final'      => $r->km_final,
+                'flags'         => $flags,
+            ];
+        })->values()->all();
+
+        return ['rows' => $rows];
+    }
+
+    public function auditoriaJson(Request $r)
+    {
+        $res = $this->queryAuditoria($r);
+        $pag = $this->paginate($res['rows'], $r, 25);
+
+        return response()->json([
+            'kpis'       => ['litros' => null, 'gasto' => null, 'km' => null, 'costo_km' => null],
+            'table'      => $pag['data'],
+            'pagination' => $pag['meta'],
+            'chart'      => ['categories' => [], 'series' => []],
+            'params'     => $r->all(),
+        ]);
+    }
+
+    public function exportAuditoriaPdf(Request $r, PdfService $pdf)
+    {
+        $res = $this->queryAuditoria($r);
+        $data = [
+            'titulo'    => 'Auditoría de cargas y anomalías',
+            'filtros'   => $this->filtroResumen($r),
+            'rows'      => $res['rows'], // exporta todo (hasta 500 por límite de consulta)
+            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
+        ];
+        return $pdf->streamFromView('reportes.pdf.auditoria', $data, 'auditoria-cargas.pdf', 'A4', 'portrait');
+    }
+
+    /** ------------------------ 4) Verificación (simple por año) ------------------------ */
+    private function queryVerificacion(Request $r): array
+    {
+        $anio = (int)($r->input('anio') ?: date('Y'));
+
+        $vehiculoIds = (array)$r->input('vehiculos', []);
+        $vehiculos = Vehiculo::query()
+            ->select('id','placa','unidad','estado')
+            ->when(count($vehiculoIds) > 0, fn($q)=>$q->whereIn('id', $vehiculoIds))
+            ->orderBy('placa')
+            ->get();
+
+        $verifAprobadas = Verificacion::query()
+            ->anio($anio)
+            ->aprobada()
+            ->select('vehiculo_id', DB::raw('MAX(fecha_verificacion) AS fecha_verificacion'))
+            ->groupBy('vehiculo_id')
+            ->pluck('fecha_verificacion', 'vehiculo_id');
+
+        $rows = $vehiculos->map(function($v) use ($verifAprobadas, $anio) {
+            $fecha = $verifAprobadas->get($v->id);
+            $ok    = !empty($fecha);
+            return [
+                'vehiculo_id'        => (int)$v->id,
+                'placa'              => $v->placa,
+                'unidad'             => $v->unidad,
+                'vehiculo_label'     => $this->makeVehiculoLabel($v->unidad, $v->placa),
+                'estado'             => $v->estado,
+                'anio'               => $anio,
+                'estatus'            => $ok ? 'Verificado' : 'Sin verificar',
+                'fecha_verificacion' => $ok ? (string)$fecha : null,
+            ];
+        })->values()->all();
+
+        return [
+            'rows' => $rows,
+            'kpis' => [
+                'total'         => count($rows),
+                'verificados'   => collect($rows)->where('estatus','Verificado')->count(),
+                'sin_verificar' => collect($rows)->where('estatus','Sin verificar')->count(),
+            ],
+        ];
+    }
+
+    public function verificacionJson(Request $r)
+    {
+        $res = $this->queryVerificacion($r);
+        $pag = $this->paginate($res['rows'], $r, 25);
+
+        return response()->json([
+            'kpis'       => $res['kpis'],
+            'table'      => $pag['data'],
+            'rows'       => $pag['data'],   // si el front usa 'rows', lo mantenemos paginado 
+            'pagination' => $pag['meta'],
+            'chart'      => [
+                'categories' => ['Verificado', 'Sin verificar'],
+                'series'     => [[
+                    'name' => 'Estatus',
+                    'data' => [ $res['kpis']['verificados'], $res['kpis']['sin_verificar'] ]
+                ]],
+            ],
+            'params' => $r->all(),
+        ]);
+    }
+
+    public function exportVerificacionPdf(Request $r, PdfService $pdf)
+    {
+        $res = $this->queryVerificacion($r);
+        $data = [
+            'titulo'    => 'Verificaciones por año (Verificado / Sin verificar)',
+            'filtros'   => $this->filtroResumen($r),
+            'rows'      => $res['rows'], // exporta todo (sin paginar)
+            'kpis'      => $res['kpis'],
+            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
+        ];
+        return $pdf->streamFromView('reportes.pdf.verificacion', $data, 'verificacion-vencimientos.pdf', 'A4', 'portrait');
+    }
+}
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Verificacion;
+use App\Models\Vehiculo;
+use Illuminate\Http\Request;
+
+
+class VerificacionController extends Controller
+{
+    public function __construct()
+    {
+        $this->middleware(['auth', 'role:administrador|capturista']);
+    }
+
+    /**
+     * Listar verificaciones
+     */
+    public function index(\Illuminate\Http\Request $request)
+    {
+        $filters = $request->only([
+            'search', 'vehiculo_id', 'estado', 'from', 'to', 'sort_by', 'sort_dir'
+        ]);
+
+        // Para selects en la vista
+        $vehiculos = \App\Models\Vehiculo::orderBy('unidad')
+            ->get(['id','unidad','placa','propietario']);
+
+        $estados = \App\Models\Verificacion::query()
+            ->select('estado')->distinct()->orderBy('estado')->pluck('estado');
+
+        $verificaciones = \App\Models\Verificacion::query()
+            ->with('vehiculo')
+            ->filter($filters)
+            ->paginate(25)           // paginación solicitada
+            ->withQueryString();     // conserva filtros en la paginación
+
+        return view('verificaciones.index', compact('verificaciones', 'vehiculos', 'estados'));
+    }
+
+
+    /**
+     * Mostrar formulario de creación
+     */
+    public function create()
+    {
+        $vehiculos = Vehiculo::orderBy('unidad')->get();
+        return view('verificaciones.create', compact('vehiculos'));
+    }
+
+    /**
+     * Guardar nueva verificación
+     */
+    public function store(Request $request)
+    {
+        $data = $this->validateData($request);
+        Verificacion::create($data);
+
+        return redirect()
+            ->route('verificaciones.index')
+            ->with('success', 'Verificación registrada correctamente.');
+    }
+
+    /**
+     * Mostrar detalles de una verificación
+     */
+    public function show(Verificacion $verificacion)
+    {
+        return view('verificaciones.show', compact('verificacion'));
+    }
+
+    /**
+     * Formulario de edición
+     */
+    public function edit(Verificacion $verificacion)
+    {
+        $vehiculos = Vehiculo::orderBy('unidad')->get();
+        return view('verificaciones.edit', compact('verificacion', 'vehiculos'));
+    }
+
+    /**
+     * Actualizar verificación
+     */
+    public function update(Request $request, Verificacion $verificacion)
+    {
+        $data = $this->validateData($request);
+        $verificacion->update($data);
+
+        return redirect()
+            ->route('verificaciones.index')
+            ->with('success', 'Verificación actualizada correctamente.');
+    }
+
+    /**
+     * Eliminar verificación
+     */
+    public function destroy(Verificacion $verificacion)
+    {
+        $verificacion->delete();
+
+        return redirect()
+            ->route('verificaciones.index')
+            ->with('success', 'Verificación eliminada correctamente.');
+    }
+
+    /**
+     * Validar datos
+     */
+    private function validateData(Request $request)
+    {
+        return $request->validate([
+            'vehiculo_id'        => ['required', 'exists:vehiculos,id'],
+            'estado'             => ['required', 'string', 'max:255'],
+            'comentarios'        => ['nullable', 'string'],
+            'fecha_verificacion' => ['required', 'date'],
+        ]);
+    }
+}
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\VerificacionRegla;
+use App\Models\CalendarioVerificacion;
+use App\Models\VerificacionReglaEstado;
+use App\Models\VerificacionReglaDetalle;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
+
+class VerificacionReglaController extends Controller
+{
+    /* ===== Catálogos ===== */
+    protected function catalogoEstados(): array
+    {
+        return [
+            'Aguascalientes','Baja California','Baja California Sur','Campeche','Chiapas','Chihuahua',
+            'Ciudad de México','Coahuila','Colima','Durango','Guanajuato','Guerrero','Hidalgo','Jalisco',
+            'México','Michoacán','Morelos','Nayarit','Nuevo León','Oaxaca','Puebla','Querétaro','Quintana Roo',
+            'San Luis Potosí','Sinaloa','Sonora','Tabasco','Tamaulipas','Tlaxcala','Veracruz','Yucatán','Zacatecas'
+        ];
+    }
+
+    protected function mesesES(): array
+    {
+        return [
+            1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',
+            7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'
+        ];
+    }
+
+    protected function normalizeEstado(?string $s): string
+    {
+        $norm = $s ? Str::of($s)->ascii()->upper()->replaceMatches('/\s+/', ' ')->trim() : '';
+        $val  = (string) $norm;
+        if (in_array($val, ['ESTADO DE MEXICO','MEXICO','EDO MEXICO','EDO. MEX','E DOMEX'], true)) {
+            return 'EDO MEX';
+        }
+        return $val;
+    }
+
+    /* ===== UI CRUD ===== */
+    public function index()
+    {
+        $reglas = VerificacionRegla::withCount('periodos')->orderByDesc('created_at')->paginate(15);
+        return view('verificacion_reglas.index', ['reglas' => $reglas]);
+    }
+
+    public function create()
+    {
+        // Defaults para precargar la tabla de terminaciones:
+        $defaultsSemestral = $this->defaultSemestralDetalles(); // tipo CAMe por bimestres
+        $defaultsAnual     = $this->defaultAnualDetalles();     // estilo Jalisco (1→Ene–Feb, 2→Feb–Mar, ...)
+
+        return view('verificacion_reglas.create', [
+            'catalogoEstados'  => $this->catalogoEstados(),
+            'meses'            => $this->mesesES(),
+            'defaultsSemestral'=> $defaultsSemestral,
+            'defaultsAnual'    => $defaultsAnual,
+            'anioDefault'      => now()->year,
+        ]);
+    }
+
+    public function edit(VerificacionRegla $verificacion_regla)
+    {
+        return view('verificacion_reglas.edit', [
+            'regla'           => $verificacion_regla,
+            'catalogoEstados' => $this->catalogoEstados(),
+        ]);
+    }
+
+    public function generarForm(VerificacionRegla $verificacion_regla)
+    {
+        // (Opcional/legacy) ya no se requiere con reconciliación automática
+        return view('verificacion_reglas.generar', ['regla' => $verificacion_regla]);
+    }
+
+    /* ===== Store (crea regla y SINCRONIZA automáticamente el año capturado) ===== */
+    public function store(Request $request)
+    {
+        // Validación base de la regla + menú flexible
+        $data = $request->validate([
+            'nombre'          => ['required', 'string', 'max:255'],
+            'version'         => ['nullable', 'string', 'max:50'],
+            'frecuencia'      => ['required', Rule::in(['Semestral','Anual'])],
+            'notas'           => ['nullable','string'],
+
+            // Menú:
+            'anio'            => ['required','integer','min:2000','max:2999'],
+            'estados'         => ['required','array','min:1'],
+            'estados.*'       => ['string','max:100'],
+
+            // Detalles (tabla de terminaciones → meses)
+            'detalles'        => ['required','array'],
+        ]);
+
+        $anio = (int) $data['anio'];
+
+        $regla = null;
+
+        DB::transaction(function () use ($data, $anio, &$regla) {
+            // Normaliza estados seleccionados
+            $estadosOriginales = $data['estados'];
+            $estadosNorm = array_values(array_unique(array_map(
+                fn($e) => $this->normalizeEstado($e),
+                $estadosOriginales
+            )));
+
+            // 0) Validación extra de disponibilidad (evita choques por año+estado)
+            $choquesPivot = VerificacionReglaEstado::query()
+                ->where('anio', $anio)
+                ->whereIn('estado', $estadosNorm)
+                ->exists();
+
+            $choquesCal = DB::table('calendario_verificacion')
+                ->where('anio', $anio)
+                ->whereIn('estado', $estadosNorm)
+                ->exists();
+
+            if ($choquesPivot || $choquesCal) {
+                throw ValidationException::withMessages([
+                    'estados' => 'Uno o más estados ya están asignados en '.$anio.'. Elige otros estados o cambia el año.',
+                ]);
+            }
+
+            // 1) Crear la regla
+            $regla = VerificacionRegla::create([
+                'nombre'          => $data['nombre'],
+                'version'         => $data['version'] ?? null,
+                'status'          => 'published',
+                'vigencia_inicio' => Carbon::create($anio, 1, 1)->toDateString(),
+                'vigencia_fin'    => Carbon::create($anio, 12, 31)->toDateString(),
+                'frecuencia'      => $data['frecuencia'],
+                'estados'         => [], // dejamos vacío (usaremos tabla por año)
+                'notas'           => $data['notas'] ?? null,
+            ]);
+
+            // 2) Guardar estados por AÑO
+            foreach ($estadosOriginales as $label) {
+                VerificacionReglaEstado::create([
+                    'regla_id' => $regla->id,
+                    'anio'     => $anio,
+                    'estado'   => $label, // normaliza en el mutator del modelo
+                ]);
+            }
+
+            // 3) Guardar DETALLES (validando rango 1..12, sin cruce de año y filtrando semestres válidos por frecuencia)
+            $allowedSemestres = ($data['frecuencia'] === 'Anual') ? [0] : [1,2];
+
+            $seen = [];
+            foreach ($data['detalles'] as $terminacionStr => $porSemestre) {
+                $terminacion = (int) $terminacionStr;
+                if ($terminacion < 0 || $terminacion > 9) {
+                    throw ValidationException::withMessages([
+                        'detalles' => 'Terminación inválida. Debe ser 0–9.',
+                    ]);
+                }
+
+                foreach ($porSemestre as $sem => $mm) {
+                    $semestre = (int) $sem; // 0 (anual), 1 o 2 (semestral)
+
+                    // << clave: ignorar semestres que no correspondan a la frecuencia >>
+                    if (!in_array($semestre, $allowedSemestres, true)) {
+                        continue;
+                    }
+
+                    $mi = (int) ($mm['mes_inicio'] ?? 0);
+                    $mf = (int) ($mm['mes_fin'] ?? 0);
+
+                    if ($mi < 1 || $mi > 12 || $mf < 1 || $mf > 12) {
+                        continue; // ignora filas malformadas
+                    }
+                    if ($mi > $mf) {
+                        throw ValidationException::withMessages([
+                            "detalles.$terminacion.$sem.mes_inicio" => 'mes_inicio no puede ser mayor a mes_fin (no se admite cruce de año).',
+                        ]);
+                    }
+
+                    $k = $terminacion.'|'.$semestre.'|'.$mi.'|'.$mf;
+                    if (isset($seen[$k])) continue;
+                    $seen[$k] = true;
+
+                    VerificacionReglaDetalle::create([
+                        'regla_id'   => $regla->id,
+                        'frecuencia' => $data['frecuencia'],
+                        'terminacion'=> $terminacion,
+                        'semestre'   => $semestre,
+                        'mes_inicio' => $mi,
+                        'mes_fin'    => $mf,
+                    ]);
+                }
+            }
+        });
+
+        // 4) ⚡️ Reconciliación automática del año capturado
+        $stats = $this->reconciliarPeriodos($regla, $anio);
+
+        return redirect()->route('verificacion-reglas.index')
+            ->with('success', "Regla creada. Calendario {$anio} sincronizado (eliminados: {$stats['deleted']}, upsert: {$stats['upserted']}).");
+    }
+
+    public function update(Request $request, VerificacionRegla $verificacion_regla)
+    {
+        $data = $request->validate([
+            'nombre'     => ['required', 'string', 'max:255'],
+            'version'    => ['nullable', 'string', 'max:50'],
+            'status'     => ['required', Rule::in(['draft','published','archived'])],
+            'frecuencia' => ['required', Rule::in(['Semestral','Anual'])],
+            'notas'      => ['nullable','string'],
+        ]);
+
+        $verificacion_regla->update([
+            'nombre'     => $data['nombre'],
+            'version'    => $data['version'] ?? null,
+            'status'     => $data['status'],
+            'frecuencia' => $data['frecuencia'],
+            'notas'      => $data['notas'] ?? null,
+        ]);
+
+        // ⚡️ Reconciliación automática de TODOS los años asignados a la regla
+        $anios = $verificacion_regla->estadosAsignados()->distinct()->pluck('anio');
+        $tot = ['deleted'=>0,'upserted'=>0];
+        foreach ($anios as $anio) {
+            $s = $this->reconciliarPeriodos($verificacion_regla, (int)$anio);
+            $tot['deleted']  += $s['deleted'];
+            $tot['upserted'] += $s['upserted'];
+        }
+
+        return redirect()->route('verificacion-reglas.index')
+            ->with('success', "Regla actualizada. Calendarios sincronizados (eliminados: {$tot['deleted']}, upsert: {$tot['upserted']}).");
+    }
+
+    public function destroy(VerificacionRegla $verificacion_regla)
+    {
+        // Si ya aplicaste CASCADE en la BD, con esto basta:
+        $verificacion_regla->delete();
+
+        return redirect()
+            ->route('verificacion-reglas.index')
+            ->with('success', 'Regla eliminada.');
+    }
+
+    /* ===== (Legacy/compat) Generación manual, ahora redirige a reconciliación ===== */
+    public function generar(Request $request, VerificacionRegla $verificacion_regla)
+    {
+        $request->validate([
+            'anio' => ['required', 'integer', 'min:2000', 'max:2999'],
+        ]);
+
+        $anio = (int) $request->integer('anio');
+
+        $stats = $this->reconciliarPeriodos($verificacion_regla, $anio);
+
+        return redirect()->route('verificacion-reglas.index')
+            ->with('success', "Calendario {$anio} sincronizado (eliminados: {$stats['deleted']}, upsert: {$stats['upserted']}).");
+    }
+
+    /* ===== Reconciliación automática (borra obsoletos y upserta esperados) ===== */
+
+    /** Clave lógica única consistente con el índice único de BD. */
+    private function keyFor(string $estado, int $terminacion, int $mi, int $mf, int $anio): string
+    {
+        $E = VerificacionRegla::normalizeEstado($estado);
+        return "{$E}|{$terminacion}|{$mi}|{$mf}|{$anio}";
+    }
+
+    /** Construye el conjunto esperado de filas para regla+año (indexado por key). */
+    private function buildExpectedRows(VerificacionRegla $regla, int $anio): array
+    {
+        // 1) Estados (normalizados) para ese año
+        $estados = $regla->estadosParaAnio($anio)
+            ->map(fn($e) => VerificacionRegla::normalizeEstado($e))
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($estados)) return [];
+
+        // 2) Detalles (deduplicados) — << clave: filtrar por frecuencia >>
+        $q = $regla->detalles()->orderBy('terminacion');
+        if ($regla->frecuencia === 'Anual') {
+            $q->where('semestre', 0);
+        } else { // Semestral
+            $q->whereIn('semestre', [1,2]);
+        }
+
+        $detalles = $q->get(['terminacion','semestre','mes_inicio','mes_fin'])
+            ->unique(fn($d) => $d->terminacion.'|'.$d->semestre.'|'.$d->mes_inicio.'|'.$d->mes_fin)
+            ->values();
+
+        if ($detalles->isEmpty()) return [];
+
+        $rows = [];
+        foreach ($estados as $estado) {
+            foreach ($detalles as $d) {
+                $mi  = (int) $d->mes_inicio;
+                $mf  = (int) $d->mes_fin;
+                if ($mi < 1 || $mi > 12 || $mf < 1 || $mf > 12 || $mi > $mf) {
+                    continue; // no admitimos cruce de año
+                }
+                $desde = Carbon::create($anio, $mi, 1)->startOfMonth();
+                $hasta = Carbon::create($anio, $mf, 1)->endOfMonth();
+
+                $sem   = (int) $d->semestre; // 0 (anual) ó 1/2
+                $semE  = ($sem === 0) ? ($mf <= 6 ? 1 : 2) : $sem;
+
+                $row = [
+                    'estado'         => VerificacionRegla::normalizeEstado($estado),
+                    'terminacion'    => (int) $d->terminacion,
+                    'mes_inicio'     => $mi,
+                    'mes_fin'        => $mf,
+                    'semestre'       => $semE,
+                    'frecuencia'     => $regla->frecuencia, // "Semestral" | "Anual"
+                    'anio'           => $anio,
+                    'vigente_desde'  => $desde->toDateString(),
+                    'vigente_hasta'  => $hasta->toDateString(),
+                    'regla_id'       => $regla->id,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ];
+                $rows[$this->keyFor($row['estado'],$row['terminacion'],$mi,$mf,$anio)] = $row;
+            }
+        }
+        return $rows; // indexados por key
+    }
+
+    /**
+     * Reconciliación total:
+     * - Borra periodos obsoletos de ESA regla+año
+     * - Upsert del conjunto esperado (sin duplicar)
+     * Retorna ['deleted' => n, 'upserted' => n]
+     */
+    private function reconciliarPeriodos(VerificacionRegla $regla, int $anio): array
+    {
+        $expected = $this->buildExpectedRows($regla, $anio);
+
+        return DB::transaction(function () use ($regla, $anio, $expected) {
+            // Trae existentes (id + columnas de clave) para esta regla+año
+            $existing = DB::table('calendario_verificacion')
+                ->where('regla_id', $regla->id)
+                ->where('anio', $anio)
+                ->get(['id','estado','terminacion','mes_inicio','mes_fin','anio'])
+                ->mapWithKeys(function ($r) {
+                    $k = $this->keyFor(
+                        (string)$r->estado,
+                        (int)$r->terminacion,
+                        (int)$r->mes_inicio,
+                        (int)$r->mes_fin,
+                        (int)$r->anio
+                    );
+                    return [$k => (int)$r->id];
+                })
+                ->all();
+
+            // 1) Borrados: existentes que ya no están en el esperado
+            $idsToDelete = [];
+            foreach ($existing as $k => $id) {
+                if (!isset($expected[$k])) {
+                    $idsToDelete[] = $id;
+                }
+            }
+            if (!empty($idsToDelete)) {
+                DB::table('calendario_verificacion')->whereIn('id', $idsToDelete)->delete();
+            }
+
+            // 2) Upsert de todo lo esperado (agrega/actualiza)
+            $rows = array_values($expected);
+            if (!empty($rows)) {
+                DB::table('calendario_verificacion')->upsert(
+                    $rows,
+                    ['estado','terminacion','mes_inicio','mes_fin','anio'], // coincide con índice único
+                    ['regla_id','semestre','frecuencia','vigente_desde','vigente_hasta','updated_at']
+                );
+            }
+
+            return ['deleted' => count($idsToDelete), 'upserted' => count($rows)];
+        });
+    }
+
+    /* ===== Defaults para precarga en UI ===== */
+    protected function defaultSemestralDetalles(): array
+    {
+        // Mapeo
+        // S1: 5-6 Ene-Feb | 7-8 Feb-Mar | 3-4 Mar-Abr | 1-2 Abr-May | 9-0 May-Jun
+        // S2: 5-6 Jul-Ago | 7-8 Ago-Sep | 3-4 Sep-Oct | 1-2 Oct-Nov | 9-0 Nov-Dic
+        $mapS1 = [
+            5 => [1,2], 6 => [1,2],
+            7 => [2,3], 8 => [2,3],
+            3 => [3,4], 4 => [3,4],
+            1 => [4,5], 2 => [4,5],
+            9 => [5,6], 0 => [5,6],
+        ];
+
+        $out = [];
+        foreach (range(0,9) as $d) {
+            [$mi1, $mf1] = $mapS1[$d] ?? [1,2];
+            $mi2 = $mi1 + 6; if ($mi2 > 12) $mi2 -= 12;
+            $mf2 = $mf1 + 6; if ($mf2 > 12) $mf2 -= 12;
+
+            $out[$d][1]['mes_inicio'] = $mi1;
+            $out[$d][1]['mes_fin']    = $mf1;
+            $out[$d][2]['mes_inicio'] = $mi2;
+            $out[$d][2]['mes_fin']    = $mf2;
+        }
+        return $out;
+    }
+
+    protected function defaultAnualDetalles(): array
+    {
+        // Estilo Jalisco: 1→Ene–Feb, 2→Feb–Mar, ... 0→Nov–Dic
+        $map = [
+            1 => [1,2], 2 => [2,3], 3 => [3,4], 4 => [4,5], 5 => [5,6],
+            6 => [6,7], 7 => [7,8], 8 => [8,9], 9 => [9,10], 0 => [11,12],
+        ];
+        $out = [];
+        foreach (range(0,9) as $d) {
+            $mi = $map[$d][0] ?? 1;
+            $mf = $map[$d][1] ?? 2;
+            $out[$d][0]['mes_inicio'] = $mi;
+            $out[$d][0]['mes_fin']    = $mf;
+        }
+        return $out;
+    }
+
+    /* ===== Estados disponibles por AÑO (para el menú) ===== */
+    public function estadosDisponibles(Request $request)
+    {
+        $anio = (int) $request->query('anio', now()->year);
+
+        if ($anio < 2000 || $anio > 2999) {
+            return response()->json([
+                'ok'          => false,
+                'message'     => 'Año inválido',
+                'anio'        => $anio,
+                'disponibles' => [],
+                'ocupados'    => [],
+            ], 400);
+        }
+
+        // Estados ya ocupados (normalizados) EN CUALQUIER regla para ese año
+        $ocupados = VerificacionReglaEstado::where('anio', $anio)
+            ->pluck('estado')
+            ->map(fn($e) => $this->normalizeEstado($e))
+            ->unique()
+            ->values()
+            ->all();
+
+        $catalogo = $this->catalogoEstados();
+
+        $disponibles = [];
+        foreach ($catalogo as $label) {
+            $norm = $this->normalizeEstado($label);
+            if (!in_array($norm, $ocupados, true)) {
+                $disponibles[] = [
+                    'value' => $label, // el modelo normaliza al guardar
+                    'label' => $label,
+                ];
+            }
+        }
+
+        return response()->json([
+            'ok'          => true,
+            'anio'        => $anio,
+            'disponibles' => $disponibles,
+            'ocupados'    => $ocupados,
+        ]);
+    }
+}
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
+
+/**
+ * Tabla: verificaciones
+ * Campos usados en reportes:
+ *  id, vehiculo_id, estado, comentarios,
+ *  fecha_programada_inicio, fecha_programada_fin,
+ *  anio, resultado, fecha_verificacion
+ *
+ * Extras soportados: holograma, fecha_real, mes_inicio, mes_fin, calendario_id
+ */
+class Verificacion extends Model
+{
+    protected $table = 'verificaciones';
+    public $timestamps = true;
+
+    protected $fillable = [
+        'vehiculo_id',
+        'estado',
+        'comentarios',
+        'resultado',                // PENDIENTE|APROBADO|RECHAZADO|EXENTO|NO_APLICA
+        'holograma',                // 00|0|1|2 (nullable)
+        'fecha_programada_inicio',
+        'fecha_programada_fin',
+        'fecha_real',
+        'fecha_verificacion',       // la que usamos para "marcar completada"
+        'mes_inicio',
+        'mes_fin',
+        'anio',
+        'calendario_id',
+    ];
+
+    protected $casts = [
+        'fecha_programada_inicio' => 'date',
+        'fecha_programada_fin'    => 'date',
+        'fecha_real'              => 'date',
+        'fecha_verificacion'      => 'date',
+        'anio'                    => 'integer',
+        'mes_inicio'              => 'integer',
+        'mes_fin'                 => 'integer',
+    ];
+
+    /* ===================== Relaciones ===================== */
+
+    public function vehiculo()
+    {
+        return $this->belongsTo(\App\Models\Vehiculo::class, 'vehiculo_id');
+    }
+
+    public function calendario()
+    {
+        return $this->belongsTo(\App\Models\CalendarioVerificacion::class, 'calendario_id');
+    }
+
+    /* ===================== Constantes / Helpers ===================== */
+
+    /** Resultados que consideramos "cumplida" para el reporte. */
+    public const RESULTADOS_APROBADOS = ['APROBADO', 'EXENTO', 'NO_APLICA'];
+
+    /** ¿La verificación está aprobada/aceptable y con fecha asentada? */
+    public function esAprobada(): bool
+    {
+        return in_array((string) $this->resultado, self::RESULTADOS_APROBADOS, true)
+            && !empty($this->fecha_verificacion);
+    }
+
+    /**
+     * ¿Cumple con una ventana de calendario específica?
+     * - Prioriza match por calendario_id.
+     * - Si no hay, valida que fecha_verificacion caiga dentro de la ventana.
+     */
+    public function coincideConCalendario(?CalendarioVerificacion $cal): bool
+    {
+        if (!$cal) return false;
+        if ($this->calendario_id && (int)$this->calendario_id === (int)$cal->id) {
+            return $this->esAprobada();
+        }
+        if (!$this->esAprobada()) return false;
+        return $cal->contieneFecha($this->fecha_verificacion);
+    }
+
+    /* ===================== Scopes ===================== */
+
+    public function scopeAnio($q, ?int $anio)
+    {
+        return $anio ? $q->where('anio', $anio) : $q;
+    }
+
+    public function scopeAprobada($q)
+    {
+        return $q->whereIn('resultado', self::RESULTADOS_APROBADOS)
+                 ->whereNotNull('fecha_verificacion');
+    }
+
+    public function scopeDeVehiculo($q, ?int $vehiculoId)
+    {
+        return $vehiculoId ? $q->where('vehiculo_id', $vehiculoId) : $q;
+    }
+
+    public function scopeEstado($q, ?string $estado)
+    {
+        return $estado ? $q->whereRaw('UPPER(estado) = ?', [mb_strtoupper($estado)]) : $q;
+    }
+}
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
+
+class VerificacionRegla extends Model
+{
+    use HasFactory;
+
+    protected $table = 'verificacion_reglas';
+
+    protected $fillable = [
+        'nombre',
+        'version',
+        'status',            // draft|published|archived
+        'vigencia_inicio',
+        'vigencia_fin',
+        'frecuencia',        // Semestral|Anual
+        'estados',           // (JSON legible) - opcional
+        'notas',
+    ];
+
+    protected $casts = [
+        'vigencia_inicio' => 'date',
+        'vigencia_fin'    => 'date',
+        'estados'         => 'array',
+    ];
+
+    /* ===================== Constantes / Helpers ===================== */
+
+    public const STATUS = ['draft','published','archived'];
+    public const FRECUENCIAS = ['Semestral','Anual'];
+
+    public static function normalizeEstado(?string $s): string
+    {
+        $norm = Str::of($s ?? '')
+            ->ascii()
+            ->upper()
+            ->replaceMatches('/\s+/', ' ')
+            ->trim()
+            ->toString();
+
+        if (in_array($norm, ['ESTADO DE MEXICO','MEXICO','EDO MEXICO','EDO. MEX','E DOMEX'], true)) {
+            return 'EDO MEX';
+        }
+        return $norm;
+    }
+
+    /** Estados normalizados para un año dado (prefiere tabla puente). */
+    public function estadosParaAnio(int $anio): \Illuminate\Support\Collection
+    {
+        $fromPivot = $this->estadosAsignados()
+            ->where('anio', $anio)
+            ->pluck('estado')
+            ->map(fn($e) => self::normalizeEstado($e))
+            ->unique()
+            ->values();
+
+        if ($fromPivot->isNotEmpty()) {
+            return $fromPivot;
+        }
+
+        // Backward-compat (si guardabas estados en JSON)
+        $json = collect($this->estados ?? [])
+            ->map(fn($e) => self::normalizeEstado($e))
+            ->unique()
+            ->values();
+
+        return $json;
+    }
+
+    /* ===================== Relaciones ===================== */
+
+    public function periodos()
+    {
+        return $this->hasMany(CalendarioVerificacion::class, 'regla_id');
+    }
+
+    public function detalles()
+    {
+        return $this->hasMany(VerificacionReglaDetalle::class, 'regla_id');
+    }
+
+    public function estadosAsignados()
+    {
+        return $this->hasMany(VerificacionReglaEstado::class, 'regla_id');
+    }
+
+    /* ===================== Scopes ===================== */
+
+    public function scopePublished(Builder $q): Builder
+    {
+        return $q->where('status', 'published');
+    }
+}
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class VerificacionReglaDetalle extends Model
+{
+    use HasFactory;
+
+    protected $table = 'verificacion_regla_detalles';
+
+    protected $fillable = [
+        'regla_id',
+        'frecuencia',  // "Semestral" | "Anual"
+        'terminacion',
+        'semestre',    // 0 (anual), 1, 2 (semestral)
+        'mes_inicio',
+        'mes_fin',
+    ];
+
+    protected $casts = [
+        'terminacion' => 'integer',
+        'semestre'    => 'integer',
+        'mes_inicio'  => 'integer',
+        'mes_fin'     => 'integer',
+    ];
+
+    public function regla()
+    {
+        return $this->belongsTo(VerificacionRegla::class, 'regla_id');
+    }
+}
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class VerificacionReglaEstado extends Model
+{
+    use HasFactory;
+
+    protected $table = 'verificacion_regla_estados';
+
+    protected $fillable = [
+        'regla_id',
+        'anio',
+        'estado',
+    ];
+
+    protected $casts = [
+        'anio' => 'integer',
+    ];
+
+    public function regla()
+    {
+        return $this->belongsTo(VerificacionRegla::class, 'regla_id');
+    }
+
+    /* Normalización automática del estado al guardar */
+    public function setEstadoAttribute($value): void
+    {
+        $this->attributes['estado'] = VerificacionRegla::normalizeEstado($value);
+    }
+
+    /* Scopes útiles */
+    public function scopePorAnio($q, ?int $anio)
+    {
+        return $anio ? $q->where('anio', $anio) : $q;
+    }
+}

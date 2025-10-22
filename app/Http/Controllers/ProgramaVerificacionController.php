@@ -9,7 +9,6 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
 
 class ProgramaVerificacionController extends Controller
 {
@@ -90,7 +89,7 @@ class ProgramaVerificacionController extends Controller
             $vehiculosPorTerminacion[$dig][] = $v;
         }
 
-        // Verificaciones del año para esos vehículos (sin usar verificaciones.anio)
+        // Verificaciones del año para esos vehículos (sin usar columna anio)
         $ids = $vehiculos->pluck('id')->all();
         $verifMap = collect();
 
@@ -168,7 +167,7 @@ class ProgramaVerificacionController extends Controller
                         }
                         if ($ver->fecha_verificacion) {
                             $f = Carbon::parse($ver->fecha_verificacion);
-                            // usar "between" inclusivo para máxima compatibilidad
+                            // inclusivo
                             return $f->between($desdeBi, $hastaBi, true);
                         }
                         return false;
@@ -275,17 +274,17 @@ class ProgramaVerificacionController extends Controller
         }
         $ver = $match->orderByDesc('id')->first();
 
-        // Payload minimal compatible con tu esquema (sin anio / sin mes_* / sin fecha_programada_*)
+        // Payload compatible SOLO con columnas existentes en `verificaciones`
         $payload = [
             'vehiculo_id'        => $vehiculoId,
+            'estado'             => $estadoNorm,                // NOT NULL
+            'resultado'          => 'APROBADO',                 // marca como cumplida
             'fecha_verificacion' => $fecha->toDateString(),
             'comentarios'        => $data['comentarios'] ?? null,
             'calendario_id'      => $cv?->id,
-            // Si tu tabla tiene 'estado' o 'resultado', puedes descomentar:
-            // 'estado'          => $estadoNorm,
-            // 'resultado'       => 'APROBADO',
         ];
 
+        // Upsert
         if ($ver) {
             $ver->update($payload);
         } else {
@@ -316,25 +315,25 @@ class ProgramaVerificacionController extends Controller
             $desde = $p->min('vigente_desde') ?: $this->fechaInicioSemestre($p, $s);
             $hasta = $p->max('vigente_hasta') ?: $this->fechaFinSemestre($p, $s);
             $out[$s] = [
-                'desde' => Carbon::parse($desde)->startOfDay(),
-                'hasta' => Carbon::parse($hasta)->endOfDay(),
+                'desde' => \Carbon\Carbon::parse($desde)->startOfDay(),
+                'hasta' => \Carbon\Carbon::parse($hasta)->endOfDay(),
             ];
         }
         return $out;
     }
 
-    protected function fechaInicioSemestre(Collection $p, int $s): Carbon
+    protected function fechaInicioSemestre(Collection $p, int $s): \Carbon\Carbon
     {
         $mi = $p->min('mes_inicio') ?? ($s===1 ? 1 : 7);
         $anio = $p->first()->anio ?? now()->year;
-        return Carbon::create($anio, $mi, 1)->startOfDay();
+        return \Carbon\Carbon::create($anio, $mi, 1)->startOfDay();
     }
 
-    protected function fechaFinSemestre(Collection $p, int $s): Carbon
+    protected function fechaFinSemestre(Collection $p, int $s): \Carbon\Carbon
     {
         $mf = $p->max('mes_fin') ?? ($s===1 ? 6 : 12);
         $anio = $p->first()->anio ?? now()->year;
-        return Carbon::create($anio, $mf, 1)->endOfMonth()->endOfDay();
+        return \Carbon\Carbon::create($anio, $mf, 1)->endOfMonth()->endOfDay();
     }
 
     /**

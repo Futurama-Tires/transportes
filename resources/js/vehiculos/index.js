@@ -1,7 +1,6 @@
 // resources/js/vehiculos/index.js
 
 // Importa el CSS específico de la galería para que Vite lo procese:
-import '../../css/vehiculos/gallery.css';
 
 document.addEventListener('DOMContentLoaded', () => {
   // Contenedor con data-attrs definido en el Blade
