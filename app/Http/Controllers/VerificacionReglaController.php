@@ -71,6 +71,7 @@ class VerificacionReglaController extends Controller
         return view('verificacion_reglas.edit', [
             'regla'           => $verificacion_regla,
             'catalogoEstados' => $this->catalogoEstados(),
+            'meses'           => $this->mesesES(),
         ]);
     }
 
@@ -100,7 +101,6 @@ class VerificacionReglaController extends Controller
         ]);
 
         $anio = (int) $data['anio'];
-
         $regla = null;
 
         DB::transaction(function () use ($data, $anio, &$regla) {
@@ -164,7 +164,6 @@ class VerificacionReglaController extends Controller
                 foreach ($porSemestre as $sem => $mm) {
                     $semestre = (int) $sem; // 0 (anual), 1 o 2 (semestral)
 
-                    // << clave: ignorar semestres que no correspondan a la frecuencia >>
                     if (!in_array($semestre, $allowedSemestres, true)) {
                         continue;
                     }
@@ -206,14 +205,21 @@ class VerificacionReglaController extends Controller
 
     public function update(Request $request, VerificacionRegla $verificacion_regla)
     {
+        // Validación base de la regla
         $data = $request->validate([
             'nombre'     => ['required', 'string', 'max:255'],
             'version'    => ['nullable', 'string', 'max:50'],
             'status'     => ['required', Rule::in(['draft','published','archived'])],
             'frecuencia' => ['required', Rule::in(['Semestral','Anual'])],
             'notas'      => ['nullable','string'],
+
+            // Edición opcional de estados (por AÑO)
+            'anio'       => ['nullable','integer','min:2000','max:2999'],
+            'estados'    => ['nullable','array'],
+            'estados.*'  => ['string','max:100'],
         ]);
 
+        // 1) Actualiza metadatos de la regla
         $verificacion_regla->update([
             'nombre'     => $data['nombre'],
             'version'    => $data['version'] ?? null,
@@ -222,17 +228,57 @@ class VerificacionReglaController extends Controller
             'notas'      => $data['notas'] ?? null,
         ]);
 
-        // ⚡️ Reconciliación automática de TODOS los años asignados a la regla
+        $mensajeEstados = '';
+        // 2) (Opcional) Sincroniza estados del año indicado
+        if ($request->filled('anio')) {
+            $anio = (int) $request->integer('anio');
+            $estadosLabels = (array) ($request->input('estados', [])); // permite vacío para limpiar
+
+            // Normalizados (para validar choques con OTRAS reglas)
+            $estadosNorm = array_values(array_unique(array_map(
+                fn($e) => $this->normalizeEstado($e), $estadosLabels
+            )));
+
+            // Valida choques con OTRAS reglas para ese año
+            if (!empty($estadosNorm)) {
+                $confPivot = VerificacionReglaEstado::query()
+                    ->where('anio', $anio)
+                    ->whereIn('estado', $estadosNorm)
+                    ->where('regla_id', '!=', $verificacion_regla->id)
+                    ->exists();
+
+                $confCal = DB::table('calendario_verificacion')
+                    ->where('anio', $anio)
+                    ->whereIn('estado', $estadosNorm)
+                    ->where('regla_id', '!=', $verificacion_regla->id)
+                    ->exists();
+
+                if ($confPivot || $confCal) {
+                    throw ValidationException::withMessages([
+                        'estados' => "Uno o más estados ya están asignados en {$anio} por otra regla.",
+                    ]);
+                }
+            }
+
+            // Sincroniza (reemplaza el set de ese año)
+            $this->syncEstadosParaAnio($verificacion_regla, $anio, $estadosLabels);
+
+            // Reconciliación del calendario del año afectado
+            $statsY = $this->reconciliarPeriodos($verificacion_regla, $anio);
+            $mensajeEstados = " | Estados {$anio} actualizados (eliminados: {$statsY['deleted']}, upsert: {$statsY['upserted']}).";
+        }
+
+        // 3) ⚡️ Reconciliación de TODOS los años asignados (por si cambió la frecuencia)
         $anios = $verificacion_regla->estadosAsignados()->distinct()->pluck('anio');
         $tot = ['deleted'=>0,'upserted'=>0];
-        foreach ($anios as $anio) {
-            $s = $this->reconciliarPeriodos($verificacion_regla, (int)$anio);
+        foreach ($anios as $a) {
+            $s = $this->reconciliarPeriodos($verificacion_regla, (int)$a);
             $tot['deleted']  += $s['deleted'];
             $tot['upserted'] += $s['upserted'];
         }
 
         return redirect()->route('verificacion-reglas.index')
-            ->with('success', "Regla actualizada. Calendarios sincronizados (eliminados: {$tot['deleted']}, upsert: {$tot['upserted']}).");
+            ->with('success', "Regla actualizada. Calendarios sincronizados (eliminados: {$tot['deleted']}, upsert: {$tot['upserted']}).{$mensajeEstados}");
     }
 
     public function destroy(VerificacionRegla $verificacion_regla)
@@ -382,6 +428,42 @@ class VerificacionReglaController extends Controller
         });
     }
 
+    /* ===== Helper: sincroniza los estados de una REGLA para un AÑO ===== */
+    private function syncEstadosParaAnio(VerificacionRegla $regla, int $anio, array $labels): void
+    {
+        // Set destino (labels tal cual; el modelo/mutator normaliza al guardar)
+        $destLabels = array_values(array_unique(array_filter($labels, fn($x) => is_string($x) && $x !== '')));
+
+        DB::transaction(function () use ($regla, $anio, $destLabels) {
+            // Estados actuales del año
+            $actual = VerificacionReglaEstado::query()
+                ->where('regla_id', $regla->id)
+                ->where('anio', $anio)
+                ->pluck('estado')
+                ->all();
+
+            // Diffs
+            $toDelete = array_values(array_diff($actual, $destLabels));
+            $toInsert = array_values(array_diff($destLabels, $actual));
+
+            if (!empty($toDelete)) {
+                VerificacionReglaEstado::query()
+                    ->where('regla_id', $regla->id)
+                    ->where('anio', $anio)
+                    ->whereIn('estado', $toDelete)
+                    ->delete();
+            }
+
+            foreach ($toInsert as $label) {
+                VerificacionReglaEstado::create([
+                    'regla_id' => $regla->id,
+                    'anio'     => $anio,
+                    'estado'   => $label, // normaliza el mutator
+                ]);
+            }
+        });
+    }
+
     /* ===== Defaults para precarga en UI ===== */
     protected function defaultSemestralDetalles(): array
     {
@@ -431,6 +513,7 @@ class VerificacionReglaController extends Controller
     public function estadosDisponibles(Request $request)
     {
         $anio = (int) $request->query('anio', now()->year);
+        $reglaId = (int) $request->query('regla_id', 0); // opcional: al editar, excluye a la propia regla
 
         if ($anio < 2000 || $anio > 2999) {
             return response()->json([
@@ -439,16 +522,30 @@ class VerificacionReglaController extends Controller
                 'anio'        => $anio,
                 'disponibles' => [],
                 'ocupados'    => [],
+                'seleccionados'=> [],
             ], 400);
         }
 
-        // Estados ya ocupados (normalizados) EN CUALQUIER regla para ese año
-        $ocupados = VerificacionReglaEstado::where('anio', $anio)
-            ->pluck('estado')
+        // Estados ya ocupados (normalizados) por OTRAS reglas en ese año
+        $ocupadosQ = VerificacionReglaEstado::where('anio', $anio);
+        if ($reglaId > 0) {
+            $ocupadosQ->where('regla_id', '!=', $reglaId);
+        }
+        $ocupados = $ocupadosQ->pluck('estado')
             ->map(fn($e) => $this->normalizeEstado($e))
             ->unique()
             ->values()
             ->all();
+
+        // Estados seleccionados por ESTA regla (si aplica)
+        $seleccionados = [];
+        if ($reglaId > 0) {
+            $seleccionados = VerificacionReglaEstado::where('regla_id', $reglaId)
+                ->where('anio', $anio)
+                ->pluck('estado')
+                ->values()
+                ->all();
+        }
 
         $catalogo = $this->catalogoEstados();
 
@@ -464,10 +561,11 @@ class VerificacionReglaController extends Controller
         }
 
         return response()->json([
-            'ok'          => true,
-            'anio'        => $anio,
-            'disponibles' => $disponibles,
-            'ocupados'    => $ocupados,
+            'ok'            => true,
+            'anio'          => $anio,
+            'disponibles'   => $disponibles,
+            'ocupados'      => $ocupados,
+            'seleccionados' => $seleccionados,
         ]);
     }
 }

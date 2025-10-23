@@ -90,7 +90,7 @@
         </div>
     </div>
 
-    {{-- Boot: datos mínimos para el JS externo (sin Blade dentro del .js) --}}
+    {{-- Boot: datos mínimos para el JS externo --}}
     <script>
       window.REPORTES_BOOT = {
         csrf: @json(csrf_token()),

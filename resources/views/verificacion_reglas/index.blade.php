@@ -103,7 +103,7 @@
                                                     <i class="ti ti-pencil"></i> Editar
                                                 </a>
                                                 <form action="{{ route('verificacion-reglas.destroy',$r) }}" method="post"
-                                                      onsubmit="return confirm('¿Eliminar la regla &quot;{{ $r->nombre }}&quot;? También se eliminarán sus periodos si tu FK usa ON DELETE CASCADE.');">
+                                                      onsubmit="return confirm('¿Eliminar la regla &quot;{{ $r->nombre }}&quot;?.');">
                                                     @csrf @method('DELETE')
                                                     <button class="btn btn-sm btn-outline-danger">
                                                         <i class="ti ti-trash"></i> Eliminar
