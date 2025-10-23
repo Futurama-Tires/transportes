@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class VehiculoFoto extends Model
 {
-    // Tabla: vehiculo_fotos (coincide con la migración del paso 1)
+    // Tabla: vehiculo_fotos 
     protected $table = 'vehiculo_fotos';
 
     protected $fillable = [
@@ -28,7 +28,7 @@ class VehiculoFoto extends Model
      */
     public function getPrivateUrlAttribute(): string
     {
-        // Definiremos esta ruta en el Paso 4
+       
         return route('vehiculos.fotos.show', ['foto' => $this->id]);
     }
 }
