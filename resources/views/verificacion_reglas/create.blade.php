@@ -57,6 +57,16 @@
 
         /* Footer del form siempre bien alineado */
         .card-footer { gap: .5rem; }
+
+        /* ===== CONTRASTE: “Ya ocupados este año” =====
+           Forzamos color de texto y chips para que se lean bien en claro/oscuro */
+        #estados-ocupados .text-line { color: var(--tblr-body-color) !important; }
+        .badge.chip-ocupado{
+            background-color: transparent;
+            color: var(--tblr-body-color);
+            border: 1px solid var(--tblr-border-color);
+            font-weight: 500;
+        }
     </style>
 
     <div class="page-body">
@@ -121,7 +131,7 @@
                             <small class="form-hint">Solo aparecen seleccionables los estados que no están asignados en otra regla para este año.</small>
 
                             <div id="estados-ocupados" class="mt-2" style="display:none;">
-                                <div class="small text-secondary">
+                                <div class="small text-line">
                                     <i class="ti ti-info-circle"></i> Ya ocupados este año:
                                     <span id="chips-ocupados"></span>
                                 </div>
@@ -212,7 +222,6 @@
                                     @endforeach
                                 </tbody>
                             </table>
-                            <small class="form-hint">Puedes ajustar cualquier rango; la validación se hace al guardar y el calendario se sincroniza automáticamente.</small>
                         </div>
                     </div>
 
@@ -334,7 +343,7 @@
 
             ocupados.forEach(o => {
                 const span = document.createElement('span');
-                span.className = 'badge bg-secondary me-1 mb-1';
+                span.className = 'badge chip-ocupado me-1 mb-1';
                 span.textContent = o;
                 cont.appendChild(span);
             });

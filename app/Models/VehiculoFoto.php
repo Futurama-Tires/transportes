@@ -24,7 +24,6 @@ class VehiculoFoto extends Model
 
     /**
      * Accesor opcional para obtener una URL firmada/privada.
-     * (La implementaremos en el Paso 4 con un controlador que sirva el archivo.)
      * Uso en Blade: $foto->private_url
      */
     public function getPrivateUrlAttribute(): string
