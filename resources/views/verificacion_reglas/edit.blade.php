@@ -1,5 +1,35 @@
 {{-- resources/views/verificacion_reglas/edit.blade.php --}}
 <x-app-layout>
+  {{-- ================= HEADER (estilo cargas) ================= --}}
+  <x-slot name="header">
+    <div class="page-header d-print-none">
+      <div class="container-xl">
+        <div class="row g-2 align-items-center">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a>Inicio</a></li>
+            <li class="breadcrumb-item"><a>Panel</a></li>
+            <li class="breadcrumb-item"><a>Verificación</a></li>
+            <li class="breadcrumb-item"><a>Reglas</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Editar</li>
+          </ol>
+          <div class="col">
+            <h2 class="page-title mb-0">Editar regla</h2>
+          </div>
+          <div class="col-auto ms-auto d-print-none">
+            <div class="d-flex gap-2">
+              <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-outline-dark">
+                <i class="ti ti-arrow-left me-1" aria-hidden="true"></i><span>Volver</span>
+              </a>
+              <button type="submit" form="form-edit-regla" class="btn btn-danger">
+                <i class="ti ti-device-floppy me-1" aria-hidden="true"></i><span>Guardar cambios</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </x-slot>
+
   <style>
     /* Pulido sutil y distribución */
     .page-header .page-title { margin-bottom: .25rem; }
@@ -27,270 +57,253 @@
     .dual-badge { font-size: .75rem; }
   </style>
 
-  <div class="container-xl">
-    {{-- Header --}}
-    <div class="page-header d-print-none mb-3">
-      <div class="row align-items-center g-2">
-        <div class="col">
-          <br>
-          <h2 class="page-title">Editar regla</h2>
-          <div class="page-subtitle text-secondary">
-            {{ $regla->nombre }} · Al guardar, se sincronizarán automáticamente los calendarios de todos los años asignados a esta regla.
+  <div class="page-body">
+    <div class="container-xl">
+      {{-- Alertas --}}
+      @if ($errors->any())
+        <div class="alert alert-danger mb-3">
+          <ul class="mb-0">
+            @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
+          </ul>
+        </div>
+      @endif
+      @if (session('success'))
+        <div class="alert alert-success mb-3">{{ session('success') }}</div>
+      @endif
+
+      @php
+        $meses = [1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'];
+
+        $byTerm = [];
+        foreach ($regla->detalles as $d) {
+          $byTerm[$d->terminacion][$d->semestre] = ['mes_inicio'=>$d->mes_inicio,'mes_fin'=>$d->mes_fin];
+        }
+
+        // Año fijo de la regla (no seleccionable). Usamos FQCN para evitar "use" dentro de @php.
+        $anioRegla = old('anio')
+          ?: (\Illuminate\Support\Carbon::parse($regla->vigencia_inicio)->year ?? now()->year);
+      @endphp
+
+      <form method="post"
+            action="{{ route('verificacion-reglas.update',$regla) }}"
+            class="card"
+            id="form-edit-regla"
+            data-estados-url="{{ route('verificacion-reglas.estados-disponibles') }}"
+            data-regla-id="{{ $regla->id }}"
+            data-anio-regla="{{ $anioRegla }}">
+        @csrf @method('PUT')
+
+        {{-- ======= Detalles generales ======= --}}
+        <div class="card-header">
+          <h3 class="card-title">Detalles generales</h3>
+        </div>
+        <div class="card-body py-3">
+          <div class="row g-3">
+            <div class="col-12 col-lg-6">
+              <label class="form-label">Nombre</label>
+              <input type="text" name="nombre" class="form-control" required
+                     value="{{ old('nombre',$regla->nombre) }}">
+            </div>
+            <div class="col-6 col-lg-3">
+              <label class="form-label">Versión</label>
+              <input type="text" name="version" class="form-control"
+                     value="{{ old('version',$regla->version) }}">
+            </div>
+            <div class="col-6 col-lg-3">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-select">
+                @foreach (['published','draft','archived'] as $opt)
+                  <option value="{{ $opt }}" @selected(old('status',$regla->status)===$opt)>{{ $opt }}</option>
+                @endforeach
+              </select>
+            </div>
+
+            <div class="col-6 col-lg-3">
+              <label class="form-label">Frecuencia</label>
+              <select name="frecuencia" id="frecuencia" class="form-select" required>
+                @foreach (['Semestral','Anual'] as $opt)
+                  <option value="{{ $opt }}" @selected(old('frecuencia',$regla->frecuencia)===$opt)>{{ $opt }}</option>
+                @endforeach
+              </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Notas</label>
+              <textarea name="notas" class="form-control" rows="2">{{ old('notas',$regla->notas) }}</textarea>
+            </div>
           </div>
         </div>
-        <div class="col-auto ms-auto">
-          <a href="{{ route('verificacion-reglas.index') }}" class="btn btn-outline-dark">
-            <i class="ti ti-arrow-left"></i> Volver
-          </a>
-        </div>
-      </div>
-    </div>
 
-    {{-- Alertas --}}
-    @if ($errors->any())
-      <div class="alert alert-danger mb-3">
-        <ul class="mb-0">
-          @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
-        </ul>
-      </div>
-    @endif
-    @if (session('success'))
-      <div class="alert alert-success mb-3">{{ session('success') }}</div>
-    @endif
+        <hr class="m-0">
 
-    @php
-      $meses = [1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'];
-
-      $byTerm = [];
-      foreach ($regla->detalles as $d) {
-        $byTerm[$d->terminacion][$d->semestre] = ['mes_inicio'=>$d->mes_inicio,'mes_fin'=>$d->mes_fin];
-      }
-
-      // Año fijo de la regla (no seleccionable). Usamos FQCN para evitar "use" dentro de @php.
-      $anioRegla = old('anio')
-        ?: (\Illuminate\Support\Carbon::parse($regla->vigencia_inicio)->year ?? now()->year);
-    @endphp
-
-    <form method="post"
-          action="{{ route('verificacion-reglas.update',$regla) }}"
-          class="card"
-          id="form-edit-regla"
-          data-estados-url="{{ route('verificacion-reglas.estados-disponibles') }}"
-          data-regla-id="{{ $regla->id }}"
-          data-anio-regla="{{ $anioRegla }}">
-      @csrf @method('PUT')
-
-      {{-- ======= Detalles generales ======= --}}
-      <div class="card-header">
-        <h3 class="card-title">Detalles generales</h3>
-      </div>
-      <div class="card-body py-3">
-        <div class="row g-3">
-          <div class="col-12 col-lg-6">
-            <label class="form-label">Nombre</label>
-            <input type="text" name="nombre" class="form-control" required
-                   value="{{ old('nombre',$regla->nombre) }}">
-          </div>
-          <div class="col-6 col-lg-3">
-            <label class="form-label">Versión</label>
-            <input type="text" name="version" class="form-control"
-                   value="{{ old('version',$regla->version) }}">
-          </div>
-          <div class="col-6 col-lg-3">
-            <label class="form-label">Status</label>
-            <select name="status" class="form-select">
-              @foreach (['published','draft','archived'] as $opt)
-                <option value="{{ $opt }}" @selected(old('status',$regla->status)===$opt)>{{ $opt }}</option>
-              @endforeach
-            </select>
-          </div>
-
-          <div class="col-6 col-lg-3">
-            <label class="form-label">Frecuencia</label>
-            <select name="frecuencia" id="frecuencia" class="form-select" required>
-              @foreach (['Semestral','Anual'] as $opt)
-                <option value="{{ $opt }}" @selected(old('frecuencia',$regla->frecuencia)===$opt)>{{ $opt }}</option>
-              @endforeach
-            </select>
-          </div>
-
-          <div class="col-12">
-            <label class="form-label">Notas</label>
-            <textarea name="notas" class="form-control" rows="2">{{ old('notas',$regla->notas) }}</textarea>
+        {{-- ======= Edición de ESTADOS de la regla (año fijo) ======= --}}
+        <div class="card-header">
+          <h3 class="card-title">Estados de la regla</h3>
+          <div class="card-subtitle">
+            <strong>Año: {{ $anioRegla }}</strong> (definido por la regla). Activa para <strong>agregar/quitar estados</strong>.
+            Al guardar, el calendario de ese año se reconciliará automáticamente.
           </div>
         </div>
-      </div>
+        <div class="card-body py-3">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-check">
+                <input class="form-check-input" type="checkbox" id="toggle-editar-estados">
+                <span class="form-check-label">Editar estados de la regla ({{ $anioRegla }})</span>
+              </label>
+              {{-- Enviamos el año de la regla SOLO si la edición está activa --}}
+              <input type="hidden" name="anio" id="anio-hidden" value="{{ $anioRegla }}" disabled>
+            </div>
 
-      <hr class="m-0">
+            <div id="edicion-estados" class="col-12" style="display:none;">
+              <div class="mt-1 dual-list">
+                <div>
+                  <label class="form-label d-flex align-items-center justify-content-between">
+                    <span>Disponibles</span>
+                    <span class="text-secondary dual-badge" id="badge-disponibles">0</span>
+                  </label>
+                  <select id="lista-disponibles" class="form-select" multiple disabled></select>
+                  <small class="form-hint">Selecciona uno o varios y usa los botones → / ←</small>
+                </div>
 
-      {{-- ======= Edición de ESTADOS de la regla (año fijo) ======= --}}
-      <div class="card-header">
-        <h3 class="card-title">Estados de la regla</h3>
-        <div class="card-subtitle">
-          <strong>Año: {{ $anioRegla }}</strong> (definido por la regla). Activa para <strong>agregar/quitar estados</strong>.
-          Al guardar, el calendario de ese año se reconciliará automáticamente.
-        </div>
-      </div>
-      <div class="card-body py-3">
-        <div class="row g-3">
-          <div class="col-12">
-            <label class="form-check">
-              <input class="form-check-input" type="checkbox" id="toggle-editar-estados">
-              <span class="form-check-label">Editar estados de la regla ({{ $anioRegla }})</span>
-            </label>
-            {{-- Enviamos el año de la regla SOLO si la edición está activa --}}
-            <input type="hidden" name="anio" id="anio-hidden" value="{{ $anioRegla }}" disabled>
-          </div>
+                <div class="dual-buttons">
+                  <button type="button" class="btn btn-outline-secondary" id="btn-agregar" disabled>Agregar →</button>
+                  <button type="button" class="btn btn-outline-secondary" id="btn-quitar" disabled>← Quitar</button>
+                  <button type="button" class="btn btn-outline-secondary" id="btn-agregar-todo" disabled>Agregar todo »</button>
+                  <button type="button" class="btn btn-outline-secondary" id="btn-quitar-todo" disabled>« Quitar todo</button>
+                </div>
 
-          <div id="edicion-estados" class="col-12" style="display:none;">
-            <div class="mt-1 dual-list">
-              <div>
-                <label class="form-label d-flex align-items-center justify-content-between">
-                  <span>Disponibles</span>
-                  <span class="text-secondary dual-badge" id="badge-disponibles">0</span>
-                </label>
-                <select id="lista-disponibles" class="form-select" multiple disabled></select>
-                <small class="form-hint">Selecciona uno o varios y usa los botones → / ←</small>
-              </div>
-
-              <div class="dual-buttons">
-                <button type="button" class="btn btn-outline-secondary" id="btn-agregar" disabled>Agregar →</button>
-                <button type="button" class="btn btn-outline-secondary" id="btn-quitar" disabled>← Quitar</button>
-                <button type="button" class="btn btn-outline-secondary" id="btn-agregar-todo" disabled>Agregar todo »</button>
-                <button type="button" class="btn btn-outline-secondary" id="btn-quitar-todo" disabled>« Quitar todo</button>
-              </div>
-
-              <div>
-                <label class="form-label d-flex align-items-center justify-content-between">
-                  <span>Seleccionados (se guardarán)</span>
-                  <span class="text-secondary dual-badge" id="badge-seleccionados">0</span>
-                </label>
-                {{-- Este select SÍ tiene name para enviar al servidor --}}
-                <select id="lista-seleccionados" name="estados[]" class="form-select" multiple disabled></select>
-                <small class="form-hint">Estos serán los estados vigentes para {{ $anioRegla }}.</small>
+                <div>
+                  <label class="form-label d-flex align-items-center justify-content-between">
+                    <span>Seleccionados (se guardarán)</span>
+                    <span class="text-secondary dual-badge" id="badge-seleccionados">0</span>
+                  </label>
+                  {{-- Este select SÍ tiene name para enviar al servidor --}}
+                  <select id="lista-seleccionados" name="estados[]" class="form-select" multiple disabled></select>
+                  <small class="form-hint">Estos serán los estados vigentes para {{ $anioRegla }}.</small>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <hr class="m-0">
+        <hr class="m-0">
 
-      {{-- ======= EDICIÓN DEL CALENDARIO POR TERMINACIÓN ======= --}}
-      <div class="card-header">
-        <h3 class="card-title">Calendario por terminación</h3>
-        <div class="card-subtitle">
-          Ajusta los meses; al guardar se sincronizarán automáticamente para todos los años que tenga asignados esta regla.
+        {{-- ======= EDICIÓN DEL CALENDARIO POR TERMINACIÓN ======= --}}
+        <div class="card-header">
+          <h3 class="card-title">Calendario por terminación</h3>
+          <div class="card-subtitle">
+            Ajusta los meses; al guardar se sincronizarán automáticamente para todos los años que tenga asignados esta regla.
+          </div>
         </div>
-      </div>
-      <div class="card-body py-3">
-        @php /* $byTerm y $meses ya construidos arriba */ @endphp
+        <div class="card-body py-3">
+          @php /* $byTerm y $meses ya construidos arriba */ @endphp
 
-        {{-- SEMESTRAL --}}
-        <div id="tabla-semestral" style="{{ old('frecuencia',$regla->frecuencia)==='Semestral' ? '' : 'display:none' }}">
-          <div class="table-responsive">
-            <table class="table table-vcenter table-sm table-sticky table-nowrap align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>Terminación</th>
-                  <th>Semestre 1 — Mes inicio</th>
-                  <th>Semestre 1 — Mes fin</th>
-                  <th>Semestre 2 — Mes inicio</th>
-                  <th>Semestre 2 — Mes fin</th>
-                </tr>
-              </thead>
-              <tbody>
-                @foreach (range(0,9) as $d)
-                  @php
-                    $s1 = $byTerm[$d][1] ?? ['mes_inicio'=>1,'mes_fin'=>2];
-                    $s2 = $byTerm[$d][2] ?? ['mes_inicio'=>7,'mes_fin'=>8];
-                    $s1i = (int)old("detalles.$d.1.mes_inicio", $s1['mes_inicio']);
-                    $s1f = (int)old("detalles.$d.1.mes_fin",    $s1['mes_fin']);
-                    $s2i = (int)old("detalles.$d.2.mes_inicio", $s2['mes_inicio']);
-                    $s2f = (int)old("detalles.$d.2.mes_fin",    $s2['mes_fin']);
-                  @endphp
+          {{-- SEMESTRAL --}}
+          <div id="tabla-semestral" style="{{ old('frecuencia',$regla->frecuencia)==='Semestral' ? '' : 'display:none' }}">
+            <div class="table-responsive">
+              <table class="table table-vcenter table-sm table-sticky table-nowrap align-middle mb-0">
+                <thead>
                   <tr>
-                    <td class="fw-bold">{{ $d }}</td>
-                    <td>
-                      <select name="detalles[{{ $d }}][1][mes_inicio]" class="form-select form-select-sm">
-                        @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$s1i)>{{ $m }}</option> @endforeach
-                      </select>
-                    </td>
-                    <td>
-                      <select name="detalles[{{ $d }}][1][mes_fin]" class="form-select form-select-sm">
-                        @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$s1f)>{{ $m }}</option> @endforeach
-                      </select>
-                    </td>
-                    <td>
-                      <select name="detalles[{{ $d }}][2][mes_inicio]" class="form-select form-select-sm">
-                        @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$s2i)>{{ $m }}</option> @endforeach
-                      </select>
-                    </td>
-                    <td>
-                      <select name="detalles[{{ $d }}][2][mes_fin]" class="form-select form-select-sm">
-                        @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$s2f)>{{ $m }}</option> @endforeach
-                      </select>
-                    </td>
+                    <th>Terminación</th>
+                    <th>Semestre 1 — Mes inicio</th>
+                    <th>Semestre 1 — Mes fin</th>
+                    <th>Semestre 2 — Mes inicio</th>
+                    <th>Semestre 2 — Mes fin</th>
                   </tr>
-                @endforeach
-              </tbody>
-            </table>
-            <small class="form-hint">Valida que el par inicio/fin esté dentro de 1–12. Se sincroniza automáticamente al guardar.</small>
+                </thead>
+                <tbody>
+                  @foreach (range(0,9) as $d)
+                    @php
+                      $s1 = $byTerm[$d][1] ?? ['mes_inicio'=>1,'mes_fin'=>2];
+                      $s2 = $byTerm[$d][2] ?? ['mes_inicio'=>7,'mes_fin'=>8];
+                      $s1i = (int)old("detalles.$d.1.mes_inicio", $s1['mes_inicio']);
+                      $s1f = (int)old("detalles.$d.1.mes_fin",    $s1['mes_fin']);
+                      $s2i = (int)old("detalles.$d.2.mes_inicio", $s2['mes_inicio']);
+                      $s2f = (int)old("detalles.$d.2.mes_fin",    $s2['mes_fin']);
+                    @endphp
+                    <tr>
+                      <td class="fw-bold">{{ $d }}</td>
+                      <td>
+                        <select name="detalles[{{ $d }}][1][mes_inicio]" class="form-select form-select-sm">
+                          @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$s1i)>{{ $m }}</option> @endforeach
+                        </select>
+                      </td>
+                      <td>
+                        <select name="detalles[{{ $d }}][1][mes_fin]" class="form-select form-select-sm">
+                          @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$s1f)>{{ $m }}</option> @endforeach
+                        </select>
+                      </td>
+                      <td>
+                        <select name="detalles[{{ $d }}][2][mes_inicio]" class="form-select form-select-sm">
+                          @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$s2i)>{{ $m }}</option> @endforeach
+                        </select>
+                      </td>
+                      <td>
+                        <select name="detalles[{{ $d }}][2][mes_fin]" class="form-select form-select-sm">
+                          @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$s2f)>{{ $m }}</option> @endforeach
+                        </select>
+                      </td>
+                    </tr>
+                  @endforeach
+                </tbody>
+              </table>
+              <small class="form-hint">Valida que el par inicio/fin esté dentro de 1–12. Se sincroniza automáticamente al guardar.</small>
+            </div>
+          </div>
+
+          {{-- ANUAL --}}
+          <div id="tabla-anual" style="{{ old('frecuencia',$regla->frecuencia)==='Anual' ? '' : 'display:none' }}">
+            <div class="table-responsive">
+              <table class="table table-vcenter table-sm table-sticky table-nowrap align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>Terminación</th>
+                    <th>Mes inicio</th>
+                    <th>Mes fin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @foreach (range(0,9) as $d)
+                    @php
+                      $a0 = $byTerm[$d][0] ?? ['mes_inicio'=>1,'mes_fin'=>2];
+                      $a0i = (int)old("detalles.$d.0.mes_inicio", $a0['mes_inicio']);
+                      $a0f = (int)old("detalles.$d.0.mes_fin",    $a0['mes_fin']);
+                    @endphp
+                    <tr>
+                      <td class="fw-bold">{{ $d }}</td>
+                      <td>
+                        <select name="detalles[{{ $d }}][0][mes_inicio]" class="form-select form-select-sm">
+                          @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$a0i)>{{ $m }}</option> @endforeach
+                        </select>
+                      </td>
+                      <td>
+                        <select name="detalles[{{ $d }}][0][mes_fin]" class="form-select form-select-sm">
+                          @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$a0f)>{{ $m }}</option> @endforeach
+                        </select>
+                      </td>
+                    </tr>
+                  @endforeach
+                </tbody>
+              </table>
+              <small class="form-hint">“Anual” usa solo el semestre 0 (una ventana por terminación). Se sincroniza automáticamente al guardar.</small>
+            </div>
           </div>
         </div>
 
-        {{-- ANUAL --}}
-        <div id="tabla-anual" style="{{ old('frecuencia',$regla->frecuencia)==='Anual' ? '' : 'display:none' }}">
-          <div class="table-responsive">
-            <table class="table table-vcenter table-sm table-sticky table-nowrap align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>Terminación</th>
-                  <th>Mes inicio</th>
-                  <th>Mes fin</th>
-                </tr>
-              </thead>
-              <tbody>
-                @foreach (range(0,9) as $d)
-                  @php
-                    $a0 = $byTerm[$d][0] ?? ['mes_inicio'=>1,'mes_fin'=>2];
-                    $a0i = (int)old("detalles.$d.0.mes_inicio", $a0['mes_inicio']);
-                    $a0f = (int)old("detalles.$d.0.mes_fin",    $a0['mes_fin']);
-                  @endphp
-                  <tr>
-                    <td class="fw-bold">{{ $d }}</td>
-                    <td>
-                      <select name="detalles[{{ $d }}][0][mes_inicio]" class="form-select form-select-sm">
-                        @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$a0i)>{{ $m }}</option> @endforeach
-                      </select>
-                    </td>
-                    <td>
-                      <select name="detalles[{{ $d }}][0][mes_fin]" class="form-select form-select-sm">
-                        @foreach ($meses as $k=>$m) <option value="{{ $k }}" @selected((int)$k===$a0f)>{{ $m }}</option> @endforeach
-                      </select>
-                    </td>
-                  </tr>
-                @endforeach
-              </tbody>
-            </table>
-            <small class="form-hint">“Anual” usa solo el semestre 0 (una ventana por terminación). Se sincroniza automáticamente al guardar.</small>
+        <div class="card-footer d-flex justify-content-end flex-wrap">
+          <div>
+            <button class="btn btn-danger">
+              <i class="ti ti-device-floppy"></i> Guardar cambios
+            </button>
           </div>
         </div>
-      </div>
+      </form>
 
-      <div class="card-footer d-flex justify-content-end flex-wrap">
-        <div>
-          <button class="btn btn-danger">
-            <i class="ti ti-device-floppy"></i> Guardar cambios
-          </button>
-        </div>
+      {{-- FOOTER (estilo cargas) --}}
+      <div class="text-center text-secondary small py-4">
+        © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
       </div>
-    </form>
-
-    {{-- FOOTER --}}
-    <br>
-    <div class="text-center text-secondary small py-4">
-      © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
     </div>
   </div>
 
