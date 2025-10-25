@@ -1,18 +1,14 @@
 {{-- resources/views/comodin_gastos/index.blade.php --}}
 <x-app-layout>
     @php
-        // Cuenta filtros activos (excluye búsqueda, orden, paginación y export)
-        $ignored = ['search','page','sort_by','sort_dir','export'];
+        // Cuenta filtros activos (excluye búsqueda, orden y paginación)
+        $ignored = ['search','page','sort_by','sort_dir'];
         $activeFilters = collect(request()->query())->filter(function($v,$k) use ($ignored){
             if (in_array($k,$ignored)) return false;
             if (is_array($v)) return collect($v)->filter(fn($x)=>$x!==null && $x!=='')->isNotEmpty();
             return $v !== null && $v !== '';
         });
         $activeCount = $activeFilters->count();
-
-        // URL de exportación (xlsx) preservando filtros/orden (sin paginación)
-        $exportQuery = array_merge(request()->except(['page','export']), ['export' => 'xlsx']);
-        $exportUrl   = route('comodin-gastos.index', $exportQuery);
     @endphp
 
     {{-- ===== HEADER ===== --}}
@@ -53,7 +49,7 @@
                  IMPORTANTE: se cierra ANTES de la tabla para NO anidar formularios
                ========================= --}}
             <form method="GET" action="{{ route('comodin-gastos.index') }}">
-                {{-- TOOLBAR: búsqueda + acciones rápidas --}}
+                {{-- TOOLBAR: búsqueda + filtros --}}
                 <div class="card mb-3">
                     <div class="card-body">
                         <div class="row g-2 align-items-center">
@@ -73,15 +69,8 @@
                                 </div>
                             </div>
 
-                            {{-- Acciones: Exportar Excel + Filtros --}}
+                            {{-- Botón Filtros (abre Offcanvas) --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                {{-- Único botón: Exportar Excel (VERDE) --}}
-                                <a href="{{ $exportUrl }}" class="btn btn-success">
-                                    <i class="ti ti-file-spreadsheet me-1"></i>
-                                    Exportar Excel
-                                </a>
-
-                                {{-- Botón Filtros (abre Offcanvas) --}}
                                 <button type="button"
                                         class="btn btn-outline-dark position-relative"
                                         data-bs-toggle="offcanvas"

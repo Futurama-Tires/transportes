@@ -5,9 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\ComodinGasto;
 use App\Models\TarjetaComodin;
 use Illuminate\Http\Request;
-use Illuminate\Database\Eloquent\Builder;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\ComodinGastosExport;
 
 class ComodinGastoController extends Controller
 {
@@ -18,12 +15,6 @@ class ComodinGastoController extends Controller
      */
     public function index(Request $request)
     {
-        // Exportar a Excel con filtros/orden actuales (sin paginar)
-        if ($request->get('export') === 'xlsx') {
-            $filename = 'comodin_gastos_' . now()->format('Ymd_His') . '.xlsx';
-            return Excel::download(new ComodinGastosExport($request), $filename);
-        }
-
         $tarjetaId = $request->integer('tarjeta');
         $sortBy  = $request->get('sort_by', 'fecha');
         $sortDir = strtolower($request->get('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
