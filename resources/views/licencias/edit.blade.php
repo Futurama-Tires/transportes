@@ -3,6 +3,7 @@
     @php
         $op = $licencia->operador;
         $nombre = $op?->nombre_completo ?? trim(($op->nombre ?? '').' '.($op->apellido_paterno ?? '').' '.($op->apellido_materno ?? ''));
+        $backUrl = $op ? route('operadores.edit', $op) : route('licencias.index');
     @endphp
 
     <x-slot name="header">
@@ -13,11 +14,16 @@
                         <p class="text-secondary text-uppercase small mb-1">Licencias</p>
                         <h2 class="page-title mb-0">Editar licencia #{{ $licencia->id }}</h2>
                         <div class="text-secondary small mt-1">
-                            Operador: @if($op) <a href="{{ route('operadores.edit', $op) }}">{{ $nombre ?: 'Operador #'.$op->id }}</a> @else — @endif
+                            Operador:
+                            @if($op)
+                                <a href="{{ route('operadores.edit', $op) }}">{{ $nombre ?: 'Operador #'.$op->id }}</a>
+                            @else
+                                —
+                            @endif
                         </div>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('licencias.index') }}" class="btn btn-outline-dark">
+                        <a href="{{ $backUrl }}" class="btn btn-outline-dark">
                             <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver
                         </a>
                     </div>
@@ -50,7 +56,10 @@
 
                         <div class="card">
                             <div class="card-header">
-                                <h3 class="card-title mb-0"><span class="material-symbols-outlined me-1 align-middle">edit_note</span>Datos de la licencia</h3>
+                                <h3 class="card-title mb-0">
+                                    <span class="material-symbols-outlined me-1 align-middle">edit_note</span>
+                                    Datos de la licencia
+                                </h3>
                             </div>
                             <div class="card-body">
                                 <div class="row g-4">
@@ -132,7 +141,10 @@
                     {{-- ===== ARCHIVOS ===== --}}
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title mb-0"><span class="material-symbols-outlined me-1 align-middle">picture_as_pdf</span>Archivos de la licencia</h3>
+                            <h3 class="card-title mb-0">
+                                <span class="material-symbols-outlined me-1 align-middle">picture_as_pdf</span>
+                                Archivos de la licencia
+                            </h3>
                             <div class="card-subtitle">PDF/JPG/PNG/WEBP — privados</div>
                         </div>
                         <div class="card-body">
