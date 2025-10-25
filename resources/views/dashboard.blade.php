@@ -1,4 +1,4 @@
-{{-- resources/views/dashboard.blade.php (versión Tabler) --}}
+{{-- resources/views/dashboard.blade.php --}}
 <x-app-layout>
     {{-- HEADER --}}
     <x-slot name="header">
@@ -136,7 +136,7 @@
                 </div>
                 @endhasanyrole
 
-                {{-- 3ª fila: Reglas verificación | SiVale | Comodín --}}
+                {{-- 3ª fila: Reglas verificación --}}
                 @role('administrador')
                 <div class="col-12 col-sm-6 col-lg-4">
                     <a href="{{ route('verificacion-reglas.index') }}" class="card card-link bg-teal-lt" aria-label="Reglas de verificación">
@@ -151,36 +151,6 @@
                     </a>
                 </div>
                 @endrole
-
-                @hasanyrole('administrador|capturista')
-                <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="{{ route('tarjetas.index') }}" class="card card-link bg-cyan-lt" aria-label="Tarjetas SiVale">
-                        <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-cyan text-white me-3"><i class="ti ti-credit-card"></i></span>
-                            <div class="flex-fill">
-                                <div class="card-title mb-1">Tarjetas SiVale</div>
-                                <div class="text-secondary small">Gestionar las tarjetas SiVale.</div>
-                            </div>
-                            <i class="ti ti-chevron-right text-secondary"></i>
-                        </div>
-                    </a>
-                </div>
-                @endhasanyrole
-
-                @hasanyrole('administrador|capturista')
-                <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="{{ route('tarjetas-comodin.index') }}" class="card card-link bg-cyan-lt" aria-label="Tarjetas comodín">
-                        <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-cyan text-white me-3"><i class="ti ti-credit-card"></i></span>
-                            <div class="flex-fill">
-                                <div class="card-title mb-1">Tarjetas comodín</div>
-                                <div class="text-secondary small">Consultar las tarjetas tipo comodín.</div>
-                            </div>
-                            <i class="ti ti-chevron-right text-secondary"></i>
-                        </div>
-                    </a>
-                </div>
-                @endhasanyrole
 
                 {{-- 4ª fila: Backups | Reportes --}}
                 @role('administrador')
