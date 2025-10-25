@@ -12,10 +12,6 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
 
-// === AÑADIDOS PARA EXPORTAR EXCEL ===
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\OperadoresExport;
-
 /**
  * Controlador de Operadores
  *
@@ -54,17 +50,10 @@ class OperadorController extends Controller
     }
 
     /**
-     * Listado con filtros y paginación + Exportación Excel.
+     * Listado con filtros y paginación.
      */
     public function index(Request $request)
     {
-        // Exportación Excel: respeta filtros y orden actuales, sin paginar (todos los datos que cumplen)
-        if ($request->string('export')->lower()->toString() === 'xlsx') {
-            $filename = 'operadores_' . now()->format('Ymd_His') . '.xlsx';
-            return Excel::download(new OperadoresExport($request), $filename);
-        }
-
-        // Listado normal paginado
         $operadores = Operador::with(['user'])
             ->withCount('fotos')
             ->filter($request->all())
@@ -182,7 +171,7 @@ class OperadorController extends Controller
         // (2) Actualizar modelo
         $operador->update($data);
 
-        // (3) Actualizar correo del User (opcional, sin cambiar mayúsculas/minúsculas)
+        // (3) Actualizar correo del User (opcional, sin cambiar mayúsculas/minúscculas)
         if ($request->filled('email') && $operador->user) {
             $request->validate([
                 'email' => ['nullable', 'string', 'email:rfc', Rule::unique('users', 'email')->ignore($operador->user->id)],

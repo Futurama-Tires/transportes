@@ -1,6 +1,5 @@
-{{-- resources/views/operadores/index.blade.php — versión Tabler (acciones separadas, filtros en offcanvas y numeración continua) --}}
+{{-- resources/views/operadores/index.blade.php — versión Tabler (sin exportar a Excel) --}}
 <x-app-layout>
-    {{-- Si ya incluyes @vite en tu layout, puedes quitar esta línea --}}
     @php
         // Parámetros y utilidades reutilizables en toda la vista
         $q        = request();
@@ -161,14 +160,8 @@
                                 </div>
                             </div>
 
-                            {{-- Acciones --}}
+                            {{-- Acciones (sin exportar) --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                <a href="{{ route('operadores.index', array_merge(request()->only($keepParams), ['export' => 'xlsx'])) }}"
-                                   class="btn btn-outline-dark" title="Exportar a Excel">
-                                    <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
-                                    <span>Exportar</span>
-                                </a>
-
                                 <button
                                     type="button"
                                     class="btn btn-outline-dark position-relative"
