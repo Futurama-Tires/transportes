@@ -1,6 +1,6 @@
 {{-- resources/views/capturistas/index.blade.php
      Vista Index (Tabler + Bootstrap) para gestión de Capturistas
-     - Toolbar con búsqueda, exportación y filtros (offcanvas sin overlay)
+     - Toolbar con búsqueda y filtros (offcanvas sin overlay)
      - Tabla con numeración por página (sin mostrar ID)
      - Paginación preservando parámetros de consulta
 --}}
@@ -78,7 +78,7 @@
             {{-- ================= FORM GLOBAL (GET) SOLO PARA FILTROS/BÚSQUEDA ================= --}}
             <form id="filtersForm" method="GET" action="{{ route('capturistas.index') }}" autocomplete="off" novalidate aria-label="Búsqueda y filtros de capturistas">
 
-                {{-- ===== Toolbar: búsqueda + exportación + filtros ===== --}}
+                {{-- ===== Toolbar: búsqueda + filtros ===== --}}
                 <div class="card mb-3">
                     <div class="card-body">
                         <div class="row g-2 align-items-center">
@@ -103,17 +103,8 @@
                                 </div>
                             </div>
 
-                            {{-- Acciones rápidas --}}
+                            {{-- Acciones rápidas (sin exportar) --}}
                             <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-
-                                {{-- Exportar (genera URL con ?export=xlsx preservando filtros) --}}
-                                <a href="{{ route('capturistas.index', array_merge(request()->except('page'), ['export' => 'xlsx'])) }}"
-                                   class="btn btn-outline-dark"
-                                   title="Exportar a Excel">
-                                    <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
-                                    <span>Exportar</span>
-                                </a>
-
                                 {{-- Filtros (offcanvas sin overlay) --}}
                                 <button
                                     type="button"
@@ -189,11 +180,6 @@
                                     </select>
                                 </div>
                             </div>
-                        </div>
-
-                        {{-- Espacio para filtros futuros --}}
-                        <div class="mb-2">
-                            <div class="text-secondary small">Cuando existan más campos filtrables en el modelo, agréguelos aquí.</div>
                         </div>
                     </div>
 

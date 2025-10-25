@@ -9,21 +9,11 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
-// === Exportación Excel ===
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\CapturistasExport;
-
 class CapturistaController extends Controller
 {
     public function index(Request $request)
     {
-        // Si viene ?export=xlsx, exportamos SIN paginar, con los filtros/orden actuales
-        if ($request->get('export') === 'xlsx') {
-            $filename = 'capturistas_' . now()->format('Ymd_His') . '.xlsx';
-            return Excel::download(new CapturistasExport($request), $filename);
-        }
-
-        // Filtros usados en el index (igual que antes)
+        // Filtros usados en el index
         $filters = $request->only(['search', 'sort_by', 'sort_dir']);
 
         $capturistas = Capturista::query()
