@@ -1,6 +1,4 @@
-{{-- resources/views/vehiculos/index.blade.php
-     Vista Index (Tabler + Bootstrap) para la gestión de Vehículos
---}}
+{{-- resources/views/vehiculos/index.blade.php Vista para la gestión de Vehículos --}}
 <x-app-layout>
     @vite('resources/js/app.js')
 
@@ -30,9 +28,6 @@
                 'anio'        => 'Año',
                 'propietario' => 'Propietario',
             ];
-
-            // URL de exportación a Excel con filtros actuales (excepto la página)
-            $exportHref = route('vehiculos.index', array_merge(request()->except('page'), ['export' => 'xlsx']));
         @endphp
 
         {{-- HEADER --}}
@@ -95,16 +90,8 @@
                                     </div>
                                 </div>
 
-                                {{-- Acciones --}}
+                                {{-- Acciones (sin exportación) --}}
                                 <div class="col-12 col-xl-auto d-flex gap-2 justify-content-end">
-                                    {{-- Botón único: Exportar Excel --}}
-                                    <a href="{{ $exportHref }}"
-                                       class="btn btn-outline-dark"
-                                       title="Exportar a Excel">
-                                        <i class="ti ti-brand-excel me-1" aria-hidden="true"></i>
-                                        <span>Exportar</span>
-                                    </a>
-
                                     {{-- Botón Filtros --}}
                                     <button
                                         type="button"

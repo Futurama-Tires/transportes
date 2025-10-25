@@ -11,10 +11,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-// === Exportación Excel ===
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\VehiculosExport;
-
 class VehiculoController extends Controller
 {
     public function __construct()
@@ -23,14 +19,9 @@ class VehiculoController extends Controller
         $this->middleware(['auth', 'role:administrador|capturista']);
     }
 
-    /** Listado con filtros y paginación. */
+    /** Listado con filtros y paginación */
     public function index(Request $request)
     {
-        if ($request->get('export') === 'xlsx') {
-            $filename = 'vehiculos_' . now()->format('Ymd_His') . '.xlsx';
-            return Excel::download(new VehiculosExport($request), $filename);
-        }
-
         $sortBy  = $request->get('sort_by', 'unidad');
         $sortDir = $request->get('sort_dir', 'asc');
 
@@ -105,11 +96,10 @@ class VehiculoController extends Controller
     }
 
     /**
-     * UPDATE ahora:
+     * UPDATE:
      * - Actualiza datos del vehículo
      * - Elimina las fotos MARCADAS en 'fotos_eliminar[]' (pertenecientes al vehículo)
      * - Sube y registra nuevas fotos en el mismo submit
-     * Todo se procesa al pulsar "Guardar cambios".
      */
     public function update(Request $request, Vehiculo $vehiculo)
     {
@@ -118,7 +108,7 @@ class VehiculoController extends Controller
 
         // Validación mínima para arrays auxiliares
         $request->validate([
-            'fotos_eliminar' => ['sometimes', 'array'],
+            'fotos_eliminar'   => ['sometimes', 'array'],
             'fotos_eliminar.*' => ['integer'],
         ]);
 
@@ -183,10 +173,6 @@ class VehiculoController extends Controller
 
         } catch (\Throwable $e) {
             DB::rollBack();
-
-            // Nota: si falló después de haber subido fotos nuevas,
-            // no hay rollback automático de archivos. Se podría
-            // implementar un recolector si quieres máxima consistencia.
             report($e);
 
             return back()
