@@ -1,5 +1,11 @@
 {{-- resources/views/licencias/create.blade.php --}}
 <x-app-layout>
+    @php
+        $backUrl = (isset($operador) && $operador)
+            ? route('operadores.edit', $operador->id)
+            : route('licencias.index');
+    @endphp
+
     <x-slot name="header">
         <div class="page-header d-print-none">
             <div class="container-xl">
@@ -9,7 +15,7 @@
                         <h2 class="page-title mb-0">Nueva licencia</h2>
                     </div>
                     <div class="col-auto ms-auto">
-                        <a href="{{ route('licencias.index') }}" class="btn btn-outline-dark">
+                        <a href="{{ $backUrl }}" class="btn btn-outline-dark">
                             <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver
                         </a>
                     </div>
@@ -34,7 +40,10 @@
                 @csrf
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title mb-0"><span class="material-symbols-outlined me-1 align-middle">badge</span> Datos de la licencia</h3>
+                        <h3 class="card-title mb-0">
+                            <span class="material-symbols-outlined me-1 align-middle">badge</span>
+                            Datos de la licencia
+                        </h3>
                     </div>
                     <div class="card-body">
                         <div class="row g-4">

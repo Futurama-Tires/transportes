@@ -1,4 +1,4 @@
-{{-- resources/views/dashboard.blade.php (versión Tabler) --}}
+{{-- resources/views/dashboard.blade.php (versión Tabler, sin módulo de Licencias) --}}
 <x-app-layout>
     {{-- HEADER --}}
     <x-slot name="header">
@@ -90,22 +90,7 @@
                 </div>
                 @endhasanyrole
 
-                {{-- 2ª fila: Licencias | (solo admin) Capturistas | Programa verificación --}}
-                @hasanyrole('administrador|capturista')
-                <div class="col-12 col-sm-6 col-lg-4">
-                    <a href="{{ route('licencias.index') }}" class="card card-link bg-red-lt" aria-label="Licencias de conducir">
-                        <div class="card-body d-flex align-items-center">
-                            <span class="avatar bg-red text-white me-3"><i class="ti ti-license"></i></span>
-                            <div class="flex-fill">
-                                <div class="card-title mb-1">Licencias de conducir</div>
-                                <div class="text-secondary small">Gestionar licencias de conducir.</div>
-                            </div>
-                            <i class="ti ti-chevron-right text-secondary"></i>
-                        </div>
-                    </a>
-                </div>
-                @endhasanyrole
-
+                {{-- 2ª fila: (solo admin) Capturistas | Programa verificación --}}
                 @role('administrador')
                 <div class="col-12 col-sm-6 col-lg-4">
                     <a href="{{ route('capturistas.index') }}" class="card card-link bg-purple-lt" aria-label="Capturistas">

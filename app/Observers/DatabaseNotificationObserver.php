@@ -12,7 +12,7 @@ class DatabaseNotificationObserver
         $data = (array) ($notification->data ?? []);
         $tipo = $data['tipo'] ?? null;
 
-        // Solo nos interesan estas dos
+        // Solo estas dos
         if (!in_array($tipo, ['verificacion_apertura_7d', 'verificacion_cierre_7d'], true)) {
             return;
         }
