@@ -21,7 +21,7 @@ class TelegramNotifier
         $payload = array_merge([
             'chat_id'                  => $chatId,
             'text'                     => $text,
-            'parse_mode'               => $options['parse_mode'] ?? 'HTML', // HTML es práctico
+            'parse_mode'               => $options['parse_mode'] ?? 'HTML', 
             'disable_web_page_preview' => true,
         ], $options);
 

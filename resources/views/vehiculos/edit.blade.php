@@ -159,7 +159,6 @@
                             <div class="col-12">
                                 <label for="tarjeta_si_vale_id" class="form-label">Tarjeta SiVale</label>
                                 <div class="input-icon">
-                                    <span class="input-icon-addon"><i class="ti ti-credit-card"></i></span>
                                     <select id="tarjeta_si_vale_id" name="tarjeta_si_vale_id" class="form-select @error('tarjeta_si_vale_id') is-invalid @enderror" aria-describedby="sivale_help">
                                         <option value="">-- Sin tarjeta asignada --</option>
                                         @foreach($tarjetas as $tarjeta)

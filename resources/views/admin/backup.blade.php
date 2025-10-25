@@ -9,12 +9,6 @@
                     <div class="col">
                         <p class="text-secondary text-uppercase small mb-1">Administración</p>
                         <h2 class="page-title mb-0">Respaldo y Restauración de Base de Datos</h2>
-                        <div class="text-secondary small mt-1">
-                            Solo administradores. Driver:
-                            <strong>{{ $dbInfo['driver'] }}</strong> |
-                            BD: <strong>{{ $dbInfo['database'] }}</strong> @
-                            {{ $dbInfo['host'] }}:{{ $dbInfo['port'] }}
-                        </div>
                     </div>
 
                     {{-- Botón volver al menú principal --}}
@@ -65,14 +59,6 @@
                             <h3 class="card-title mb-0">Generar y descargar .sql</h3>
                         </div>
                         <div class="card-body">
-                            <p class="text-secondary">
-                                Se usará <code>mysqldump</code> con
-                                <code>--single-transaction</code>,
-                                <code>--routines</code>,
-                                <code>--triggers</code> y
-                                <code>--events</code>.
-                            </p>
-
                             {{-- Botón siempre habilitado --}}
                             <form method="POST" action="{{ route('admin.backup.download') }}">
                                 @csrf
@@ -100,12 +86,12 @@
                             <form method="POST"
                                   action="{{ route('admin.backup.restore') }}"
                                   enctype="multipart/form-data"
-                                  onsubmit="return confirm('⚠️ Esta acción SOBREESCRIBE tu base de datos.\n\n¿Confirmas continuar?');">
+                                  onsubmit="return confirm(' Esta acción SOBREESCRIBE tu base de datos.\n\n¿Confirmas continuar?');">
                                 @csrf
                                 <div class="mb-3">
                                     <label class="form-label">Archivo SQL</label>
                                     <input type="file" class="form-control" name="sql_file" accept=".sql,.gz" required>
-                                    <div class="form-hint">Selecciona un archivo .sql o .sql.gz</div>
+                                    <div class="form-hint">Selecciona un archivo .sql</div>
                                 </div>
 
                                 <div class="form-check mb-3">

@@ -1,17 +1,19 @@
-{{-- resources/views/operadores/edit.blade.php — campos ordenados lógicamente + fotos (clic abre en nueva pestaña) --}}
+{{-- resources/views/operadores/edit.blade.php — Versión Tabler con fotos + Licencias --}}
 <x-app-layout>
-    {{-- HEADER --}}
+    {{-- ===== HEADER ===== --}}
     <x-slot name="header">
         <div class="page-header d-print-none">
             <div class="container-xl">
                 <div class="row g-2 align-items-center">
                     <div class="col">
-                        <p class="text-secondary text-uppercase small mb-1">Operadores</p>
-                        <h2 class="page-title mb-0">Editar un Operador</h2>
+                        <h2 class="page-title mb-0 d-flex align-items-center gap-2">
+                            Editar Operador
+                        </h2>
                     </div>
-                    <div class="col-auto ms-auto">
+                    <div class="col-auto ms-auto d-flex gap-2">
                         <a href="{{ route('operadores.index') }}" class="btn btn-outline-dark">
-                            <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver al listado
+                            <i class="ti ti-arrow-left me-1"></i>
+                            Volver al listado
                         </a>
                     </div>
                 </div>
@@ -21,380 +23,322 @@
 
     <div class="page-body">
         <div class="container-xl">
-
-            {{-- FLASHES --}}
-            @if (session('success'))
-                <div class="alert alert-success mb-4" role="alert">
-                    <span class="material-symbols-outlined me-2 align-middle">check_circle</span>{{ session('success') }}
-                </div>
-            @endif
-
-            @if ($errors->any())
-                <div class="alert alert-danger mb-4" role="alert">
-                    <span class="material-symbols-outlined me-2 align-middle">warning</span>Revisa los campos marcados y vuelve a intentar.
-                    <ul class="mt-2 mb-0 ps-4">
-                        @foreach ($errors->all() as $error)
-                            <li class="small">{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-
-            @php
-                $nombreCompleto = trim(($operador->nombre ?? '').' '.($operador->apellido_paterno ?? '').' '.($operador->apellido_materno ?? ''));
-                $correo = optional($operador->user)->email ?? '—';
-            @endphp
-
-            {{-- ===== FORM ÚNICO (abarca ambas columnas) ===== --}}
-            <form id="operador-form" method="POST"
-                  action="{{ route('operadores.update', $operador) }}"
-                  enctype="multipart/form-data" novalidate>
+            {{-- ===== FORM PRINCIPAL (UPDATE) =====
+                 Igual que Vehículos: este form envuelve también la galería para enviar los checkboxes de eliminación. --}}
+            <form id="operador-form" method="POST" action="{{ route('operadores.update', $operador) }}" novalidate enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
 
-                <div class="row g-4">
-                    {{-- ===== COLUMNA IZQUIERDA: DATOS ===== --}}
-                    <div class="col-12 col-xl-8">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
-                                    <span class="material-symbols-outlined">badge</span> Datos del operador
-                                </h3>
-                            </div>
+                {{-- Alertas --}}
+                @if ($errors->any())
+                    <div class="alert alert-danger" role="alert">
+                        <i class="ti ti-alert-triangle me-2"></i>
+                        Revisa los campos marcados y vuelve a intentar.
+                    </div>
+                @endif
+                @error('general')
+                    <div class="alert alert-danger" role="alert">
+                        <i class="ti ti-alert-triangle me-2"></i>{{ $message }}
+                    </div>
+                @enderror
 
-                            <div class="card-body pt-3">
-                                <div class="row g-4">
-
-                                    {{-- ================= 1) IDENTIDAD ================= --}}
-                                    <div class="col-12">
-                                        <div class="text-secondary text-uppercase fw-semibold small mb-2">Identidad</div>
-                                        <div class="row g-3">
-                                            <div class="col-12 col-md-6">
-                                                <label for="nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
-                                                    <input id="nombre" name="nombre" type="text" autocomplete="given-name"
-                                                           class="form-control @error('nombre') is-invalid @enderror"
-                                                           value="{{ old('nombre', $operador->nombre) }}" required placeholder="Ej. Juan">
-                                                    @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
-
-                                            <div class="col-12 col-md-6">
-                                                <label for="apellido_paterno" class="form-label">Apellido paterno <span class="text-danger">*</span></label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
-                                                    <input id="apellido_paterno" name="apellido_paterno" type="text" autocomplete="family-name"
-                                                           class="form-control @error('apellido_paterno') is-invalid @enderror"
-                                                           value="{{ old('apellido_paterno', $operador->apellido_paterno) }}" required placeholder="Ej. Pérez">
-                                                    @error('apellido_paterno') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
-
-                                            <div class="col-12 col-md-6">
-                                                <label for="apellido_materno" class="form-label">Apellido materno</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
-                                                    <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
-                                                           class="form-control @error('apellido_materno') is-invalid @enderror"
-                                                           value="{{ old('apellido_materno', $operador->apellido_materno) }}" placeholder="(opcional)">
-                                                    @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {{-- ================= 2) CONTACTO BÁSICO ================= --}}
-                                    <div class="col-12">
-                                        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Contacto básico</div>
-                                        <div class="row g-3">
-                                            <div class="col-12 col-md-6">
-                                                <label for="email" class="form-label">Correo electrónico</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">mail</span></span>
-                                                    <input id="email" name="email" type="email" autocomplete="email"
-                                                           class="form-control @error('email') is-invalid @enderror"
-                                                           value="{{ old('email', optional($operador->user)->email) }}"
-                                                           placeholder="usuario@dominio.com" aria-describedby="email_help">
-                                                    @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                                <div id="email_help" class="form-hint">Usa un correo válido al que el operador tenga acceso.</div>
-                                            </div>
-
-                                            <div class="col-12 col-md-6">
-                                                <label for="telefono" class="form-label">Teléfono (10 dígitos)</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
-                                                    <input id="telefono" name="telefono" type="tel"
-                                                           inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
-                                                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
-                                                           class="form-control @error('telefono') is-invalid @enderror"
-                                                           value="{{ old('telefono', $operador->telefono) }}"
-                                                           placeholder="Ej. 7771234567" autocomplete="tel"
-                                                           title="Ingresa exactamente 10 dígitos (solo números)">
-                                                    @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
-
-                                            {{-- ===== NUEVO: DOMICILIO ===== --}}
-                                            <div class="col-12">
-                                                <label for="domicilio" class="form-label">Domicilio</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">home_pin</span></span>
-                                                    <input id="domicilio" name="domicilio" type="text"
-                                                           class="form-control @error('domicilio') is-invalid @enderror"
-                                                           value="{{ old('domicilio', $operador->domicilio) }}"
-                                                           placeholder="Calle, número, colonia, ciudad, estado, C.P.">
-                                                    @error('domicilio') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {{-- ================= 3) DATOS PERSONALES ================= --}}
-                                    <div class="col-12">
-                                        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Datos personales</div>
-                                        <div class="row g-3">
-                                            <div class="col-12 col-md-6">
-                                                <label for="estado_civil" class="form-label">Estado civil</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text">
-                                                        <span class="material-symbols-outlined">diversity_3</span>
-                                                    </span>
-                                                    <select id="estado_civil" name="estado_civil"
-                                                            class="form-select @error('estado_civil') is-invalid @enderror">
-                                                        <option value="">(sin especificar)</option>
-                                                        @foreach(['soltero'=>'Soltero','casado'=>'Casado','viudo'=>'Viudo','divorciado'=>'Divorciado','union libre'=>'Union libre'] as $val=>$label)
-                                                            <option value="{{ $val }}" {{ old('estado_civil', $operador->estado_civil)===$val ? 'selected' : '' }}>{{ $label }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                    @error('estado_civil') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
-
-                                            <div class="col-12 col-md-6">
-                                                <label for="tipo_sangre" class="form-label">Tipo de sangre</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">bloodtype</span></span>
-                                                    <input id="tipo_sangre" name="tipo_sangre" type="text"
-                                                           class="form-control @error('tipo_sangre') is-invalid @enderror"
-                                                           value="{{ old('tipo_sangre', $operador->tipo_sangre) }}"
-                                                           placeholder="Ej. O+, A-, B+" maxlength="5">
-                                                    @error('tipo_sangre') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                                <div class="form-hint">Formato corto (ej.: O+, A-, AB-).</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {{-- ================= 4) IDENTIFICADORES OFICIALES ================= --}}
-                                    <div class="col-12">
-                                        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Identificadores oficiales</div>
-                                        <div class="row g-3">
-                                            <div class="col-12 col-md-6">
-                                                <label for="curp" class="form-label">CURP</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">badge</span></span>
-                                                    <input id="curp" name="curp" type="text"
-                                                           class="form-control @error('curp') is-invalid @enderror"
-                                                           value="{{ old('curp', $operador->curp) }}" maxlength="18"
-                                                           style="text-transform:uppercase"
-                                                           oninput="this.value=this.value.toUpperCase().replace(/\s+/g,'');"
-                                                           pattern="[A-ZÑ0-9]{18}"
-                                                           title="18 caracteres en mayúsculas (A-Z/Ñ/0-9)">
-                                                    @error('curp') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
-
-                                            <div class="col-12 col-md-6">
-                                                <label for="rfc" class="form-label">RFC</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text"><span class="material-symbols-outlined">verified</span></span>
-                                                    <input id="rfc" name="rfc" type="text"
-                                                           class="form-control @error('rfc') is-invalid @enderror"
-                                                           value="{{ old('rfc', $operador->rfc) }}" maxlength="13"
-                                                           style="text-transform:uppercase"
-                                                           oninput="this.value=this.value.toUpperCase().replace(/\s+/g,'');"
-                                                           pattern="([A-ZÑ&]{3,4})\d{6}[A-Z0-9]{3}"
-                                                           title="3-4 letras + 6 dígitos de fecha + 3 alfanum.">
-                                                    @error('rfc') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {{-- ================= 5) CONTACTO DE EMERGENCIA ================= --}}
-                                    <div class="col-12">
-        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Contacto de emergencia</div>
-        <div class="row g-3">
-            <div class="col-12 col-md-6">
-                <label for="contacto_emergencia_nombre" class="form-label">Nombre</label>
-                <div class="input-group">
-                    <span class="input-group-text"><span class="material-symbols-outlined">contact_emergency</span></span>
-                    <input id="contacto_emergencia_nombre" name="contacto_emergencia_nombre" type="text"
-                           class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror"
-                           value="{{ old('contacto_emergencia_nombre', $operador->contacto_emergencia_nombre) }}"
-                           placeholder="Ej. Juan Pérez">
-                    @error('contacto_emergencia_nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
-            </div>
-
-            <div class="col-12 col-md-6">
-                <label for="contacto_emergencia_parentesco" class="form-label">Parentesco</label>
-                <div class="input-group">
-                    <span class="input-group-text"><span class="material-symbols-outlined">diversity_1</span></span>
-                    <input id="contacto_emergencia_parentesco" name="contacto_emergencia_parentesco" type="text"
-                           class="form-control @error('contacto_emergencia_parentesco') is-invalid @enderror"
-                           value="{{ old('contacto_emergencia_parentesco', $operador->contacto_emergencia_parentesco) }}" placeholder="Ej. Esposa, Hermano, Amigo">
-                    @error('contacto_emergencia_parentesco') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
-            </div>
-
-            <div class="col-12 col-md-6">
-                <label for="contacto_emergencia_tel" class="form-label">Teléfono de emergencia (10 dígitos)</label>
-                <div class="input-group">
-                    <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
-                    <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
-                           inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
-                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
-                           class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
-                           value="{{ old('contacto_emergencia_tel', $operador->contacto_emergencia_tel) }}"
-                           placeholder="Ej. 7770000000"
-                           title="Ingresa exactamente 10 dígitos (solo números)">
-                    @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
-            </div>
-
-            <div class="col-12 col-md-6">
-                <label for="contacto_emergencia_ubicacion" class="form-label">Ubicación</label>
-                <div class="input-group">
-                    <span class="input-group-text"><span class="material-symbols-outlined">place</span></span>
-                    <input id="contacto_emergencia_ubicacion" name="contacto_emergencia_ubicacion" type="text"
-                           class="form-control @error('contacto_emergencia_ubicacion') is-invalid @enderror"
-                           value="{{ old('contacto_emergencia_ubicacion', $operador->contacto_emergencia_ubicacion) }}" placeholder="Ej. Cuernavaca, Morelos">
-                    @error('contacto_emergencia_ubicacion') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
-            </div>
-        </div>
-    </div>
-
-                                </div> {{-- /row --}}
-                            </div>
-                        </div>
+                <div class="card">
+                    <div class="card-header justify-content-between">
+                        <h3 class="card-title d-flex align-items-center gap-2 mb-0">
+                            <i class="ti ti-id"></i>
+                            Datos del operador
+                        </h3>
                     </div>
 
-                    {{-- ===== COLUMNA DERECHA: AVATAR + FOTOS ===== --}}
-                    <div class="col-12 col-xl-4">
-
-                        {{-- FOTOS: subir + marcado borrar + lista (clic abre en nueva pestaña) --}}
-                        <div class="card">
-                            <div class="card-header">
-                                <h3 class="card-title mb-0 d-flex align-items-center">
-                                    <span class="material-symbols-outlined me-2">add_photo_alternate</span>
-                                    Agregar fotografías
-                                </h3>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            {{-- Nombre --}}
+                            <div class="col-12 col-md-6">
+                                <label for="nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-user"></i></span>
+                                    <input id="nombre" type="text" name="nombre" value="{{ old('nombre', $operador->nombre) }}"
+                                           class="form-control @error('nombre') is-invalid @enderror" required placeholder="Ej. Juan">
+                                </div>
+                                @error('nombre') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
-                            {{-- Subir nuevas --}}
-                            <div class="card-body">
-                                <div class="form-hint mb-3">Máx 8&nbsp;MB por archivo.</div>
-
-                                <div class="row g-3 align-items-end">
-                                    <div class="col-12">
-                                        <div class="input-group">
-                                            <span class="input-group-text"><span class="material-symbols-outlined">upload</span></span>
-                                            <input type="file" name="fotos[]" accept="image/*" multiple
-                                                   class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror">
-                                        </div>
-                                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
-                                    </div>
+                            {{-- Apellido paterno --}}
+                            <div class="col-12 col-md-6">
+                                <label for="apellido_paterno" class="form-label">Apellido paterno <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-user"></i></span>
+                                    <input id="apellido_paterno" type="text" name="apellido_paterno" value="{{ old('apellido_paterno', $operador->apellido_paterno) }}"
+                                           class="form-control @error('apellido_paterno') is-invalid @enderror" required placeholder="Ej. Pérez">
                                 </div>
+                                @error('apellido_paterno') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
 
-                            {{-- Listado/galería simple y marcado para borrar --}}
-                            <div class="card-body border-top">
-                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <h2 class="h5 mb-0 d-flex align-items-center">
-                                            <span class="material-symbols-outlined me-2">photo</span>
-                                            Fotografías actuales
-                                        </h2>
-                                        <span class="badge bg-secondary-lt">{{ $operador->fotos->count() }} foto(s)</span>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-3">
-                                        <span class="small text-secondary">
-                                            Marcadas: <strong id="delCount">0</strong>
-                                        </span>
-                                    </div>
+                            {{-- Apellido materno --}}
+                            <div class="col-12 col-md-6">
+                                <label for="apellido_materno" class="form-label">Apellido materno</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-user-circle"></i></span>
+                                    <input id="apellido_materno" type="text" name="apellido_materno" value="{{ old('apellido_materno', $operador->apellido_materno) }}"
+                                           class="form-control @error('apellido_materno') is-invalid @enderror" placeholder="(opcional)">
                                 </div>
+                                @error('apellido_materno') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
 
-                                @if($operador->fotos->isEmpty())
-                                    <div class="empty my-4">
-                                        <div class="empty-icon">
-                                            <span class="material-symbols-outlined">image_not_supported</span>
-                                        </div>
-                                        <p class="empty-title">Este operador aún no tiene fotos</p>
-                                    </div>
-                                @else
-                                    <div class="row g-3" id="photosGrid">
-                                        @foreach($operador->fotos as $foto)
-                                            <div class="col-12">
-                                                <div class="card position-relative foto-card" data-id="{{ $foto->id }}">
-                                                    <div class="ratio ratio-4x3">
-                                                        <a href="{{ route('operadores.fotos.show', $foto) }}"
-                                                           target="_blank" rel="noopener noreferrer"
-                                                           title="Abrir en nueva pestaña"
-                                                           class="stretched-link"></a>
-                                                        <img src="{{ route('operadores.fotos.show', $foto) }}"
-                                                             alt="Foto {{ $loop->iteration }} de {{ $nombreCompleto ?: ('Operador #'.$operador->id) }}"
-                                                             class="w-100 h-100 rounded object-fit-cover">
-                                                    </div>
+                            {{-- Email (asociado a user si aplica) --}}
+                            <div class="col-12 col-md-6">
+                                <label for="email" class="form-label">Correo electrónico</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-mail"></i></span>
+                                    <input id="email" type="email" name="email" value="{{ old('email', optional($operador->user)->email) }}"
+                                           class="form-control @error('email') is-invalid @enderror" placeholder="usuario@dominio.com">
+                                </div>
+                                @error('email') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
 
-                                                    <button type="button"
-                                                            class="btn btn-danger btn-icon btn-sm position-absolute top-0 end-0 m-1 toggle-delete z-3"
-                                                            data-id="{{ $foto->id }}" title="Marcar para borrar">
-                                                        <span class="material-symbols-outlined">delete</span>
-                                                    </button>
+                            {{-- Teléfono --}}
+                            <div class="col-12 col-md-6">
+                                <label for="telefono" class="form-label">Teléfono (10 dígitos)</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-phone"></i></span>
+                                    <input id="telefono" type="tel" name="telefono" inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
+                                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                                           value="{{ old('telefono', $operador->telefono) }}"
+                                           class="form-control @error('telefono') is-invalid @enderror" placeholder="7771234567">
+                                </div>
+                                @error('telefono') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
 
-                                                    <input type="checkbox" class="d-none delete-input"
-                                                           id="del-{{ $foto->id }}" name="delete_fotos[]" value="{{ $foto->id }}">
+                            {{-- Domicilio --}}
+                            <div class="col-12">
+                                <label for="domicilio" class="form-label">Domicilio</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-home"></i></span>
+                                    <input id="domicilio" type="text" name="domicilio" value="{{ old('domicilio', $operador->domicilio) }}"
+                                           class="form-control @error('domicilio') is-invalid @enderror" placeholder="Calle, número, colonia, ciudad, estado, C.P.">
+                                </div>
+                                @error('domicilio') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
 
-                                                    <div class="position-absolute top-0 start-0 w-100 h-100 rounded bg-danger opacity-25 d-none overlay-del"></div>
-                                                    <span class="badge bg-danger position-absolute bottom-0 start-0 m-2 d-none badge-del">
-                                                        <span class="material-symbols-outlined me-1 align-middle">delete</span> Se borrará
-                                                    </span>
-                                                </div>
-                                            </div>
+                            {{-- Estado civil --}}
+                            <div class="col-12 col-md-6">
+                                <label for="estado_civil" class="form-label">Estado civil</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-users-group"></i></span>
+                                    <select id="estado_civil" name="estado_civil" class="form-select @error('estado_civil') is-invalid @enderror">
+                                        <option value="">(sin especificar)</option>
+                                        @foreach(['soltero'=>'Soltero','casado'=>'Casado','viudo'=>'Viudo','divorciado'=>'Divorciado','union libre'=>'Union libre'] as $val=>$label)
+                                            <option value="{{ $val }}" @selected(old('estado_civil', $operador->estado_civil)===$val)>{{ $label }}</option>
                                         @endforeach
-                                    </div>
-                                @endif
+                                    </select>
+                                </div>
+                                @error('estado_civil') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Tipo de sangre --}}
+                            <div class="col-12 col-md-6">
+                                <label for="tipo_sangre" class="form-label">Tipo de sangre</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-droplet"></i></span>
+                                    <input id="tipo_sangre" type="text" name="tipo_sangre" value="{{ old('tipo_sangre', $operador->tipo_sangre) }}"
+                                           class="form-control @error('tipo_sangre') is-invalid @enderror" placeholder="Ej. O+">
+                                </div>
+                                <div class="form-hint">Formato corto (ej.: O+, A-, AB-).</div>
+                                @error('tipo_sangre') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- CURP --}}
+                            <div class="col-12 col-md-6">
+                                <label for="curp" class="form-label">CURP</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-badge"></i></span>
+                                    <input id="curp" type="text" name="curp" value="{{ old('curp', $operador->curp) }}" maxlength="18"
+                                           class="form-control @error('curp') is-invalid @enderror"
+                                           style="text-transform:uppercase"
+                                           oninput="this.value=this.value.toUpperCase().replace(/\s+/g,'');"
+                                           pattern="[A-ZÑ0-9]{18}" title="18 caracteres en mayúsculas (A-Z/Ñ/0-9)">
+                                </div>
+                                @error('curp') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- RFC --}}
+                            <div class="col-12 col-md-6">
+                                <label for="rfc" class="form-label">RFC</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-id-badge-2"></i></span>
+                                    <input id="rfc" type="text" name="rfc" value="{{ old('rfc', $operador->rfc) }}" maxlength="13"
+                                           class="form-control @error('rfc') is-invalid @enderror"
+                                           style="text-transform:uppercase"
+                                           oninput="this.value=this.value.toUpperCase().replace(/\s+/g,'');"
+                                           pattern="([A-ZÑ&]{3,4})\d{6}[A-Z0-9]{3}"
+                                           title="3-4 letras + 6 dígitos de fecha + 3 alfanum.">
+                                </div>
+                                @error('rfc') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Contacto de emergencia: nombre --}}
+                            <div class="col-12 col-md-6">
+                                <label for="contacto_emergencia_nombre" class="form-label">Contacto de emergencia (nombre)</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-user-heart"></i></span>
+                                    <input id="contacto_emergencia_nombre" type="text" name="contacto_emergencia_nombre" value="{{ old('contacto_emergencia_nombre', $operador->contacto_emergencia_nombre) }}"
+                                           class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror" placeholder="Ej. Juan Pérez">
+                                </div>
+                                @error('contacto_emergencia_nombre') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Parentesco --}}
+                            <div class="col-12 col-md-6">
+                                <label for="contacto_emergencia_parentesco" class="form-label">Parentesco</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-heart"></i></span>
+                                    <input id="contacto_emergencia_parentesco" type="text" name="contacto_emergencia_parentesco"
+                                           value="{{ old('contacto_emergencia_parentesco', $operador->contacto_emergencia_parentesco) }}"
+                                           class="form-control @error('contacto_emergencia_parentesco') is-invalid @enderror" placeholder="Esposa, Hermano, Amigo">
+                                </div>
+                                @error('contacto_emergencia_parentesco') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Teléfono emergencia --}}
+                            <div class="col-12 col-md-6">
+                                <label for="contacto_emergencia_tel" class="form-label">Teléfono de emergencia (10 dígitos)</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-phone-call"></i></span>
+                                    <input id="contacto_emergencia_tel" type="tel" name="contacto_emergencia_tel" inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
+                                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                                           value="{{ old('contacto_emergencia_tel', $operador->contacto_emergencia_tel) }}"
+                                           class="form-control @error('contacto_emergencia_tel') is-invalid @enderror" placeholder="7770000000">
+                                </div>
+                                @error('contacto_emergencia_tel') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Ubicación emergencia --}}
+                            <div class="col-12 col-md-6">
+                                <label for="contacto_emergencia_ubicacion" class="form-label">Ubicación del contacto</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-map-pin"></i></span>
+                                    <input id="contacto_emergencia_ubicacion" type="text" name="contacto_emergencia_ubicacion"
+                                           value="{{ old('contacto_emergencia_ubicacion', $operador->contacto_emergencia_ubicacion) }}"
+                                           class="form-control @error('contacto_emergencia_ubicacion') is-invalid @enderror" placeholder="Cuernavaca, Morelos">
+                                </div>
+                                @error('contacto_emergencia_ubicacion') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
                         </div>
                     </div>
 
-                    {{-- FOOTER del form: un único botón que guarda TODO --}}
-                    <div class="col-12">
-                        <div class="d-flex justify-content-end gap-2 mt-4">
-                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-dark">Cancelar</a>
-                            <button type="submit" class="btn btn-danger">
-                                <span class="material-symbols-outlined me-1 align-middle">save</span> Guardar todo
-                            </button>
+                    {{-- Subir nuevas fotos --}}
+                    <div class="card-body border-top">
+                        <h3 class="card-title d-flex align-items-center gap-2">
+                            <i class="ti ti-photo-plus"></i>
+                            Agregar fotografías
+                        </h3>
+                        <div class="form-hint mb-2">Máx 8MB c/u.</div>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="ti ti-upload"></i></span>
+                            <input type="file" name="fotos[]" accept="image/*" multiple class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror">
                         </div>
+                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                     </div>
-                </div> {{-- /row --}}
+
+                    {{-- ===== FOTOS ACTUALES (DENTRO DEL MISMO FORM) ===== --}}
+                    <div class="card-body border-top">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h3 class="card-title d-flex align-items-center gap-2 mb-0">
+                                <i class="ti ti-photo"></i>
+                                Fotografías actuales
+                            </h3>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-secondary-lt">
+                                    {{ $operador->fotos->count() }} foto(s)
+                                </span>
+                                <span id="marcadasBadge" class="badge bg-red-lt d-none">
+                                    0 seleccionadas
+                                </span>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnSelectAll">
+                                        <i class="ti ti-checkbox me-1"></i>Seleccionar todo
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnClearAll">
+                                        <i class="ti ti-square-off me-1"></i>Limpiar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if($operador->fotos->isEmpty())
+                            <div class="empty">
+                                <div class="empty-icon"><i class="ti ti-photo-off"></i></div>
+                                <p class="empty-title">Este operador aún no tiene fotografías</p>
+                            </div>
+                        @else
+                            @php
+                                $oldEliminar = collect(old('fotos_eliminar', []))->map(fn($v)=> (int)$v)->all();
+                            @endphp
+
+                            <div class="row g-2">
+                                @foreach($operador->fotos as $foto)
+                                    @php $checked = in_array($foto->id, $oldEliminar, true); @endphp
+                                    <div class="col-6 col-sm-4 col-md-3">
+                                        <div class="card photo-card h-100 position-relative {{ $checked ? 'is-selected' : '' }}">
+                                            <a href="{{ route('operadores.fotos.show', $foto) }}"
+                                               target="_blank" rel="noopener noreferrer" title="Abrir en nueva pestaña" class="d-block">
+                                                <div class="img-responsive img-responsive-4x3 card-img-top"
+                                                     style="background-image: url('{{ route('operadores.fotos.show', $foto) }}')"></div>
+                                            </a>
+
+                                            <div class="card-body py-2">
+                                                <label class="form-check m-0 w-100 d-flex align-items-center gap-2">
+                                                    <input class="form-check-input foto-check" type="checkbox"
+                                                           name="fotos_eliminar[]"
+                                                           value="{{ $foto->id }}"
+                                                           @checked($checked)
+                                                           data-photo-card
+                                                    >
+                                                    <span class="form-check-label small text-danger fw-semibold">
+                                                        Marcar para eliminar al guardar
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            {{-- Overlay de selección (visual) --}}
+                                            <div class="photo-overlay-check">
+                                                <i class="ti ti-check"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <div class="mt-2 text-secondary small d-none d-md-block">
+                                <i class="ti ti-info-circle me-1"></i>
+                                Tip: puedes abrir la imagen en una nueva pestaña y marcar la casilla para eliminarla. Todo se aplica al presionar <b>Guardar cambios</b>.
+                            </div>
+                        @endif
+                    </div>
+
+                    {{-- Footer acciones --}}
+                    <div class="card-footer d-flex justify-content-end gap-2">
+                        <a href="{{ url()->previous() ?: route('operadores.index') }}" class="btn btn-outline-dark">
+                            <i class="ti ti-x me-1"></i> Cancelar
+                        </a>
+                        <button type="submit" form="operador-form" class="btn btn-danger">
+                            <i class="ti ti-device-floppy me-1"></i> Guardar cambios
+                        </button>
+                    </div>
+                </div>
             </form>
 
             {{-- ===== LICENCIAS DEL OPERADOR ===== --}}
             <div class="card mt-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="card-title mb-0 d-flex align-items-center gap-2">
-                        <span class="material-symbols-outlined">badge</span> Licencias de conducir
+                        <i class="ti ti-badge"></i> Licencias de conducir
                     </h3>
-                    <div>
+                    <div class="d-flex gap-2">
                         <a href="{{ route('licencias.create', ['operador_id' => $operador->id]) }}"
                            class="btn btn-outline-danger btn-sm">
-                            <span class="material-symbols-outlined me-1 align-middle">add</span>Agregar licencia
+                            <i class="ti ti-plus me-1"></i>Agregar licencia
                         </a>
                     </div>
                 </div>
@@ -445,8 +389,11 @@
                                                 @else
                                                     <div class="d-flex gap-1 flex-wrap">
                                                         @foreach($l->archivos as $a)
-                                                            <a href="{{ route('licencias.archivos.inline', $a) }}" class="btn btn-outline-dark btn-xs" target="_blank" rel="noopener" title="{{ $a->nombre_original }}">
-                                                                <span class="material-symbols-outlined" style="font-size:18px;">visibility</span>
+                                                            <a href="{{ route('licencias.archivos.inline', $a) }}"
+                                                               class="btn btn-outline-dark btn-xs"
+                                                               target="_blank" rel="noopener"
+                                                               title="{{ $a->nombre_original }}">
+                                                                <i class="ti ti-eye"></i>
                                                             </a>
                                                         @endforeach
                                                     </div>
@@ -454,13 +401,13 @@
                                             </td>
                                             <td class="text-end">
                                                 <a href="{{ route('licencias.edit', $l) }}" class="btn btn-outline-dark btn-sm">
-                                                    <span class="material-symbols-outlined me-1 align-middle">edit</span>Editar
+                                                    <i class="ti ti-edit me-1"></i>Editar
                                                 </a>
                                                 <form action="{{ route('licencias.destroy', $l) }}" method="POST" class="d-inline"
                                                       onsubmit="return confirm('¿Eliminar la licencia seleccionada? Esta acción borrará sus archivos.');">
                                                     @csrf @method('DELETE')
                                                     <button class="btn btn-outline-danger btn-sm">
-                                                        <span class="material-symbols-outlined me-1 align-middle">delete</span>Eliminar
+                                                        <i class="ti ti-trash me-1"></i>Eliminar
                                                     </button>
                                                 </form>
                                             </td>
@@ -480,49 +427,64 @@
         </div>
     </div>
 
-    {{-- ===== SCRIPTS ===== --}}
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- Togglear borrado de fotos ---
-        const delCountEl = document.getElementById('delCount');
-        function refreshDelCount(){
-            const checked = document.querySelectorAll('.delete-input:checked').length;
-            if (delCountEl) delCountEl.textContent = String(checked);
-        }
-
-        document.getElementById('photosGrid')?.querySelectorAll('.toggle-delete').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const id = btn.getAttribute('data-id');
-                const input = document.getElementById('del-' + id);
-                const card  = btn.closest('.foto-card');
-                const overlay = card?.querySelector('.overlay-del');
-                const badge   = card?.querySelector('.badge-del');
-
-                if (!input) return;
-                input.checked = !input.checked;
-
-                const marked = input.checked;
-                btn.classList.toggle('btn-danger', !marked);
-                btn.classList.toggle('btn-warning', marked);
-                if (overlay) overlay.classList.toggle('d-none', !marked);
-                if (badge)   badge.classList.toggle('d-none', !marked);
-                btn.title = marked ? 'Quitar de borrado' : 'Marcar para borrar';
-
-                refreshDelCount();
-            });
-        });
-
-        refreshDelCount();
-    });
-    </script>
-
     <style>
-        .bg-cover { background-repeat: no-repeat; }
-        .overlay-del { pointer-events: none; }
-        .foto-card .toggle-delete { z-index: 3; }
-        .object-fit-cover { object-fit: cover; }
+        /* Foto-card igual que Vehículos */
+        .photo-card { transition: transform .12s ease, box-shadow .12s ease; }
+        .photo-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+        .photo-card.is-selected { outline: 2px solid var(--tblr-red, #f03e3e); outline-offset: 0; }
+        .photo-overlay-check {
+            position: absolute; inset: .5rem .5rem auto auto;
+            width: 1.75rem; height: 1.75rem; border-radius: 50%;
+            background: rgba(240,62,62,.95); color: #fff; display: none;
+            align-items: center; justify-content: center; font-size: 1rem; z-index: 2;
+            box-shadow: 0 2px 8px rgba(0,0,0,.2);
+        }
+        .photo-card.is-selected .photo-overlay-check { display: flex; }
     </style>
+
+    <script>
+        (function () {
+            const checks = Array.from(document.querySelectorAll('.foto-check'));
+            const badge  = document.getElementById('marcadasBadge');
+            const btnAll = document.getElementById('btnSelectAll');
+            const btnClr = document.getElementById('btnClearAll');
+
+            function syncCardState(input) {
+                const card = input.closest('.photo-card');
+                if (!card) return;
+                card.classList.toggle('is-selected', input.checked);
+            }
+
+            function refreshBadge() {
+                const total = checks.filter(ch => ch.checked).length;
+                if (total > 0) {
+                    badge.textContent = `${total} seleccionadas`;
+                    badge.classList.remove('d-none');
+                } else {
+                    badge.classList.add('d-none');
+                }
+            }
+
+            checks.forEach(ch => {
+                syncCardState(ch);
+                ch.addEventListener('change', () => {
+                    syncCardState(ch);
+                    refreshBadge();
+                });
+            });
+
+            btnAll?.addEventListener('click', () => {
+                checks.forEach(ch => ch.checked = true);
+                checks.forEach(syncCardState);
+                refreshBadge();
+            });
+            btnClr?.addEventListener('click', () => {
+                checks.forEach(ch => ch.checked = false);
+                checks.forEach(syncCardState);
+                refreshBadge();
+            });
+
+            refreshBadge();
+        })();
+    </script>
 </x-app-layout>

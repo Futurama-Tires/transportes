@@ -1,1410 +1,1694 @@
-Ayudame con lo siguiente, he hecho cambios en las verificaciones y en el calendario de verificacion.
-Al parecer eso hizo que el reporte de verificaciones dejase de funcionar, te paso el reporte controller así
-como los archivos relacionados con las verificaciones. Corrige el reporte controller y dame el código completo.
+Ponle el mismo estilo de formulario de vehiculos a operadores, el mismo funcionamiento y estilo
+para la carga y visualización de fotografías y de estructura en general, dame los codigos completos.
 
-<?php
+{{-- resources/views/vehiculos/create.blade.php — Versión Tabler (con íconos y estilo ejecutivo) --}}
+<x-app-layout>
+    {{-- ===== HEADER ===== --}}
+    <x-slot name="header">
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <h2 class="page-title mb-0 d-flex align-items-center gap-2">
+                            Agregar Vehículo
+                        </h2>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-dark">
+                            <i class="ti ti-arrow-left me-1"></i>
+                            Volver al listado
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </x-slot>
 
-namespace App\Http\Controllers;
+    <div class="page-body">
+        <div class="container-xl">
+            <form method="POST" action="{{ route('vehiculos.store') }}" novalidate enctype="multipart/form-data">
+                @csrf
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Models\Vehiculo;
-use App\Models\Operador;
-use App\Models\Verificacion;
-use App\Services\PdfService;
+                {{-- Alertas --}}
+                @if ($errors->any())
+                    <div class="alert alert-danger" role="alert">
+                        <i class="ti ti-alert-triangle me-2"></i>
+                        Revisa los campos marcados y vuelve a intentar.
+                    </div>
+                @endif
 
-class ReporteController extends Controller
-{
-    /** Vista dashboard */
-    public function index(Request $request)
-    {
-        $vehiculosOptions = Vehiculo::query()
-            ->select('id', 'placa', 'unidad', 'marca', 'anio', 'estado')
-            ->orderBy('placa')
-            ->get();
+                {{-- ===== Card: Datos del vehículo ===== --}}
+                <div class="card">
+                    <div class="card-header justify-content-between">
+                        <h3 class="card-title d-flex align-items-center gap-2 mb-0">
+                            <i class="ti ti-car"></i>
+                            Datos del vehículo
+                        </h3>
+                    </div>
 
-        $operadoresOptions = Operador::query()
-            ->select('id', 'nombre', 'apellido_paterno', 'apellido_materno')
-            ->orderBy('nombre')
-            ->get();
+                    <div class="card-body">
+                        <div class="row g-3">
+                            {{-- Ubicación --}}
+                            <div class="col-12 col-md-6">
+                                <label for="ubicacion" class="form-label">Ubicación <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-map-pin"></i>
+                                    </span>
+                                    <select id="ubicacion" name="ubicacion" class="form-select @error('ubicacion') is-invalid @enderror" required>
+                                        <option value="">-- Selecciona ubicación --</option>
+                                        <option value="CVC" @selected(old('ubicacion')=='CVC')>Cuernavaca</option>
+                                        <option value="IXT" @selected(old('ubicacion')=='IXT')>Ixtapaluca</option>
+                                        <option value="QRO" @selected(old('ubicacion')=='QRO')>Querétaro</option>
+                                        <option value="VALL" @selected(old('ubicacion')=='VALL')>Vallejo</option>
+                                        <option value="GDL" @selected(old('ubicacion')=='GDL')>Guadalajara</option>
+                                    </select>
+                                </div>
+                                @error('ubicacion') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
 
-        return view('reportes.index', compact('vehiculosOptions', 'operadoresOptions'));
-    }
+                            {{-- Propietario --}}
+                            <div class="col-12 col-md-6">
+                                <label for="propietario" class="form-label">Propietario <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-user"></i>
+                                    </span>
+                                    <input id="propietario" type="text" name="propietario" value="{{ old('propietario') }}" class="form-control @error('propietario') is-invalid @enderror" required placeholder="Nombre del propietario">
+                                </div>
+                                @error('propietario') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
 
-    /** ------------------------ Helpers ------------------------ */
-    private function buildWhere(Request $r, array &$params): string
-    {
-        $w = [];
-        if ($r->filled('desde')) { $w[] = "cc.fecha >= ?"; $params[] = $r->input('desde'); }
-        if ($r->filled('hasta')) { $w[] = "cc.fecha <= ?"; $params[] = $r->input('hasta'); }
+                            {{-- Unidad --}}
+                            <div class="col-12 col-md-6">
+                                <label for="unidad" class="form-label">Unidad <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-truck"></i>
+                                    </span>
+                                    <input id="unidad" type="text" name="unidad" value="{{ old('unidad') }}" class="form-control @error('unidad') is-invalid @enderror" required placeholder="Ej. U-012">
+                                </div>
+                                @error('unidad') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
 
-        $vehiculos = (array) $r->input('vehiculos', []);
-        if (count($vehiculos)) {
-            $w[] = "cc.vehiculo_id IN (" . implode(',', array_fill(0, count($vehiculos), '?')) . ")";
-            array_push($params, ...$vehiculos);
+                            {{-- Serie (VIN) --}}
+                            <div class="col-12 col-md-6">
+                                <label for="serie" class="form-label">Serie (VIN) <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-barcode"></i>
+                                    </span>
+                                    <input id="serie" type="text" name="serie" value="{{ old('serie') }}" class="form-control @error('serie') is-invalid @enderror" required aria-describedby="serie_help" placeholder="Número de serie completo">
+                                </div>
+                                <div id="serie_help" class="form-hint">Usa el número de serie completo registrado en la tarjeta.</div>
+                                @error('serie') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Marca --}}
+                            <div class="col-12 col-md-6">
+                                <label for="marca" class="form-label">Marca</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-badge"></i>
+                                    </span>
+                                    <input id="marca" type="text" name="marca" value="{{ old('marca') }}" class="form-control @error('marca') is-invalid @enderror" placeholder="Ej. Nissan, Toyota…">
+                                </div>
+                                @error('marca') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Año --}}
+                            <div class="col-12 col-md-6">
+                                <label for="anio" class="form-label">Año</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-calendar-stats"></i>
+                                    </span>
+                                    <input id="anio" type="number" name="anio" min="1900" max="{{ date('Y') + 1 }}" value="{{ old('anio') }}" class="form-control @error('anio') is-invalid @enderror" placeholder="{{ date('Y') }}">
+                                </div>
+                                @error('anio') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Motor --}}
+                            <div class="col-12 col-md-6">
+                                <label for="motor" class="form-label">Motor</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-engine"></i>
+                                    </span>
+                                    <input id="motor" type="text" name="motor" value="{{ old('motor') }}" class="form-control @error('motor') is-invalid @enderror" placeholder="Ej. 2.5 L / Diesel">
+                                </div>
+                                @error('motor') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Placa --}}
+                            <div class="col-12 col-md-6">
+                                <label for="placa" class="form-label">Placa</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-license"></i>
+                                    </span>
+                                    <input id="placa" type="text" name="placa" value="{{ old('placa') }}" class="form-control @error('placa') is-invalid @enderror" placeholder="ABC-123-4">
+                                </div>
+                                @error('placa') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Estado --}}
+                            <div class="col-12 col-md-6">
+                                <label for="estado" class="form-label">Estado</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-map"></i>
+                                    </span>
+                                    <input id="estado" type="text" name="estado" value="{{ old('estado') }}" class="form-control @error('estado') is-invalid @enderror" placeholder="Entidad federativa">
+                                </div>
+                                @error('estado') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Tarjeta SiVale --}}
+                            <div class="col-12">
+                                <label for="tarjeta_si_vale_id" class="form-label">Tarjeta SiVale</label>
+                                <div class="input-icon">
+                                    <select id="tarjeta_si_vale_id" name="tarjeta_si_vale_id" class="form-select @error('tarjeta_si_vale_id') is-invalid @enderror" aria-describedby="sivale_help">
+                                        <option value="">-- Sin tarjeta asignada --</option>
+                                        @foreach($tarjetas as $tarjeta)
+                                            <option value="{{ $tarjeta->id }}" @selected(old('tarjeta_si_vale_id') == $tarjeta->id)>{{ $tarjeta->numero_tarjeta }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div id="sivale_help" class="form-hint">Asigna una tarjeta válida en caso de corresponder.</div>
+                                @error('tarjeta_si_vale_id') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Vencimiento tarjeta de circulación --}}
+                            <div class="col-12 col-md-6">
+                                <label for="vencimiento_t_circulacion" class="form-label">Vencimiento tarjeta de circulación</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-calendar-event"></i>
+                                    </span>
+                                    <input id="vencimiento_t_circulacion" type="date" name="vencimiento_t_circulacion" value="{{ old('vencimiento_t_circulacion') }}" class="form-control @error('vencimiento_t_circulacion') is-invalid @enderror">
+                                </div>
+                                @error('vencimiento_t_circulacion') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Cambio de placas --}}
+                            <div class="col-12 col-md-6">
+                                <label for="cambio_placas" class="form-label">Cambio de placas</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-calendar-event"></i>
+                                    </span>
+                                    <input id="cambio_placas" type="date" name="cambio_placas" value="{{ old('cambio_placas') }}" class="form-control @error('cambio_placas') is-invalid @enderror">
+                                </div>
+                                @error('cambio_placas') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Póliza HDI --}}
+                            <div class="col-12 col-md-6">
+                                <label for="poliza_hdi" class="form-label">Póliza HDI</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-shield"></i>
+                                    </span>
+                                    <input id="poliza_hdi" type="text" name="poliza_hdi" value="{{ old('poliza_hdi') }}" class="form-control @error('poliza_hdi') is-invalid @enderror" placeholder="Número de póliza">
+                                </div>
+                                @error('poliza_hdi') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Póliza Latino --}}
+                            <div class="col-12 col-md-6">
+                                <label for="poliza_latino" class="form-label">Póliza Latino</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-shield-plus"></i>
+                                    </span>
+                                    <input id="poliza_latino" type="text" name="poliza_latino" value="{{ old('poliza_latino') }}" class="form-control @error('poliza_latino') is-invalid @enderror" placeholder="Número de póliza">
+                                </div>
+                                @error('poliza_latino') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Póliza Qualitas --}}
+                            <div class="col-12 col-md-6">
+                                <label for="poliza_qualitas" class="form-label">Póliza Qualitas</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon">
+                                        <i class="ti ti-shield-lock"></i>
+                                    </span>
+                                    <input id="poliza_qualitas" type="text" name="poliza_qualitas" value="{{ old('poliza_qualitas') }}" class="form-control @error('poliza_qualitas') is-invalid @enderror" placeholder="Número de póliza">
+                                </div>
+                                @error('poliza_qualitas') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Fotos (opcional) --}}
+                    <div class="card-body border-top">
+                        <h3 class="card-title d-flex align-items-center gap-2">
+                            <i class="ti ti-photo"></i>
+                            Fotografías
+                        </h3>
+                        <div class="form-hint mb-2">Máx 8MB c/u.</div>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="ti ti-upload"></i></span>
+                            <input type="file" name="fotos[]" accept="image/*" multiple class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror">
+                        </div>
+                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                    </div>
+
+                    {{-- Footer acciones --}}
+                    <div class="card-footer d-flex justify-content-end gap-2">
+                        <a href="{{ url()->previous() ?: route('vehiculos.index') }}" class="btn btn-outline-dark">
+                            <i class="ti ti-x me-1"></i>
+                            Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="ti ti-device-floppy me-1"></i>
+                            Guardar
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
+        </div>
+    </div>
+</x-app-layout>
+
+{{-- resources/views/vehiculos/edit.blade.php --}}
+<x-app-layout>
+    {{-- ===== HEADER ===== --}}
+    <x-slot name="header">
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <h2 class="page-title mb-0 d-flex align-items-center gap-2">
+                            Editar Vehículo
+                        </h2>
+                    </div>
+                    <div class="col-auto ms-auto d-flex gap-2">
+                        <a href="{{ route('vehiculos.tanques.index', $vehiculo) }}" class="btn btn-warning">
+                            <i class="ti ti-gas-station me-1"></i>
+                            Tanques de combustible
+                        </a>
+                        <a href="{{ route('vehiculos.index') }}" class="btn btn-outline-dark">
+                            <i class="ti ti-arrow-left me-1"></i>
+                            Volver al listado
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </x-slot>
+
+    <div class="page-body">
+        <div class="container-xl">
+
+            {{-- ===== FORM PRINCIPAL (UPDATE) =====
+                 NOTA: Este formulario ahora también envuelve la sección de "Fotografías actuales"
+                 para que los checkboxes de eliminación viajen en el mismo submit. --}}
+            <form id="vehiculo-form" method="POST" action="{{ route('vehiculos.update', $vehiculo) }}" novalidate enctype="multipart/form-data">
+                @csrf
+                @method('PUT')
+
+                {{-- Alertas --}}
+                @if ($errors->any())
+                    <div class="alert alert-danger" role="alert">
+                        <i class="ti ti-alert-triangle me-2"></i>
+                        Revisa los campos marcados y vuelve a intentar.
+                    </div>
+                @endif
+                @error('general')
+                    <div class="alert alert-danger" role="alert">
+                        <i class="ti ti-alert-triangle me-2"></i>{{ $message }}
+                    </div>
+                @enderror
+
+                <div class="card">
+                    <div class="card-header justify-content-between">
+                        <h3 class="card-title d-flex align-items-center gap-2 mb-0">
+                            <i class="ti ti-car"></i>
+                            Datos del vehículo
+                        </h3>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="row g-3">
+                            {{-- Ubicación --}}
+                            <div class="col-12 col-md-6">
+                                <label for="ubicacion" class="form-label">Ubicación <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <select id="ubicacion" name="ubicacion" class="form-select @error('ubicacion') is-invalid @enderror" required>
+                                        <option value="">-- Selecciona ubicación --</option>
+                                        <option value="CVC" @selected(old('ubicacion', $vehiculo->ubicacion ?? '')=='CVC')>Cuernavaca</option>
+                                        <option value="IXT" @selected(old('ubicacion', $vehiculo->ubicacion ?? '')=='IXT')>Ixtapaluca</option>
+                                        <option value="QRO" @selected(old('ubicacion', $vehiculo->ubicacion ?? '')=='QRO')>Querétaro</option>
+                                        <option value="VALL" @selected(old('ubicacion', $vehiculo->ubicacion ?? '')=='VALL')>Vallejo</option>
+                                        <option value="GDL" @selected(old('ubicacion', $vehiculo->ubicacion ?? '')=='GDL')>Guadalajara</option>
+                                    </select>
+                                </div>
+                                @error('ubicacion') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Propietario --}}
+                            <div class="col-12 col-md-6">
+                                <label for="propietario" class="form-label">Propietario <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-user"></i></span>
+                                    <input id="propietario" type="text" name="propietario" value="{{ old('propietario', $vehiculo->propietario ?? '') }}" class="form-control @error('propietario') is-invalid @enderror" required placeholder="Nombre del propietario">
+                                </div>
+                                @error('propietario') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Unidad --}}
+                            <div class="col-12 col-md-6">
+                                <label for="unidad" class="form-label">Unidad <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-truck"></i></span>
+                                    <input id="unidad" type="text" name="unidad" value="{{ old('unidad', $vehiculo->unidad ?? '') }}" class="form-control @error('unidad') is-invalid @enderror" required placeholder="Ej. U-012">
+                                </div>
+                                @error('unidad') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Serie (VIN) --}}
+                            <div class="col-12 col-md-6">
+                                <label for="serie" class="form-label">Serie (VIN) <span class="text-danger">*</span></label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-barcode"></i></span>
+                                    <input id="serie" type="text" name="serie" value="{{ old('serie', $vehiculo->serie ?? '') }}" class="form-control @error('serie') is-invalid @enderror" required aria-describedby="serie_help" placeholder="Número de serie completo">
+                                </div>
+                                <div id="serie_help" class="form-hint">Usa el número de serie completo registrado en la tarjeta.</div>
+                                @error('serie') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Marca --}}
+                            <div class="col-12 col-md-6">
+                                <label for="marca" class="form-label">Marca</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-badge"></i></span>
+                                    <input id="marca" type="text" name="marca" value="{{ old('marca', $vehiculo->marca ?? '') }}" class="form-control @error('marca') is-invalid @enderror" placeholder="Ej. Nissan, Toyota…">
+                                </div>
+                                @error('marca') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Año --}}
+                            <div class="col-12 col-md-6">
+                                <label for="anio" class="form-label">Año</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-calendar-stats"></i></span>
+                                    <input id="anio" type="number" name="anio" min="1900" max="{{ date('Y') + 1 }}" value="{{ old('anio', $vehiculo->anio ?? '') }}" class="form-control @error('anio') is-invalid @enderror" placeholder="{{ date('Y') }}">
+                                </div>
+                                @error('anio') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Motor --}}
+                            <div class="col-12 col-md-6">
+                                <label for="motor" class="form-label">Motor</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-engine"></i></span>
+                                    <input id="motor" type="text" name="motor" value="{{ old('motor', $vehiculo->motor ?? '') }}" class="form-control @error('motor') is-invalid @enderror" placeholder="Ej. 2.5 L / Diesel">
+                                </div>
+                                @error('motor') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Placa --}}
+                            <div class="col-12 col-md-6">
+                                <label for="placa" class="form-label">Placa</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-license"></i></span>
+                                    <input id="placa" type="text" name="placa" value="{{ old('placa', $vehiculo->placa ?? '') }}" class="form-control @error('placa') is-invalid @enderror" placeholder="ABC-123-4">
+                                </div>
+                                @error('placa') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Estado --}}
+                            <div class="col-12 col-md-6">
+                                <label for="estado" class="form-label">Estado</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-map"></i></span>
+                                    <input id="estado" type="text" name="estado" value="{{ old('estado', $vehiculo->estado ?? '') }}" class="form-control @error('estado') is-invalid @enderror" placeholder="Entidad federativa">
+                                </div>
+                                @error('estado') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Tarjeta SiVale --}}
+                            <div class="col-12">
+                                <label for="tarjeta_si_vale_id" class="form-label">Tarjeta SiVale</label>
+                                <div class="input-icon">
+                                    <select id="tarjeta_si_vale_id" name="tarjeta_si_vale_id" class="form-select @error('tarjeta_si_vale_id') is-invalid @enderror" aria-describedby="sivale_help">
+                                        <option value="">-- Sin tarjeta asignada --</option>
+                                        @foreach($tarjetas as $tarjeta)
+                                            <option value="{{ $tarjeta->id }}" @selected(old('tarjeta_si_vale_id', $vehiculo->tarjeta_si_vale_id ?? '')==$tarjeta->id)>
+                                                {{ $tarjeta->numero_tarjeta }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div id="sivale_help" class="form-hint">Selecciona una tarjeta vigente, si aplica.</div>
+                                @error('tarjeta_si_vale_id') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Vencimiento tarjeta de circulación --}}
+                            <div class="col-12 col-md-6">
+                                <label for="vencimiento_t_circulacion" class="form-label">Vencimiento tarjeta de circulación</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-calendar-event"></i></span>
+                                    <input id="vencimiento_t_circulacion" type="date" name="vencimiento_t_circulacion" value="{{ old('vencimiento_t_circulacion', $vehiculo->vencimiento_t_circulacion ?? '') }}" class="form-control @error('vencimiento_t_circulacion') is-invalid @enderror">
+                                </div>
+                                @error('vencimiento_t_circulacion') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Cambio de placas --}}
+                            <div class="col-12 col-md-6">
+                                <label for="cambio_placas" class="form-label">Cambio de placas</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-calendar-event"></i></span>
+                                    <input id="cambio_placas" type="date" name="cambio_placas" value="{{ old('cambio_placas', $vehiculo->cambio_placas ?? '') }}" class="form-control @error('cambio_placas') is-invalid @enderror">
+                                </div>
+                                @error('cambio_placas') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            {{-- Pólizas --}}
+                            <div class="col-12 col-md-6">
+                                <label for="poliza_hdi" class="form-label">Póliza HDI</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-shield-check"></i></span>
+                                    <input id="poliza_hdi" type="text" name="poliza_hdi" value="{{ old('poliza_hdi', $vehiculo->poliza_hdi ?? '') }}" class="form-control @error('poliza_hdi') is-invalid @enderror" placeholder="Número de póliza">
+                                </div>
+                                @error('poliza_hdi') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="poliza_latino" class="form-label">Póliza Latino</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-shield-plus"></i></span>
+                                    <input id="poliza_latino" type="text" name="poliza_latino" value="{{ old('poliza_latino', $vehiculo->poliza_latino ?? '') }}" class="form-control @error('poliza_latino') is-invalid @enderror" placeholder="Número de póliza">
+                                </div>
+                                @error('poliza_latino') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label for="poliza_qualitas" class="form-label">Póliza Qualitas</label>
+                                <div class="input-icon">
+                                    <span class="input-icon-addon"><i class="ti ti-shield-lock"></i></span>
+                                    <input id="poliza_qualitas" type="text" name="poliza_qualitas" value="{{ old('poliza_qualitas', $vehiculo->poliza_qualitas ?? '') }}" class="form-control @error('poliza_qualitas') is-invalid @enderror" placeholder="Número de póliza">
+                                </div>
+                                @error('poliza_qualitas') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Subir nuevas fotos --}}
+                    <div class="card-body border-top">
+                        <h3 class="card-title d-flex align-items-center gap-2">
+                            <i class="ti ti-photo-plus"></i>
+                            Agregar fotografías
+                        </h3>
+                        <div class="form-hint mb-2">Máx 8MB c/u.</div>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="ti ti-upload"></i></span>
+                            <input type="file" name="fotos[]" accept="image/*" multiple class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror">
+                        </div>
+                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                    </div>
+
+                    {{-- ===== FOTOS ACTUALES (DENTRO DEL MISMO FORM) ===== --}}
+                    <div class="card-body border-top">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h3 class="card-title d-flex align-items-center gap-2 mb-0">
+                                <i class="ti ti-photo"></i>
+                                Fotografías actuales
+                            </h3>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-secondary-lt">
+                                    {{ $vehiculo->fotos->count() }} foto(s)
+                                </span>
+                                <span id="marcadasBadge" class="badge bg-red-lt d-none">
+                                    0 seleccionadas
+                                </span>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnSelectAll">
+                                        <i class="ti ti-checkbox me-1"></i>Seleccionar todo
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnClearAll">
+                                        <i class="ti ti-square-off me-1"></i>Limpiar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if($vehiculo->fotos->isEmpty())
+                            <div class="empty">
+                                <div class="empty-icon"><i class="ti ti-photo-off"></i></div>
+                                <p class="empty-title">Este vehículo aún no tiene fotografías</p>
+                            </div>
+                        @else
+                            @php
+                                $oldEliminar = collect(old('fotos_eliminar', []))->map(fn($v)=> (int)$v)->all();
+                            @endphp
+
+                            <div class="row g-2">
+                                @foreach($vehiculo->fotos as $foto)
+                                    @php $checked = in_array($foto->id, $oldEliminar, true); @endphp
+                                    <div class="col-6 col-sm-4 col-md-3">
+                                        <div class="card photo-card h-100 position-relative {{ $checked ? 'is-selected' : '' }}">
+                                            <a href="{{ route('vehiculos.fotos.show', $foto) }}"
+                                               target="_blank" rel="noopener noreferrer" title="Abrir en nueva pestaña" class="d-block">
+                                                <div class="img-responsive img-responsive-4x3 card-img-top"
+                                                     style="background-image: url('{{ route('vehiculos.fotos.show', $foto) }}')"></div>
+                                            </a>
+
+                                            <div class="card-body py-2">
+                                                <label class="form-check m-0 w-100 d-flex align-items-center gap-2">
+                                                    <input class="form-check-input foto-check" type="checkbox"
+                                                           name="fotos_eliminar[]"
+                                                           value="{{ $foto->id }}"
+                                                           @checked($checked)
+                                                           data-photo-card
+                                                    >
+                                                    <span class="form-check-label small text-danger fw-semibold">
+                                                        Marcar para eliminar al guardar
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            {{-- Overlay de selección (visual) --}}
+                                            <div class="photo-overlay-check">
+                                                <i class="ti ti-check"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <div class="mt-2 text-secondary small d-none d-md-block">
+                                <i class="ti ti-info-circle me-1"></i>
+                                Tip: puedes abrir la imagen en una nueva pestaña y marcar la casilla para eliminarla. Todo se aplica al presionar <b>Guardar cambios</b>.
+                            </div>
+                        @endif
+                    </div>
+
+                    {{-- Footer acciones --}}
+                    <div class="card-footer d-flex justify-content-end gap-2">
+                        <a href="{{ url()->previous() ?: route('vehiculos.index') }}" class="btn btn-outline-dark">
+                            <i class="ti ti-x me-1"></i> Cancelar
+                        </a>
+                        <button type="submit" form="vehiculo-form" class="btn btn-danger">
+                            <i class="ti ti-device-floppy me-1"></i> Guardar cambios
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Tarjeta de foto con overlay cuando está seleccionada */
+        .photo-card {
+            transition: transform .12s ease, box-shadow .12s ease;
         }
-
-        $operadores = (array) $r->input('operadores', []);
-        if (count($operadores)) {
-            $w[] = "cc.operador_id IN (" . implode(',', array_fill(0, count($operadores), '?')) . ")";
-            array_push($params, ...$operadores);
+        .photo-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0,0,0,.08);
         }
-
-        if ($r->filled('destino')) {
-            $w[] = "cc.destino LIKE ?";
-            $params[] = '%' . $r->input('destino') . '%';
+        .photo-card.is-selected {
+            outline: 2px solid var(--tblr-red, #f03e3e);
+            outline-offset: 0;
         }
-
-        if ($r->filled('tipo_comb')) {
-            $w[] = "LOWER(cc.tipo_combustible) = LOWER(?)";
-            $params[] = $r->input('tipo_comb');
+        .photo-overlay-check {
+            position: absolute;
+            inset: .5rem .5rem auto auto;
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 50%;
+            background: rgba(240,62,62,.95); /* rojo */
+            color: #fff;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            z-index: 2;
+            box-shadow: 0 2px 8px rgba(0,0,0,.2);
         }
-
-        return count($w) ? ('WHERE ' . implode(' AND ', $w)) : '';
-    }
-
-    /** Paginación en memoria para arreglos resultantes (por defecto 25) */
-    private function paginate(array $rows, Request $r, int $defaultPerPage = 25): array
-    {
-        $page    = max(1, (int)$r->input('page', 1));
-        $perPage = min(200, max(1, (int)$r->input('per_page', $defaultPerPage)));
-
-        $total    = count($rows);
-        $lastPage = (int) max(1, ceil($total / $perPage));
-        $page     = min($page, $lastPage);
-        $offset   = ($page - 1) * $perPage;
-
-        $data = array_slice($rows, $offset, $perPage);
-
-        return [
-            'data' => array_values($data),
-            'meta' => [
-                'total'        => $total,
-                'per_page'     => $perPage,
-                'current_page' => $page,
-                'last_page'    => $lastPage,
-                'from'         => $total ? ($offset + 1) : 0,
-                'to'           => $total ? min($offset + $perPage, $total) : 0,
-            ],
-        ];
-    }
-
-    private function numbers(array $rows): array
-    {
-        $litros = 0; $gasto = 0; $km = 0;
-        foreach ($rows as $r) {
-            $litros += (float)($r['litros'] ?? 0);
-            $gasto  += (float)($r['gasto'] ?? 0);
-            $km     += (float)($r['km_recorridos'] ?? $r['km'] ?? 0);
+        .photo-card.is-selected .photo-overlay-check {
+            display: flex;
         }
-        $costoKm = $km > 0 ? $gasto / $km : 0;
-        return [
-            'litros'   => round($litros, 2),
-            'gasto'    => round($gasto, 2),
-            'km'       => round($km, 2),
-            'costo_km' => round($costoKm, 4),
-        ];
-    }
-
-    private function filtroResumen(Request $r): array
-    {
-        return [
-            'desde'       => $r->input('desde'),
-            'hasta'       => $r->input('hasta'),
-            'vehiculos'   => (array)$r->input('vehiculos', []),
-            'operadores'  => (array)$r->input('operadores', []),
-            'destino'     => $r->input('destino'),
-            'tipo_comb'   => $r->input('tipo_comb'),
-            'anio'        => $r->input('anio'),
-        ];
-    }
-
-    /** Helper: label "unidad - placa" con fallback decente */
-    private function makeVehiculoLabel(?string $unidad, ?string $placa): string
-    {
-        $u = trim((string)($unidad ?? ''));
-        $p = trim((string)($placa ?? ''));
-        if ($u !== '' && $p !== '') return $u.' - '.$p;
-        return $u !== '' ? $u : $p;
-    }
-
-    /** Normaliza chart_uri **/
-    private function normalizeChartUri(?string $raw): ?string
-    {
-        if (!$raw) return null;
-        $raw = trim($raw);
-        if (str_starts_with($raw, 'data:image/')) return $raw; // OK
-        if (preg_match('#^https?://#i', $raw)) return $raw;    // Requiere isRemoteEnabled=true
-        if (preg_match('/^[A-Za-z0-9+\/\=\r\n]+$/', $raw) && strlen($raw) > 200) {
-            return 'data:image/png;base64,' . preg_replace('/\s+/', '', $raw);
-        }
-        return null;
-    }
-
-    /** ------------------------ 1) Rendimiento vs Índice ------------------------ */
-    private function queryRendimiento(Request $r): array
-    {
-        $params = [];
-        $where  = $this->buildWhere($r, $params);
-
-        $sql = "
-            SELECT
-                cc.vehiculo_id,
-                v.placa,
-                v.unidad,
-                cc.operador_id,
-                TRIM(CONCAT(o.nombre, ' ', o.apellido_paterno, ' ', COALESCE(o.apellido_materno,''))) AS operador_nombre,
-                SUM(COALESCE(cc.recorrido, GREATEST(0, cc.km_final - cc.km_inicial))) AS km_recorridos,
-                SUM(cc.litros)  AS litros,
-                SUM(cc.total)   AS gasto,
-                COUNT(*)        AS num_cargas,
-                t.indice_estandar AS indice_estandar
-            FROM cargas_combustible cc
-            JOIN vehiculos v   ON v.id = cc.vehiculo_id
-            LEFT JOIN operadores o ON o.id = cc.operador_id
-            LEFT JOIN (
-                SELECT vehiculo_id, MAX(rendimiento_estimado) AS indice_estandar
-                FROM tanques
-                GROUP BY vehiculo_id
-            ) t ON t.vehiculo_id = v.id
-            $where
-            GROUP BY cc.vehiculo_id, v.placa, v.unidad, cc.operador_id, operador_nombre, t.indice_estandar
-            ORDER BY v.placa ASC, operador_nombre ASC
-        ";
-
-        $rows = collect(DB::select($sql, $params))->map(function ($r) {
-            $rendReal = ((float)$r->litros > 0) ? ((float)$r->km_recorridos / (float)$r->litros) : 0.0;
-            $indice   = $r->indice_estandar !== null ? (float)$r->indice_estandar : null;
-            $desvPct  = ($indice ?? 0) > 0 ? (($rendReal / $indice) - 1.0) * 100.0 : null;
-
-            $vehiculo_label = $this->makeVehiculoLabel($r->unidad, $r->placa);
-
-            return [
-                'vehiculo_id'    => (int)$r->vehiculo_id,
-                'placa'          => $r->placa,
-                'unidad'         => $r->unidad,
-                'vehiculo_label' => $vehiculo_label,
-                'operador_id'    => $r->operador_id ? (int)$r->operador_id : null,
-                'operador'       => $r->operador_nombre,
-                'km_recorridos'  => round((float)$r->km_recorridos, 2),
-                'litros'         => round((float)$r->litros, 2),
-                'gasto'          => round((float)$r->gasto, 2),
-                'num_cargas'     => (int)$r->num_cargas,
-                'indice'         => $indice !== null ? round($indice, 2) : null,
-                'rend_real'      => round($rendReal, 3),
-                'desviacion_pct' => $desvPct !== null ? round($desvPct, 2) : null,
-            ];
-        })->values()->all();
-
-        // Gráfica por vehículo (usar misma etiqueta)
-        $byVehiculo = collect($rows)->groupBy('vehiculo_id')->map(function ($grp) {
-            $km     = collect($grp)->sum('km_recorridos');
-            $litros = collect($grp)->sum('litros');
-            $rend   = $litros > 0 ? $km / $litros : 0;
-            $indice = $grp->first()['indice'];
-            return [
-                'vehiculo_id'    => $grp->first()['vehiculo_id'],
-                'placa'          => $grp->first()['placa'],
-                'unidad'         => $grp->first()['unidad'],
-                'vehiculo_label' => $grp->first()['vehiculo_label'],
-                'rend_real'      => round($rend, 3),
-                'indice'         => $indice !== null ? round($indice, 3) : null,
-            ];
-        })->values();
-
-        $chart = [
-            'categories' => $byVehiculo->pluck('vehiculo_label')->all(),
-            'series'     => [
-                ['name' => 'Rendimiento real (km/L)', 'data' => $byVehiculo->pluck('rend_real')->all()],
-            ],
-        ];
-        if ($byVehiculo->pluck('indice')->filter(fn($x)=>$x !== null)->count()) {
-            $chart['series'][] = ['name' => 'Índice estándar (km/L)', 'data' => $byVehiculo->pluck('indice')->map(fn($x)=>$x ?? 0)->all()];
-        }
-
-        return ['rows'=>$rows, 'kpis'=>$this->numbers($rows), 'chart'=>$chart];
-    }
-
-    public function rendimientoJson(Request $r)
-    {
-        $res = $this->queryRendimiento($r);
-        $pag = $this->paginate($res['rows'], $r, 25);
-
-        return response()->json([
-            'kpis'       => $res['kpis'],
-            'table'      => $pag['data'],        // <-- sólo esta página
-            'pagination' => $pag['meta'],        // <-- metadatos de paginación
-            'chart'      => $res['chart'],       // <-- gráfica con dataset completo (filtrado)
-            'params'     => $r->all(),
-        ]);
-    }
-
-    public function exportRendimientoPdf(Request $r, PdfService $pdf)
-    {
-        $res = $this->queryRendimiento($r);
-        $data = [
-            'titulo'    => 'Rendimiento vs Índice Estándar (km/L)',
-            'filtros'   => $this->filtroResumen($r),
-            'kpis'      => $res['kpis'],
-            'rows'      => $res['rows'], // exporta todo (sin paginar)
-            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
-        ];
-        return $pdf->streamFromView('reportes.pdf.rendimiento', $data, 'rendimiento-vs-indice.pdf', 'A4', 'portrait');
-    }
-
-    /** ------------------------ 2) Costo por km ------------------------ */
-    private function queryCostoKm(Request $r): array
-    {
-        $params = [];
-        $where  = $this->buildWhere($r, $params);
-
-        $sql = "
-            SELECT
-                cc.vehiculo_id,
-                v.placa,
-                v.unidad,
-                cc.operador_id,
-                TRIM(CONCAT(o.nombre, ' ', o.apellido_paterno, ' ', COALESCE(o.apellido_materno,''))) AS operador_nombre,
-                SUM(COALESCE(cc.recorrido, GREATEST(0, cc.km_final - cc.km_inicial))) AS km_recorridos,
-                SUM(cc.litros)  AS litros,
-                SUM(cc.total)   AS gasto,
-                COUNT(*)        AS num_cargas
-            FROM cargas_combustible cc
-            JOIN vehiculos v   ON v.id = cc.vehiculo_id
-            LEFT JOIN operadores o ON o.id = cc.operador_id
-            $where
-            GROUP BY cc.vehiculo_id, v.placa, v.unidad, cc.operador_id, operador_nombre
-            ORDER BY v.placa ASC, operador_nombre ASC
-        ";
-
-        $rows = collect(DB::select($sql, $params))->map(function ($r) {
-            $km = (float)$r->km_recorridos;
-            $litros = (float)$r->litros;
-            $gasto = (float)$r->gasto;
-            $costoKm = $km > 0 ? $gasto / $km : 0;
-            $precioProm = $litros > 0 ? $gasto / $litros : 0;
-
-            $vehiculo_label = $this->makeVehiculoLabel($r->unidad, $r->placa);
-
-            return [
-                'vehiculo_id'    => (int)$r->vehiculo_id,
-                'placa'          => $r->placa,
-                'unidad'         => $r->unidad,
-                'vehiculo_label' => $vehiculo_label,
-                'operador_id'    => $r->operador_id ? (int)$r->operador_id : null,
-                'operador'       => $r->operador_nombre,
-                'litros'         => round($litros, 2),
-                'gasto'          => round($gasto, 2),
-                'km'             => round($km, 2),
-                'costo_km'       => round($costoKm, 4),
-                'precio_prom'    => round($precioProm, 3),
-                'num_cargas'     => (int)$r->num_cargas,
-            ];
-        })->values()->all();
-
-        return ['rows'=>$rows, 'kpis'=>$this->numbers($rows)];
-    }
-
-    public function costoKmJson(Request $r)
-    {
-        $res = $this->queryCostoKm($r);
-        $pag = $this->paginate($res['rows'], $r, 25);
-
-        return response()->json([
-            'kpis'       => $res['kpis'],
-            'table'      => $pag['data'],
-            'pagination' => $pag['meta'],
-            'chart'      => [
-                'categories' => collect($res['rows'])->pluck('vehiculo_label')->all(),
-                'series'     => [
-                    ['name' => '$ / km',     'data' => collect($res['rows'])->pluck('costo_km')->all()],
-                    ['name' => '$ / L prom', 'data' => collect($res['rows'])->pluck('precio_prom')->all()],
-                ],
-            ],
-            'params' => $r->all(),
-        ]);
-    }
-
-    public function exportCostoKmPdf(Request $r, PdfService $pdf)
-    {
-        $res = $this->queryCostoKm($r);
-        $data = [
-            'titulo'    => 'Costo por km & Gasto de combustible',
-            'filtros'   => $this->filtroResumen($r),
-            'kpis'      => $res['kpis'],
-            'rows'      => $res['rows'], // exporta todo (sin paginar)
-            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
-        ];
-        return $pdf->streamFromView('reportes.pdf.costo_km', $data, 'costo-por-km.pdf', 'A4', 'portrait');
-    }
-
-    /** ------------------------ 3) Auditoría ------------------------ */
-    private function queryAuditoria(Request $r): array
-    {
-        $params = [];
-        $where  = $this->buildWhere($r, $params);
-
-        $sql = "
-            WITH base AS (
-                SELECT
-                    cc.id, cc.fecha, cc.vehiculo_id, cc.operador_id,
-                    cc.litros, cc.precio, cc.total,
-                    cc.km_inicial, cc.km_final,
-                    v.placa,
-                    v.unidad,
-                    t.capacidad_litros,
-                    TRIM(CONCAT(o.nombre, ' ', o.apellido_paterno, ' ', COALESCE(o.apellido_materno,''))) AS operador_nombre
-                FROM cargas_combustible cc
-                JOIN vehiculos v ON v.id = cc.vehiculo_id
-                LEFT JOIN operadores o ON o.id = cc.operador_id
-                LEFT JOIN tanques t ON t.vehiculo_id = cc.vehiculo_id
-                $where
-            ),
-            ord AS (
-                SELECT
-                    base.*,
-                    (base.km_final IS NOT NULL AND base.km_inicial IS NOT NULL AND base.km_final < base.km_inicial) AS flag_km_invertido,
-                    (base.capacidad_litros IS NOT NULL AND base.litros > base.capacidad_litros) AS flag_excede_capacidad,
-                    COUNT(*) OVER (PARTITION BY base.vehiculo_id, base.fecha, base.litros, base.total) AS dup_count
-                FROM base
-            ),
-            stats AS (
-                SELECT AVG(precio) AS avg_p, STDDEV_SAMP(precio) AS sd_p FROM base WHERE precio IS NOT NULL
-            )
-            SELECT
-                ord.id, ord.fecha, ord.placa, ord.unidad, ord.vehiculo_id, ord.operador_id,
-                ord.operador_nombre,
-                ord.litros, ord.precio, ord.total, ord.capacidad_litros,
-                ord.km_inicial, ord.km_final, ord.dup_count,
-                ord.flag_km_invertido,
-                ord.flag_excede_capacidad,
-                (CASE
-                    WHEN ord.precio IS NULL THEN 0
-                    WHEN (SELECT sd_p FROM stats) IS NULL THEN 0
-                    WHEN ord.precio > (SELECT avg_p + 2*sd_p FROM stats) THEN 1
-                    WHEN ord.precio < (SELECT avg_p - 2*sd_p FROM stats) THEN 1
-                    ELSE 0
-                END) AS flag_precio_outlier,
-                (ord.dup_count > 1) AS flag_posible_duplicado
-            FROM ord
-            ORDER BY flag_excede_capacidad DESC, flag_km_invertido DESC, flag_precio_outlier DESC, ord.fecha DESC
-            LIMIT 500
-        ";
-
-        $rows = collect(DB::select($sql, $params))->map(function ($r) {
-            $flags = [];
-            if ($r->flag_excede_capacidad) $flags[] = 'Excede capacidad';
-            if ($r->flag_km_invertido)     $flags[] = 'KM invertido';
-            if ($r->flag_precio_outlier)   $flags[] = 'Precio atípico';
-            if ($r->flag_posible_duplicado)$flags[] = 'Posible duplicado';
-
-            $vehiculo_label = $this->makeVehiculoLabel($r->unidad, $r->placa);
-
-            $opName = trim((string)($r->operador_nombre ?? ''));
-            $opName = $opName !== '' ? $opName : null;
-
-            return [
-                'id'            => (int)$r->id,
-                'fecha'         => (string)$r->fecha,
-                'vehiculo_id'   => (int)$r->vehiculo_id,
-                'placa'         => $r->placa,
-                'unidad'        => $r->unidad,
-                'vehiculo_label'=> $vehiculo_label,
-                'operador_id'   => $r->operador_id ? (int)$r->operador_id : null,
-                'operador'      => $opName,
-                'litros'        => round((float)$r->litros, 2),
-                'precio'        => $r->precio !== null ? round((float)$r->precio, 3) : null,
-                'total'         => round((float)$r->total, 2),
-                'cap_litros'    => $r->capacidad_litros !== null ? round((float)$r->capacidad_litros, 1) : null,
-                'km_inicial'    => $r->km_inicial,
-                'km_final'      => $r->km_final,
-                'flags'         => $flags,
-            ];
-        })->values()->all();
-
-        return ['rows' => $rows];
-    }
-
-    public function auditoriaJson(Request $r)
-    {
-        $res = $this->queryAuditoria($r);
-        $pag = $this->paginate($res['rows'], $r, 25);
-
-        return response()->json([
-            'kpis'       => ['litros' => null, 'gasto' => null, 'km' => null, 'costo_km' => null],
-            'table'      => $pag['data'],
-            'pagination' => $pag['meta'],
-            'chart'      => ['categories' => [], 'series' => []],
-            'params'     => $r->all(),
-        ]);
-    }
-
-    public function exportAuditoriaPdf(Request $r, PdfService $pdf)
-    {
-        $res = $this->queryAuditoria($r);
-        $data = [
-            'titulo'    => 'Auditoría de cargas y anomalías',
-            'filtros'   => $this->filtroResumen($r),
-            'rows'      => $res['rows'], // exporta todo (hasta 500 por límite de consulta)
-            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
-        ];
-        return $pdf->streamFromView('reportes.pdf.auditoria', $data, 'auditoria-cargas.pdf', 'A4', 'portrait');
-    }
-
-    /** ------------------------ 4) Verificación (simple por año) ------------------------ */
-    private function queryVerificacion(Request $r): array
-    {
-        $anio = (int)($r->input('anio') ?: date('Y'));
-
-        $vehiculoIds = (array)$r->input('vehiculos', []);
-        $vehiculos = Vehiculo::query()
-            ->select('id','placa','unidad','estado')
-            ->when(count($vehiculoIds) > 0, fn($q)=>$q->whereIn('id', $vehiculoIds))
-            ->orderBy('placa')
-            ->get();
-
-        $verifAprobadas = Verificacion::query()
-            ->anio($anio)
-            ->aprobada()
-            ->select('vehiculo_id', DB::raw('MAX(fecha_verificacion) AS fecha_verificacion'))
-            ->groupBy('vehiculo_id')
-            ->pluck('fecha_verificacion', 'vehiculo_id');
-
-        $rows = $vehiculos->map(function($v) use ($verifAprobadas, $anio) {
-            $fecha = $verifAprobadas->get($v->id);
-            $ok    = !empty($fecha);
-            return [
-                'vehiculo_id'        => (int)$v->id,
-                'placa'              => $v->placa,
-                'unidad'             => $v->unidad,
-                'vehiculo_label'     => $this->makeVehiculoLabel($v->unidad, $v->placa),
-                'estado'             => $v->estado,
-                'anio'               => $anio,
-                'estatus'            => $ok ? 'Verificado' : 'Sin verificar',
-                'fecha_verificacion' => $ok ? (string)$fecha : null,
-            ];
-        })->values()->all();
-
-        return [
-            'rows' => $rows,
-            'kpis' => [
-                'total'         => count($rows),
-                'verificados'   => collect($rows)->where('estatus','Verificado')->count(),
-                'sin_verificar' => collect($rows)->where('estatus','Sin verificar')->count(),
-            ],
-        ];
-    }
-
-    public function verificacionJson(Request $r)
-    {
-        $res = $this->queryVerificacion($r);
-        $pag = $this->paginate($res['rows'], $r, 25);
-
-        return response()->json([
-            'kpis'       => $res['kpis'],
-            'table'      => $pag['data'],
-            'rows'       => $pag['data'],   // si el front usa 'rows', lo mantenemos paginado 
-            'pagination' => $pag['meta'],
-            'chart'      => [
-                'categories' => ['Verificado', 'Sin verificar'],
-                'series'     => [[
-                    'name' => 'Estatus',
-                    'data' => [ $res['kpis']['verificados'], $res['kpis']['sin_verificar'] ]
-                ]],
-            ],
-            'params' => $r->all(),
-        ]);
-    }
-
-    public function exportVerificacionPdf(Request $r, PdfService $pdf)
-    {
-        $res = $this->queryVerificacion($r);
-        $data = [
-            'titulo'    => 'Verificaciones por año (Verificado / Sin verificar)',
-            'filtros'   => $this->filtroResumen($r),
-            'rows'      => $res['rows'], // exporta todo (sin paginar)
-            'kpis'      => $res['kpis'],
-            'chart_uri' => $this->normalizeChartUri($r->input('chart_uri')),
-        ];
-        return $pdf->streamFromView('reportes.pdf.verificacion', $data, 'verificacion-vencimientos.pdf', 'A4', 'portrait');
-    }
-}
-
-<?php
-
-namespace App\Http\Controllers;
-
-use App\Models\Verificacion;
-use App\Models\Vehiculo;
-use Illuminate\Http\Request;
-
-
-class VerificacionController extends Controller
-{
-    public function __construct()
-    {
-        $this->middleware(['auth', 'role:administrador|capturista']);
-    }
-
-    /**
-     * Listar verificaciones
-     */
-    public function index(\Illuminate\Http\Request $request)
-    {
-        $filters = $request->only([
-            'search', 'vehiculo_id', 'estado', 'from', 'to', 'sort_by', 'sort_dir'
-        ]);
-
-        // Para selects en la vista
-        $vehiculos = \App\Models\Vehiculo::orderBy('unidad')
-            ->get(['id','unidad','placa','propietario']);
-
-        $estados = \App\Models\Verificacion::query()
-            ->select('estado')->distinct()->orderBy('estado')->pluck('estado');
-
-        $verificaciones = \App\Models\Verificacion::query()
-            ->with('vehiculo')
-            ->filter($filters)
-            ->paginate(25)           // paginación solicitada
-            ->withQueryString();     // conserva filtros en la paginación
-
-        return view('verificaciones.index', compact('verificaciones', 'vehiculos', 'estados'));
-    }
-
-
-    /**
-     * Mostrar formulario de creación
-     */
-    public function create()
-    {
-        $vehiculos = Vehiculo::orderBy('unidad')->get();
-        return view('verificaciones.create', compact('vehiculos'));
-    }
-
-    /**
-     * Guardar nueva verificación
-     */
-    public function store(Request $request)
-    {
-        $data = $this->validateData($request);
-        Verificacion::create($data);
-
-        return redirect()
-            ->route('verificaciones.index')
-            ->with('success', 'Verificación registrada correctamente.');
-    }
-
-    /**
-     * Mostrar detalles de una verificación
-     */
-    public function show(Verificacion $verificacion)
-    {
-        return view('verificaciones.show', compact('verificacion'));
-    }
-
-    /**
-     * Formulario de edición
-     */
-    public function edit(Verificacion $verificacion)
-    {
-        $vehiculos = Vehiculo::orderBy('unidad')->get();
-        return view('verificaciones.edit', compact('verificacion', 'vehiculos'));
-    }
-
-    /**
-     * Actualizar verificación
-     */
-    public function update(Request $request, Verificacion $verificacion)
-    {
-        $data = $this->validateData($request);
-        $verificacion->update($data);
-
-        return redirect()
-            ->route('verificaciones.index')
-            ->with('success', 'Verificación actualizada correctamente.');
-    }
-
-    /**
-     * Eliminar verificación
-     */
-    public function destroy(Verificacion $verificacion)
-    {
-        $verificacion->delete();
-
-        return redirect()
-            ->route('verificaciones.index')
-            ->with('success', 'Verificación eliminada correctamente.');
-    }
-
-    /**
-     * Validar datos
-     */
-    private function validateData(Request $request)
-    {
-        return $request->validate([
-            'vehiculo_id'        => ['required', 'exists:vehiculos,id'],
-            'estado'             => ['required', 'string', 'max:255'],
-            'comentarios'        => ['nullable', 'string'],
-            'fecha_verificacion' => ['required', 'date'],
-        ]);
-    }
-}
-
-<?php
-
-namespace App\Http\Controllers;
-
-use App\Models\VerificacionRegla;
-use App\Models\CalendarioVerificacion;
-use App\Models\VerificacionReglaEstado;
-use App\Models\VerificacionReglaDetalle;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Str;
-use Carbon\Carbon;
-
-class VerificacionReglaController extends Controller
-{
-    /* ===== Catálogos ===== */
-    protected function catalogoEstados(): array
-    {
-        return [
-            'Aguascalientes','Baja California','Baja California Sur','Campeche','Chiapas','Chihuahua',
-            'Ciudad de México','Coahuila','Colima','Durango','Guanajuato','Guerrero','Hidalgo','Jalisco',
-            'México','Michoacán','Morelos','Nayarit','Nuevo León','Oaxaca','Puebla','Querétaro','Quintana Roo',
-            'San Luis Potosí','Sinaloa','Sonora','Tabasco','Tamaulipas','Tlaxcala','Veracruz','Yucatán','Zacatecas'
-        ];
-    }
-
-    protected function mesesES(): array
-    {
-        return [
-            1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',
-            7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'
-        ];
-    }
-
-    protected function normalizeEstado(?string $s): string
-    {
-        $norm = $s ? Str::of($s)->ascii()->upper()->replaceMatches('/\s+/', ' ')->trim() : '';
-        $val  = (string) $norm;
-        if (in_array($val, ['ESTADO DE MEXICO','MEXICO','EDO MEXICO','EDO. MEX','E DOMEX'], true)) {
-            return 'EDO MEX';
-        }
-        return $val;
-    }
-
-    /* ===== UI CRUD ===== */
-    public function index()
-    {
-        $reglas = VerificacionRegla::withCount('periodos')->orderByDesc('created_at')->paginate(15);
-        return view('verificacion_reglas.index', ['reglas' => $reglas]);
-    }
-
-    public function create()
-    {
-        // Defaults para precargar la tabla de terminaciones:
-        $defaultsSemestral = $this->defaultSemestralDetalles(); // tipo CAMe por bimestres
-        $defaultsAnual     = $this->defaultAnualDetalles();     // estilo Jalisco (1→Ene–Feb, 2→Feb–Mar, ...)
-
-        return view('verificacion_reglas.create', [
-            'catalogoEstados'  => $this->catalogoEstados(),
-            'meses'            => $this->mesesES(),
-            'defaultsSemestral'=> $defaultsSemestral,
-            'defaultsAnual'    => $defaultsAnual,
-            'anioDefault'      => now()->year,
-        ]);
-    }
-
-    public function edit(VerificacionRegla $verificacion_regla)
-    {
-        return view('verificacion_reglas.edit', [
-            'regla'           => $verificacion_regla,
-            'catalogoEstados' => $this->catalogoEstados(),
-        ]);
-    }
-
-    public function generarForm(VerificacionRegla $verificacion_regla)
-    {
-        // (Opcional/legacy) ya no se requiere con reconciliación automática
-        return view('verificacion_reglas.generar', ['regla' => $verificacion_regla]);
-    }
-
-    /* ===== Store (crea regla y SINCRONIZA automáticamente el año capturado) ===== */
-    public function store(Request $request)
-    {
-        // Validación base de la regla + menú flexible
-        $data = $request->validate([
-            'nombre'          => ['required', 'string', 'max:255'],
-            'version'         => ['nullable', 'string', 'max:50'],
-            'frecuencia'      => ['required', Rule::in(['Semestral','Anual'])],
-            'notas'           => ['nullable','string'],
-
-            // Menú:
-            'anio'            => ['required','integer','min:2000','max:2999'],
-            'estados'         => ['required','array','min:1'],
-            'estados.*'       => ['string','max:100'],
-
-            // Detalles (tabla de terminaciones → meses)
-            'detalles'        => ['required','array'],
-        ]);
-
-        $anio = (int) $data['anio'];
-
-        $regla = null;
-
-        DB::transaction(function () use ($data, $anio, &$regla) {
-            // Normaliza estados seleccionados
-            $estadosOriginales = $data['estados'];
-            $estadosNorm = array_values(array_unique(array_map(
-                fn($e) => $this->normalizeEstado($e),
-                $estadosOriginales
-            )));
-
-            // 0) Validación extra de disponibilidad (evita choques por año+estado)
-            $choquesPivot = VerificacionReglaEstado::query()
-                ->where('anio', $anio)
-                ->whereIn('estado', $estadosNorm)
-                ->exists();
-
-            $choquesCal = DB::table('calendario_verificacion')
-                ->where('anio', $anio)
-                ->whereIn('estado', $estadosNorm)
-                ->exists();
-
-            if ($choquesPivot || $choquesCal) {
-                throw ValidationException::withMessages([
-                    'estados' => 'Uno o más estados ya están asignados en '.$anio.'. Elige otros estados o cambia el año.',
-                ]);
+    </style>
+
+    <script>
+        (function () {
+            const checks = Array.from(document.querySelectorAll('.foto-check'));
+            const badge  = document.getElementById('marcadasBadge');
+            const btnAll = document.getElementById('btnSelectAll');
+            const btnClr = document.getElementById('btnClearAll');
+
+            function syncCardState(input) {
+                const card = input.closest('.photo-card');
+                if (!card) return;
+                card.classList.toggle('is-selected', input.checked);
             }
 
-            // 1) Crear la regla
-            $regla = VerificacionRegla::create([
-                'nombre'          => $data['nombre'],
-                'version'         => $data['version'] ?? null,
-                'status'          => 'published',
-                'vigencia_inicio' => Carbon::create($anio, 1, 1)->toDateString(),
-                'vigencia_fin'    => Carbon::create($anio, 12, 31)->toDateString(),
-                'frecuencia'      => $data['frecuencia'],
-                'estados'         => [], // dejamos vacío (usaremos tabla por año)
-                'notas'           => $data['notas'] ?? null,
-            ]);
-
-            // 2) Guardar estados por AÑO
-            foreach ($estadosOriginales as $label) {
-                VerificacionReglaEstado::create([
-                    'regla_id' => $regla->id,
-                    'anio'     => $anio,
-                    'estado'   => $label, // normaliza en el mutator del modelo
-                ]);
-            }
-
-            // 3) Guardar DETALLES (validando rango 1..12, sin cruce de año y filtrando semestres válidos por frecuencia)
-            $allowedSemestres = ($data['frecuencia'] === 'Anual') ? [0] : [1,2];
-
-            $seen = [];
-            foreach ($data['detalles'] as $terminacionStr => $porSemestre) {
-                $terminacion = (int) $terminacionStr;
-                if ($terminacion < 0 || $terminacion > 9) {
-                    throw ValidationException::withMessages([
-                        'detalles' => 'Terminación inválida. Debe ser 0–9.',
-                    ]);
-                }
-
-                foreach ($porSemestre as $sem => $mm) {
-                    $semestre = (int) $sem; // 0 (anual), 1 o 2 (semestral)
-
-                    // << clave: ignorar semestres que no correspondan a la frecuencia >>
-                    if (!in_array($semestre, $allowedSemestres, true)) {
-                        continue;
-                    }
-
-                    $mi = (int) ($mm['mes_inicio'] ?? 0);
-                    $mf = (int) ($mm['mes_fin'] ?? 0);
-
-                    if ($mi < 1 || $mi > 12 || $mf < 1 || $mf > 12) {
-                        continue; // ignora filas malformadas
-                    }
-                    if ($mi > $mf) {
-                        throw ValidationException::withMessages([
-                            "detalles.$terminacion.$sem.mes_inicio" => 'mes_inicio no puede ser mayor a mes_fin (no se admite cruce de año).',
-                        ]);
-                    }
-
-                    $k = $terminacion.'|'.$semestre.'|'.$mi.'|'.$mf;
-                    if (isset($seen[$k])) continue;
-                    $seen[$k] = true;
-
-                    VerificacionReglaDetalle::create([
-                        'regla_id'   => $regla->id,
-                        'frecuencia' => $data['frecuencia'],
-                        'terminacion'=> $terminacion,
-                        'semestre'   => $semestre,
-                        'mes_inicio' => $mi,
-                        'mes_fin'    => $mf,
-                    ]);
+            function refreshBadge() {
+                const total = checks.filter(ch => ch.checked).length;
+                if (total > 0) {
+                    badge.textContent = `${total} seleccionadas`;
+                    badge.classList.remove('d-none');
+                } else {
+                    badge.classList.add('d-none');
                 }
             }
+
+            checks.forEach(ch => {
+                // estado inicial (por si viene del old())
+                syncCardState(ch);
+                ch.addEventListener('change', () => {
+                    syncCardState(ch);
+                    refreshBadge();
+                });
+            });
+
+            if (btnAll) {
+                btnAll.addEventListener('click', () => {
+                    checks.forEach(ch => ch.checked = true);
+                    checks.forEach(syncCardState);
+                    refreshBadge();
+                });
+            }
+            if (btnClr) {
+                btnClr.addEventListener('click', () => {
+                    checks.forEach(ch => ch.checked = false);
+                    checks.forEach(syncCardState);
+                    refreshBadge();
+                });
+            }
+
+            // pinta badge al cargar
+            refreshBadge();
+        })();
+    </script>
+</x-app-layout>
+
+{{-- resources/views/operadores/create.blade.php — campos ordenados lógicamente y accesibles --}}
+<x-app-layout>
+    {{-- HEADER --}}
+    <x-slot name="header">
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <p class="text-secondary text-uppercase small mb-1">Operadores</p>
+                        <h2 class="page-title mb-0">Registrar un nuevo Operador</h2>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-dark">
+                            <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver al listado
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </x-slot>
+
+    <div class="page-body">
+        <div class="container-xl">
+
+            {{-- FLASH ÉXITO --}}
+            @if(session('success'))
+                <div class="alert alert-success mb-4" role="alert">
+                    <span class="material-symbols-outlined me-2 align-middle">check_circle</span>{{ session('success') }}
+                </div>
+            @endif
+
+            {{-- ERRORES --}}
+            @if ($errors->any())
+                <div class="alert alert-danger mb-4" role="alert">
+                    <span class="material-symbols-outlined me-2 align-middle">warning</span>Revisa los campos marcados y vuelve a intentar.
+                    @if($errors->count() > 0)
+                        <ul class="mt-2 mb-0 ps-4">
+                            @foreach ($errors->all() as $error)
+                                <li class="small">{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            @endif
+
+            {{-- ===== FORM ÚNICO (abarca ambas columnas) ===== --}}
+            <form id="operador-form" method="POST" action="{{ route('operadores.store') }}" enctype="multipart/form-data" novalidate>
+                @csrf
+
+                <div class="row g-4">
+                    {{-- ===== COLUMNA IZQUIERDA: DATOS ===== --}}
+                    <div class="col-12 col-xl-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
+                                    <span class="material-symbols-outlined">badge</span> Datos del operador
+                                </h3>
+                            </div>
+
+                            <div class="card-body pt-3">
+                                <div class="row g-4">
+
+                                    {{-- ================= 1) IDENTIDAD ================= --}}
+                                    <div class="col-12">
+                                        <div class="text-secondary text-uppercase fw-semibold small mb-2">Identidad</div>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
+                                                    <input id="nombre" name="nombre" type="text" autocomplete="given-name"
+                                                           class="form-control @error('nombre') is-invalid @enderror"
+                                                           value="{{ old('nombre') }}" required placeholder="Ej. Juan">
+                                                    @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="apellido_paterno" class="form-label">Apellido paterno <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
+                                                    <input id="apellido_paterno" name="apellido_paterno" type="text" autocomplete="family-name"
+                                                           class="form-control @error('apellido_paterno') is-invalid @enderror"
+                                                           value="{{ old('apellido_paterno') }}" required placeholder="Ej. Pérez">
+                                                    @error('apellido_paterno') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="apellido_materno" class="form-label">Apellido materno</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
+                                                    <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
+                                                           class="form-control @error('apellido_materno') is-invalid @enderror"
+                                                           value="{{ old('apellido_materno') }}" placeholder="(opcional)">
+                                                    @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- ================= 2) CONTACTO BÁSICO ================= --}}
+                                    <div class="col-12">
+                                        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Contacto básico</div>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="email" class="form-label">Correo electrónico <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">mail</span></span>
+                                                    <input id="email" name="email" type="email" autocomplete="email"
+                                                           class="form-control @error('email') is-invalid @enderror"
+                                                           value="{{ old('email') }}" required
+                                                           placeholder="usuario@dominio.com" aria-describedby="email_help">
+                                                    @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                                <div id="email_help" class="form-hint">Usa un correo válido al que el operador tenga acceso.</div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="telefono" class="form-label">Teléfono (10 dígitos)</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                                                    <input id="telefono" name="telefono" type="tel"
+                                                           inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
+                                                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                                                           autocomplete="tel"
+                                                           class="form-control @error('telefono') is-invalid @enderror"
+                                                           value="{{ old('telefono') }}" placeholder="Ej. 7771234567"
+                                                           title="Ingresa exactamente 10 dígitos (solo números)">
+                                                    @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            {{-- ===== NUEVO: DOMICILIO ===== --}}
+                                            <div class="col-12">
+                                                <label for="domicilio" class="form-label">Domicilio</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">home_pin</span></span>
+                                                    <input id="domicilio" name="domicilio" type="text"
+                                                           class="form-control @error('domicilio') is-invalid @enderror"
+                                                           value="{{ old('domicilio') }}"
+                                                           placeholder="Calle, número, colonia, ciudad, estado, C.P.">
+                                                    @error('domicilio') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- ================= 3) DATOS PERSONALES ================= --}}
+                                    <div class="col-12">
+                                        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Datos personales</div>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="estado_civil" class="form-label">Estado civil</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text">
+                                                        <span class="material-symbols-outlined">diversity_3</span>
+                                                    </span>
+                                                    <select id="estado_civil" name="estado_civil"
+                                                            class="form-select @error('estado_civil') is-invalid @enderror">
+                                                        <option value="">(sin especificar)</option>
+                                                        @foreach(['soltero'=>'Soltero','casado'=>'Casado','viudo'=>'Viudo','divorciado'=>'Divorciado','union libre'=>'Union libre'] as $val=>$label)
+                                                            <option value="{{ $val }}" {{ old('estado_civil')===$val ? 'selected' : '' }}>{{ $label }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('estado_civil') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="tipo_sangre" class="form-label">Tipo de sangre</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">bloodtype</span></span>
+                                                    <input id="tipo_sangre" name="tipo_sangre" type="text"
+                                                           class="form-control @error('tipo_sangre') is-invalid @enderror"
+                                                           value="{{ old('tipo_sangre') }}" placeholder="Ej. O+, A-, B+" maxlength="5">
+                                                    @error('tipo_sangre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                                <div class="form-hint">Formato corto (ej.: O+, A-, AB-).</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- ================= 4) IDENTIFICADORES OFICIALES ================= --}}
+                                    <div class="col-12">
+                                        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Identificadores oficiales</div>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="curp" class="form-label">CURP</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">badge</span></span>
+                                                    <input id="curp" name="curp" type="text"
+                                                           class="form-control @error('curp') is-invalid @enderror"
+                                                           value="{{ old('curp') }}" maxlength="18"
+                                                           style="text-transform:uppercase"
+                                                           oninput="this.value=this.value.toUpperCase().replace(/\s+/g,'');"
+                                                           pattern="[A-ZÑ0-9]{18}"
+                                                           title="18 caracteres en mayúsculas (A-Z/Ñ/0-9)">
+                                                    @error('curp') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="rfc" class="form-label">RFC</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">verified</span></span>
+                                                    <input id="rfc" name="rfc" type="text"
+                                                           class="form-control @error('rfc') is-invalid @enderror"
+                                                           value="{{ old('rfc') }}" maxlength="13"
+                                                           style="text-transform:uppercase"
+                                                           oninput="this.value=this.value.toUpperCase().replace(/\s+/g,'');"
+                                                           pattern="([A-ZÑ&]{3,4})\d{6}[A-Z0-9]{3}"
+                                                           title="3-4 letras + 6 dígitos de fecha + 3 alfanum.">
+                                                    @error('rfc') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- ================= 5) CONTACTO DE EMERGENCIA ================= --}}
+                                    <div class="col-12">
+                                        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Contacto de emergencia</div>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="contacto_emergencia_nombre" class="form-label">Nombre</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">contact_emergency</span></span>
+                                                    <input id="contacto_emergencia_nombre" name="contacto_emergencia_nombre" type="text"
+                                                           class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror"
+                                                           value="{{ old('contacto_emergencia_nombre') }}" placeholder="Ej. Juan Pérez">
+                                                    @error('contacto_emergencia_nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="contacto_emergencia_parentesco" class="form-label">Parentesco</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">diversity_1</span></span>
+                                                    <input id="contacto_emergencia_parentesco" name="contacto_emergencia_parentesco" type="text"
+                                                           class="form-control @error('contacto_emergencia_parentesco') is-invalid @enderror"
+                                                           value="{{ old('contacto_emergencia_parentesco') }}" placeholder="Ej. Esposa, Hermano, Amigo">
+                                                    @error('contacto_emergencia_parentesco') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="contacto_emergencia_tel" class="form-label">Teléfono de emergencia (10 dígitos)</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                                                    <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
+                                                           inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
+                                                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                                                           class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
+                                                           value="{{ old('contacto_emergencia_tel') }}" placeholder="Ej. 7770000000"
+                                                           title="Ingresa exactamente 10 dígitos (solo números)">
+                                                    @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="contacto_emergencia_ubicacion" class="form-label">Ubicación</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">place</span></span>
+                                                    <input id="contacto_emergencia_ubicacion" name="contacto_emergencia_ubicacion" type="text"
+                                                           class="form-control @error('contacto_emergencia_ubicacion') is-invalid @enderror"
+                                                           value="{{ old('contacto_emergencia_ubicacion') }}" placeholder="Ej. Cuernavaca, Morelos">
+                                                    @error('contacto_emergencia_ubicacion') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div> {{-- /row --}}
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- ===== COLUMNA DERECHA: AVATAR + FOTOS ===== --}}
+                    <div class="col-12 col-xl-4">
+
+                        {{-- FOTOS: subir + previsualizar --}}
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
+                                    <span class="material-symbols-outlined">add_photo_alternate</span> Agregar fotografías
+                                </h3>
+                            </div>
+
+                            <div class="card-body">
+                                <div class="form-hint mb-3">Máx 5&nbsp;MB por archivo.</div>
+
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-12">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">upload</span></span>
+                                            <input type="file" id="fotos" name="fotos[]" accept="image/*" multiple
+                                                   class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror"
+                                                   aria-describedby="fotos_help">
+                                        </div>
+                                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                    </div>
+                                </div>
+
+                                {{-- Controles y contador --}}
+                                <div class="d-flex justify-content-between align-items-center my-3">
+                                    <div class="text-secondary small">
+                                        <span id="fotos-count">0</span> seleccionada(s)
+                                    </div>
+                                    <div class="btn-group">
+                                        <button type="button" id="btn-clear-fotos" class="btn btn-outline-dark btn-sm" disabled>
+                                            <span class="material-symbols-outlined align-middle me-1">delete</span>Quitar todas
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {{-- Grid de vista previa --}}
+                                <div id="fotos-grid" class="row g-2"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- FOOTER del form: un único botón que guarda TODO --}}
+                    <div class="col-12">
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-dark">Cancelar</a>
+                            <button type="submit" class="btn btn-danger">
+                                <span class="material-symbols-outlined me-1 align-middle">person_add</span> Guardar operador
+                            </button>
+                        </div>
+                    </div>
+                </div> {{-- /row --}}
+            </form>
+
+            {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
+        </div>
+    </div>
+
+    {{-- ===== JS: selección y previsualización de fotos ===== --}}
+    <script>
+        (function () {
+            const MAX_FILES = 12;
+            const MAX_SIZE_MB = 5;
+            const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
+
+            const input = document.getElementById('fotos');
+            const grid  = document.getElementById('fotos-grid');
+            const count = document.getElementById('fotos-count');
+            const btnClear = document.getElementById('btn-clear-fotos');
+
+            let selectedFiles = [];
+
+            function updateInputFiles() {
+                const dt = new DataTransfer();
+                selectedFiles.forEach(f => dt.items.add(f));
+                input.files = dt.files;
+                count.textContent = selectedFiles.length.toString();
+                btnClear.disabled = selectedFiles.length === 0;
+            }
+
+            function renderPreviews() {
+                grid.innerHTML = '';
+                selectedFiles.forEach((file, idx) => {
+                    const url = URL.createObjectURL(file);
+
+                    const col = document.createElement('div');
+                    col.className = 'col-6 col-md-6 col-xl-12';
+
+                    const card = document.createElement('div');
+                    card.className = 'card card-sm';
+
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.alt = file.name;
+                    img.className = 'card-img-top img-fluid';
+                    img.onload = () => URL.revokeObjectURL(url);
+
+                    const body = document.createElement('div');
+                    body.className = 'card-body p-2';
+
+                    const meta = document.createElement('div');
+                    meta.className = 'small text-truncate mb-1';
+                    meta.title = file.name;
+                    meta.textContent = file.name;
+
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-outline-danger btn-sm w-100';
+                    btn.innerHTML = '<span class="material-symbols-outlined align-middle me-1">delete</span>Quitar';
+                    btn.addEventListener('click', () => {
+                        selectedFiles.splice(idx, 1);
+                        updateInputFiles();
+                        renderPreviews();
+                    });
+
+                    body.appendChild(meta);
+                    body.appendChild(btn);
+                    card.appendChild(img);
+                    card.appendChild(body);
+                    col.appendChild(card);
+                    grid.appendChild(col);
+                });
+            }
+
+            function addFiles(files) {
+                const incoming = Array.from(files || []);
+                const accepted = [];
+
+                for (const f of incoming) {
+                    const typeOk = /^image\//i.test(f.type);
+                    const sizeOk = f.size <= MAX_SIZE;
+
+                    if (!typeOk || !sizeOk) continue;
+
+                    const dup = selectedFiles.some(sf => sf.name === f.name && sf.size === f.size && sf.lastModified === f.lastModified);
+                    if (dup) continue;
+
+                    accepted.push(f);
+                }
+
+                const availableSlots = MAX_FILES - selectedFiles.length;
+                if (availableSlots <= 0) return;
+
+                selectedFiles = selectedFiles.concat(accepted.slice(0, availableSlots));
+                updateInputFiles();
+                renderPreviews();
+            }
+
+            input?.addEventListener('change', (e) => {
+                const el = e.currentTarget;
+                const files = el && el.files ? Array.from(el.files) : [];
+                el.value = '';
+                addFiles(files);
+            });
+
+            btnClear?.addEventListener('click', () => {
+                selectedFiles = [];
+                updateInputFiles();
+                renderPreviews();
+            });
+
+            grid?.addEventListener('dragover', (e) => { e.preventDefault(); grid.classList.add('border', 'border-primary'); });
+            grid?.addEventListener('dragleave', () => grid.classList.remove('border', 'border-primary'));
+            grid?.addEventListener('drop', (e) => {
+                e.preventDefault();
+                grid.classList.remove('border', 'border-primary');
+                addFiles(e.dataTransfer.files);
+            });
+        })();
+    </script>
+
+    {{-- ===== NUEVO: abrir confirmación en nueva pestaña (sin modal) ===== --}}
+    @if(session('created') && session('email') && session('password'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function(){
+                try {
+                    window.open(@json(route('operadores.confirmacion')), '_blank');
+                } catch (e) {}
+            });
+        </script>
+    @endif
+</x-app-layout>
+
+{{-- resources/views/operadores/edit.blade.php — campos ordenados lógicamente + fotos (clic abre en nueva pestaña) --}}
+<x-app-layout>
+    {{-- HEADER --}}
+    <x-slot name="header">
+        <div class="page-header d-print-none">
+            <div class="container-xl">
+                <div class="row g-2 align-items-center">
+                    <div class="col">
+                        <p class="text-secondary text-uppercase small mb-1">Operadores</p>
+                        <h2 class="page-title mb-0">Editar un Operador</h2>
+                    </div>
+                    <div class="col-auto ms-auto">
+                        <a href="{{ route('operadores.index') }}" class="btn btn-outline-dark">
+                            <span class="material-symbols-outlined me-1 align-middle">arrow_back</span> Volver al listado
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </x-slot>
+
+    <div class="page-body">
+        <div class="container-xl">
+
+            {{-- FLASHES --}}
+            @if (session('success'))
+                <div class="alert alert-success mb-4" role="alert">
+                    <span class="material-symbols-outlined me-2 align-middle">check_circle</span>{{ session('success') }}
+                </div>
+            @endif
+
+            @if ($errors->any())
+                <div class="alert alert-danger mb-4" role="alert">
+                    <span class="material-symbols-outlined me-2 align-middle">warning</span>Revisa los campos marcados y vuelve a intentar.
+                    <ul class="mt-2 mb-0 ps-4">
+                        @foreach ($errors->all() as $error)
+                            <li class="small">{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            @php
+                $nombreCompleto = trim(($operador->nombre ?? '').' '.($operador->apellido_paterno ?? '').' '.($operador->apellido_materno ?? ''));
+                $correo = optional($operador->user)->email ?? '—';
+            @endphp
+
+            {{-- ===== FORM ÚNICO (abarca ambas columnas) ===== --}}
+            <form id="operador-form" method="POST"
+                  action="{{ route('operadores.update', $operador) }}"
+                  enctype="multipart/form-data" novalidate>
+                @csrf
+                @method('PUT')
+
+                <div class="row g-4">
+                    {{-- ===== COLUMNA IZQUIERDA: DATOS ===== --}}
+                    <div class="col-12 col-xl-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0 d-flex align-items-center gap-2">
+                                    <span class="material-symbols-outlined">badge</span> Datos del operador
+                                </h3>
+                            </div>
+
+                            <div class="card-body pt-3">
+                                <div class="row g-4">
+
+                                    {{-- ================= 1) IDENTIDAD ================= --}}
+                                    <div class="col-12">
+                                        <div class="text-secondary text-uppercase fw-semibold small mb-2">Identidad</div>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
+                                                    <input id="nombre" name="nombre" type="text" autocomplete="given-name"
+                                                           class="form-control @error('nombre') is-invalid @enderror"
+                                                           value="{{ old('nombre', $operador->nombre) }}" required placeholder="Ej. Juan">
+                                                    @error('nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="apellido_paterno" class="form-label">Apellido paterno <span class="text-danger">*</span></label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">person</span></span>
+                                                    <input id="apellido_paterno" name="apellido_paterno" type="text" autocomplete="family-name"
+                                                           class="form-control @error('apellido_paterno') is-invalid @enderror"
+                                                           value="{{ old('apellido_paterno', $operador->apellido_paterno) }}" required placeholder="Ej. Pérez">
+                                                    @error('apellido_paterno') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="apellido_materno" class="form-label">Apellido materno</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">account_circle</span></span>
+                                                    <input id="apellido_materno" name="apellido_materno" type="text" autocomplete="additional-name"
+                                                           class="form-control @error('apellido_materno') is-invalid @enderror"
+                                                           value="{{ old('apellido_materno', $operador->apellido_materno) }}" placeholder="(opcional)">
+                                                    @error('apellido_materno') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- ================= 2) CONTACTO BÁSICO ================= --}}
+                                    <div class="col-12">
+                                        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Contacto básico</div>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="email" class="form-label">Correo electrónico</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">mail</span></span>
+                                                    <input id="email" name="email" type="email" autocomplete="email"
+                                                           class="form-control @error('email') is-invalid @enderror"
+                                                           value="{{ old('email', optional($operador->user)->email) }}"
+                                                           placeholder="usuario@dominio.com" aria-describedby="email_help">
+                                                    @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                                <div id="email_help" class="form-hint">Usa un correo válido al que el operador tenga acceso.</div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="telefono" class="form-label">Teléfono (10 dígitos)</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                                                    <input id="telefono" name="telefono" type="tel"
+                                                           inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
+                                                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                                                           class="form-control @error('telefono') is-invalid @enderror"
+                                                           value="{{ old('telefono', $operador->telefono) }}"
+                                                           placeholder="Ej. 7771234567" autocomplete="tel"
+                                                           title="Ingresa exactamente 10 dígitos (solo números)">
+                                                    @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            {{-- ===== NUEVO: DOMICILIO ===== --}}
+                                            <div class="col-12">
+                                                <label for="domicilio" class="form-label">Domicilio</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">home_pin</span></span>
+                                                    <input id="domicilio" name="domicilio" type="text"
+                                                           class="form-control @error('domicilio') is-invalid @enderror"
+                                                           value="{{ old('domicilio', $operador->domicilio) }}"
+                                                           placeholder="Calle, número, colonia, ciudad, estado, C.P.">
+                                                    @error('domicilio') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- ================= 3) DATOS PERSONALES ================= --}}
+                                    <div class="col-12">
+                                        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Datos personales</div>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="estado_civil" class="form-label">Estado civil</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text">
+                                                        <span class="material-symbols-outlined">diversity_3</span>
+                                                    </span>
+                                                    <select id="estado_civil" name="estado_civil"
+                                                            class="form-select @error('estado_civil') is-invalid @enderror">
+                                                        <option value="">(sin especificar)</option>
+                                                        @foreach(['soltero'=>'Soltero','casado'=>'Casado','viudo'=>'Viudo','divorciado'=>'Divorciado','union libre'=>'Union libre'] as $val=>$label)
+                                                            <option value="{{ $val }}" {{ old('estado_civil', $operador->estado_civil)===$val ? 'selected' : '' }}>{{ $label }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    @error('estado_civil') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="tipo_sangre" class="form-label">Tipo de sangre</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">bloodtype</span></span>
+                                                    <input id="tipo_sangre" name="tipo_sangre" type="text"
+                                                           class="form-control @error('tipo_sangre') is-invalid @enderror"
+                                                           value="{{ old('tipo_sangre', $operador->tipo_sangre) }}"
+                                                           placeholder="Ej. O+, A-, B+" maxlength="5">
+                                                    @error('tipo_sangre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                                <div class="form-hint">Formato corto (ej.: O+, A-, AB-).</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- ================= 4) IDENTIFICADORES OFICIALES ================= --}}
+                                    <div class="col-12">
+                                        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Identificadores oficiales</div>
+                                        <div class="row g-3">
+                                            <div class="col-12 col-md-6">
+                                                <label for="curp" class="form-label">CURP</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">badge</span></span>
+                                                    <input id="curp" name="curp" type="text"
+                                                           class="form-control @error('curp') is-invalid @enderror"
+                                                           value="{{ old('curp', $operador->curp) }}" maxlength="18"
+                                                           style="text-transform:uppercase"
+                                                           oninput="this.value=this.value.toUpperCase().replace(/\s+/g,'');"
+                                                           pattern="[A-ZÑ0-9]{18}"
+                                                           title="18 caracteres en mayúsculas (A-Z/Ñ/0-9)">
+                                                    @error('curp') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label for="rfc" class="form-label">RFC</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><span class="material-symbols-outlined">verified</span></span>
+                                                    <input id="rfc" name="rfc" type="text"
+                                                           class="form-control @error('rfc') is-invalid @enderror"
+                                                           value="{{ old('rfc', $operador->rfc) }}" maxlength="13"
+                                                           style="text-transform:uppercase"
+                                                           oninput="this.value=this.value.toUpperCase().replace(/\s+/g,'');"
+                                                           pattern="([A-ZÑ&]{3,4})\d{6}[A-Z0-9]{3}"
+                                                           title="3-4 letras + 6 dígitos de fecha + 3 alfanum.">
+                                                    @error('rfc') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- ================= 5) CONTACTO DE EMERGENCIA ================= --}}
+                                    <div class="col-12">
+        <div class="text-secondary text-uppercase fw-semibold small mt-2 mb-2">Contacto de emergencia</div>
+        <div class="row g-3">
+            <div class="col-12 col-md-6">
+                <label for="contacto_emergencia_nombre" class="form-label">Nombre</label>
+                <div class="input-group">
+                    <span class="input-group-text"><span class="material-symbols-outlined">contact_emergency</span></span>
+                    <input id="contacto_emergencia_nombre" name="contacto_emergencia_nombre" type="text"
+                           class="form-control @error('contacto_emergencia_nombre') is-invalid @enderror"
+                           value="{{ old('contacto_emergencia_nombre', $operador->contacto_emergencia_nombre) }}"
+                           placeholder="Ej. Juan Pérez">
+                    @error('contacto_emergencia_nombre') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6">
+                <label for="contacto_emergencia_parentesco" class="form-label">Parentesco</label>
+                <div class="input-group">
+                    <span class="input-group-text"><span class="material-symbols-outlined">diversity_1</span></span>
+                    <input id="contacto_emergencia_parentesco" name="contacto_emergencia_parentesco" type="text"
+                           class="form-control @error('contacto_emergencia_parentesco') is-invalid @enderror"
+                           value="{{ old('contacto_emergencia_parentesco', $operador->contacto_emergencia_parentesco) }}" placeholder="Ej. Esposa, Hermano, Amigo">
+                    @error('contacto_emergencia_parentesco') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6">
+                <label for="contacto_emergencia_tel" class="form-label">Teléfono de emergencia (10 dígitos)</label>
+                <div class="input-group">
+                    <span class="input-group-text"><span class="material-symbols-outlined">call</span></span>
+                    <input id="contacto_emergencia_tel" name="contacto_emergencia_tel" type="tel"
+                           inputmode="numeric" maxlength="10" pattern="[0-9]{10}"
+                           oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                           class="form-control @error('contacto_emergencia_tel') is-invalid @enderror"
+                           value="{{ old('contacto_emergencia_tel', $operador->contacto_emergencia_tel) }}"
+                           placeholder="Ej. 7770000000"
+                           title="Ingresa exactamente 10 dígitos (solo números)">
+                    @error('contacto_emergencia_tel') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6">
+                <label for="contacto_emergencia_ubicacion" class="form-label">Ubicación</label>
+                <div class="input-group">
+                    <span class="input-group-text"><span class="material-symbols-outlined">place</span></span>
+                    <input id="contacto_emergencia_ubicacion" name="contacto_emergencia_ubicacion" type="text"
+                           class="form-control @error('contacto_emergencia_ubicacion') is-invalid @enderror"
+                           value="{{ old('contacto_emergencia_ubicacion', $operador->contacto_emergencia_ubicacion) }}" placeholder="Ej. Cuernavaca, Morelos">
+                    @error('contacto_emergencia_ubicacion') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                </div>
+            </div>
+        </div>
+    </div>
+
+                                </div> {{-- /row --}}
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- ===== COLUMNA DERECHA: AVATAR + FOTOS ===== --}}
+                    <div class="col-12 col-xl-4">
+
+                        {{-- FOTOS: subir + marcado borrar + lista (clic abre en nueva pestaña) --}}
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title mb-0 d-flex align-items-center">
+                                    <span class="material-symbols-outlined me-2">add_photo_alternate</span>
+                                    Agregar fotografías
+                                </h3>
+                            </div>
+
+                            {{-- Subir nuevas --}}
+                            <div class="card-body">
+                                <div class="form-hint mb-3">Máx 8&nbsp;MB por archivo.</div>
+
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-12">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><span class="material-symbols-outlined">upload</span></span>
+                                            <input type="file" name="fotos[]" accept="image/*" multiple
+                                                   class="form-control @error('fotos') is-invalid @enderror @error('fotos.*') is-invalid @enderror">
+                                        </div>
+                                        @error('fotos')   <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                        @error('fotos.*') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Listado/galería simple y marcado para borrar --}}
+                            <div class="card-body border-top">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <h2 class="h5 mb-0 d-flex align-items-center">
+                                            <span class="material-symbols-outlined me-2">photo</span>
+                                            Fotografías actuales
+                                        </h2>
+                                        <span class="badge bg-secondary-lt">{{ $operador->fotos->count() }} foto(s)</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="small text-secondary">
+                                            Marcadas: <strong id="delCount">0</strong>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                @if($operador->fotos->isEmpty())
+                                    <div class="empty my-4">
+                                        <div class="empty-icon">
+                                            <span class="material-symbols-outlined">image_not_supported</span>
+                                        </div>
+                                        <p class="empty-title">Este operador aún no tiene fotos</p>
+                                    </div>
+                                @else
+                                    <div class="row g-3" id="photosGrid">
+                                        @foreach($operador->fotos as $foto)
+                                            <div class="col-12">
+                                                <div class="card position-relative foto-card" data-id="{{ $foto->id }}">
+                                                    <div class="ratio ratio-4x3">
+                                                        <a href="{{ route('operadores.fotos.show', $foto) }}"
+                                                           target="_blank" rel="noopener noreferrer"
+                                                           title="Abrir en nueva pestaña"
+                                                           class="stretched-link"></a>
+                                                        <img src="{{ route('operadores.fotos.show', $foto) }}"
+                                                             alt="Foto {{ $loop->iteration }} de {{ $nombreCompleto ?: ('Operador #'.$operador->id) }}"
+                                                             class="w-100 h-100 rounded object-fit-cover">
+                                                    </div>
+
+                                                    <button type="button"
+                                                            class="btn btn-danger btn-icon btn-sm position-absolute top-0 end-0 m-1 toggle-delete z-3"
+                                                            data-id="{{ $foto->id }}" title="Marcar para borrar">
+                                                        <span class="material-symbols-outlined">delete</span>
+                                                    </button>
+
+                                                    <input type="checkbox" class="d-none delete-input"
+                                                           id="del-{{ $foto->id }}" name="delete_fotos[]" value="{{ $foto->id }}">
+
+                                                    <div class="position-absolute top-0 start-0 w-100 h-100 rounded bg-danger opacity-25 d-none overlay-del"></div>
+                                                    <span class="badge bg-danger position-absolute bottom-0 start-0 m-2 d-none badge-del">
+                                                        <span class="material-symbols-outlined me-1 align-middle">delete</span> Se borrará
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- FOOTER del form: un único botón que guarda TODO --}}
+                    <div class="col-12">
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <a href="{{ route('operadores.index') }}" class="btn btn-outline-dark">Cancelar</a>
+                            <button type="submit" class="btn btn-danger">
+                                <span class="material-symbols-outlined me-1 align-middle">save</span> Guardar todo
+                            </button>
+                        </div>
+                    </div>
+                </div> {{-- /row --}}
+            </form>
+
+            {{-- ===== LICENCIAS DEL OPERADOR ===== --}}
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0 d-flex align-items-center gap-2">
+                        <span class="material-symbols-outlined">badge</span> Licencias de conducir
+                    </h3>
+                    <div>
+                        <a href="{{ route('licencias.create', ['operador_id' => $operador->id]) }}"
+                           class="btn btn-outline-danger btn-sm">
+                            <span class="material-symbols-outlined me-1 align-middle">add</span>Agregar licencia
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    @php $lics = $operador->licencias()->with('archivos')->orderByDesc('fecha_vencimiento')->get(); @endphp
+
+                    @if($lics->isEmpty())
+                        <div class="p-4 text-secondary">Este operador no tiene licencias registradas.</div>
+                    @else
+                        <div class="table-responsive">
+                            <table class="table table-vcenter table-striped table-hover mb-0">
+                                <thead>
+                                    <tr class="text-uppercase text-secondary small">
+                                        <th>Ámbito</th>
+                                        <th>Tipo</th>
+                                        <th>Folio</th>
+                                        <th>Expedición</th>
+                                        <th>Vencimiento</th>
+                                        <th>Estatus</th>
+                                        <th>Archivos</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($lics as $l)
+                                        @php $status = $l->estatus; @endphp
+                                        <tr>
+                                            <td class="text-capitalize">{{ $l->ambito ?: '—' }}</td>
+                                            <td>{{ $l->tipo ?: '—' }}</td>
+                                            <td>{{ $l->folio ?: '—' }}</td>
+                                            <td>{{ optional($l->fecha_expedicion)->format('Y-m-d') ?: '—' }}</td>
+                                            <td>{{ optional($l->fecha_vencimiento)->format('Y-m-d') ?: '—' }}</td>
+                                            <td>
+                                                @if($status==='vigente')
+                                                    <span class="badge bg-success">Vigente</span>
+                                                @elseif($status==='por_vencer')
+                                                    <span class="badge bg-warning text-dark">Por vencer</span>
+                                                @elseif($status==='vencida')
+                                                    <span class="badge bg-danger">Vencida</span>
+                                                @else
+                                                    <span class="badge bg-secondary">N/D</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($l->archivos->isEmpty())
+                                                    <span class="text-secondary">0</span>
+                                                @else
+                                                    <div class="d-flex gap-1 flex-wrap">
+                                                        @foreach($l->archivos as $a)
+                                                            <a href="{{ route('licencias.archivos.inline', $a) }}" class="btn btn-outline-dark btn-xs" target="_blank" rel="noopener" title="{{ $a->nombre_original }}">
+                                                                <span class="material-symbols-outlined" style="font-size:18px;">visibility</span>
+                                                            </a>
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+                                            </td>
+                                            <td class="text-end">
+                                                <a href="{{ route('licencias.edit', $l) }}" class="btn btn-outline-dark btn-sm">
+                                                    <span class="material-symbols-outlined me-1 align-middle">edit</span>Editar
+                                                </a>
+                                                <form action="{{ route('licencias.destroy', $l) }}" method="POST" class="d-inline"
+                                                      onsubmit="return confirm('¿Eliminar la licencia seleccionada? Esta acción borrará sus archivos.');">
+                                                    @csrf @method('DELETE')
+                                                    <button class="btn btn-outline-danger btn-sm">
+                                                        <span class="material-symbols-outlined me-1 align-middle">delete</span>Eliminar
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            {{-- FOOTER --}}
+            <div class="text-center text-secondary small py-4">
+                © {{ date('Y') }} Futurama Tires · Todos los derechos reservados
+            </div>
+        </div>
+    </div>
+
+    {{-- ===== SCRIPTS ===== --}}
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- Togglear borrado de fotos ---
+        const delCountEl = document.getElementById('delCount');
+        function refreshDelCount(){
+            const checked = document.querySelectorAll('.delete-input:checked').length;
+            if (delCountEl) delCountEl.textContent = String(checked);
+        }
+
+        document.getElementById('photosGrid')?.querySelectorAll('.toggle-delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const id = btn.getAttribute('data-id');
+                const input = document.getElementById('del-' + id);
+                const card  = btn.closest('.foto-card');
+                const overlay = card?.querySelector('.overlay-del');
+                const badge   = card?.querySelector('.badge-del');
+
+                if (!input) return;
+                input.checked = !input.checked;
+
+                const marked = input.checked;
+                btn.classList.toggle('btn-danger', !marked);
+                btn.classList.toggle('btn-warning', marked);
+                if (overlay) overlay.classList.toggle('d-none', !marked);
+                if (badge)   badge.classList.toggle('d-none', !marked);
+                btn.title = marked ? 'Quitar de borrado' : 'Marcar para borrar';
+
+                refreshDelCount();
+            });
         });
 
-        // 4) ⚡️ Reconciliación automática del año capturado
-        $stats = $this->reconciliarPeriodos($regla, $anio);
-
-        return redirect()->route('verificacion-reglas.index')
-            ->with('success', "Regla creada. Calendario {$anio} sincronizado (eliminados: {$stats['deleted']}, upsert: {$stats['upserted']}).");
-    }
-
-    public function update(Request $request, VerificacionRegla $verificacion_regla)
-    {
-        $data = $request->validate([
-            'nombre'     => ['required', 'string', 'max:255'],
-            'version'    => ['nullable', 'string', 'max:50'],
-            'status'     => ['required', Rule::in(['draft','published','archived'])],
-            'frecuencia' => ['required', Rule::in(['Semestral','Anual'])],
-            'notas'      => ['nullable','string'],
-        ]);
-
-        $verificacion_regla->update([
-            'nombre'     => $data['nombre'],
-            'version'    => $data['version'] ?? null,
-            'status'     => $data['status'],
-            'frecuencia' => $data['frecuencia'],
-            'notas'      => $data['notas'] ?? null,
-        ]);
-
-        // ⚡️ Reconciliación automática de TODOS los años asignados a la regla
-        $anios = $verificacion_regla->estadosAsignados()->distinct()->pluck('anio');
-        $tot = ['deleted'=>0,'upserted'=>0];
-        foreach ($anios as $anio) {
-            $s = $this->reconciliarPeriodos($verificacion_regla, (int)$anio);
-            $tot['deleted']  += $s['deleted'];
-            $tot['upserted'] += $s['upserted'];
-        }
-
-        return redirect()->route('verificacion-reglas.index')
-            ->with('success', "Regla actualizada. Calendarios sincronizados (eliminados: {$tot['deleted']}, upsert: {$tot['upserted']}).");
-    }
-
-    public function destroy(VerificacionRegla $verificacion_regla)
-    {
-        // Si ya aplicaste CASCADE en la BD, con esto basta:
-        $verificacion_regla->delete();
-
-        return redirect()
-            ->route('verificacion-reglas.index')
-            ->with('success', 'Regla eliminada.');
-    }
-
-    /* ===== (Legacy/compat) Generación manual, ahora redirige a reconciliación ===== */
-    public function generar(Request $request, VerificacionRegla $verificacion_regla)
-    {
-        $request->validate([
-            'anio' => ['required', 'integer', 'min:2000', 'max:2999'],
-        ]);
-
-        $anio = (int) $request->integer('anio');
-
-        $stats = $this->reconciliarPeriodos($verificacion_regla, $anio);
-
-        return redirect()->route('verificacion-reglas.index')
-            ->with('success', "Calendario {$anio} sincronizado (eliminados: {$stats['deleted']}, upsert: {$stats['upserted']}).");
-    }
-
-    /* ===== Reconciliación automática (borra obsoletos y upserta esperados) ===== */
-
-    /** Clave lógica única consistente con el índice único de BD. */
-    private function keyFor(string $estado, int $terminacion, int $mi, int $mf, int $anio): string
-    {
-        $E = VerificacionRegla::normalizeEstado($estado);
-        return "{$E}|{$terminacion}|{$mi}|{$mf}|{$anio}";
-    }
-
-    /** Construye el conjunto esperado de filas para regla+año (indexado por key). */
-    private function buildExpectedRows(VerificacionRegla $regla, int $anio): array
-    {
-        // 1) Estados (normalizados) para ese año
-        $estados = $regla->estadosParaAnio($anio)
-            ->map(fn($e) => VerificacionRegla::normalizeEstado($e))
-            ->unique()
-            ->values()
-            ->all();
-
-        if (empty($estados)) return [];
-
-        // 2) Detalles (deduplicados) — << clave: filtrar por frecuencia >>
-        $q = $regla->detalles()->orderBy('terminacion');
-        if ($regla->frecuencia === 'Anual') {
-            $q->where('semestre', 0);
-        } else { // Semestral
-            $q->whereIn('semestre', [1,2]);
-        }
-
-        $detalles = $q->get(['terminacion','semestre','mes_inicio','mes_fin'])
-            ->unique(fn($d) => $d->terminacion.'|'.$d->semestre.'|'.$d->mes_inicio.'|'.$d->mes_fin)
-            ->values();
-
-        if ($detalles->isEmpty()) return [];
-
-        $rows = [];
-        foreach ($estados as $estado) {
-            foreach ($detalles as $d) {
-                $mi  = (int) $d->mes_inicio;
-                $mf  = (int) $d->mes_fin;
-                if ($mi < 1 || $mi > 12 || $mf < 1 || $mf > 12 || $mi > $mf) {
-                    continue; // no admitimos cruce de año
-                }
-                $desde = Carbon::create($anio, $mi, 1)->startOfMonth();
-                $hasta = Carbon::create($anio, $mf, 1)->endOfMonth();
-
-                $sem   = (int) $d->semestre; // 0 (anual) ó 1/2
-                $semE  = ($sem === 0) ? ($mf <= 6 ? 1 : 2) : $sem;
-
-                $row = [
-                    'estado'         => VerificacionRegla::normalizeEstado($estado),
-                    'terminacion'    => (int) $d->terminacion,
-                    'mes_inicio'     => $mi,
-                    'mes_fin'        => $mf,
-                    'semestre'       => $semE,
-                    'frecuencia'     => $regla->frecuencia, // "Semestral" | "Anual"
-                    'anio'           => $anio,
-                    'vigente_desde'  => $desde->toDateString(),
-                    'vigente_hasta'  => $hasta->toDateString(),
-                    'regla_id'       => $regla->id,
-                    'created_at'     => now(),
-                    'updated_at'     => now(),
-                ];
-                $rows[$this->keyFor($row['estado'],$row['terminacion'],$mi,$mf,$anio)] = $row;
-            }
-        }
-        return $rows; // indexados por key
-    }
-
-    /**
-     * Reconciliación total:
-     * - Borra periodos obsoletos de ESA regla+año
-     * - Upsert del conjunto esperado (sin duplicar)
-     * Retorna ['deleted' => n, 'upserted' => n]
-     */
-    private function reconciliarPeriodos(VerificacionRegla $regla, int $anio): array
-    {
-        $expected = $this->buildExpectedRows($regla, $anio);
-
-        return DB::transaction(function () use ($regla, $anio, $expected) {
-            // Trae existentes (id + columnas de clave) para esta regla+año
-            $existing = DB::table('calendario_verificacion')
-                ->where('regla_id', $regla->id)
-                ->where('anio', $anio)
-                ->get(['id','estado','terminacion','mes_inicio','mes_fin','anio'])
-                ->mapWithKeys(function ($r) {
-                    $k = $this->keyFor(
-                        (string)$r->estado,
-                        (int)$r->terminacion,
-                        (int)$r->mes_inicio,
-                        (int)$r->mes_fin,
-                        (int)$r->anio
-                    );
-                    return [$k => (int)$r->id];
-                })
-                ->all();
-
-            // 1) Borrados: existentes que ya no están en el esperado
-            $idsToDelete = [];
-            foreach ($existing as $k => $id) {
-                if (!isset($expected[$k])) {
-                    $idsToDelete[] = $id;
-                }
-            }
-            if (!empty($idsToDelete)) {
-                DB::table('calendario_verificacion')->whereIn('id', $idsToDelete)->delete();
-            }
-
-            // 2) Upsert de todo lo esperado (agrega/actualiza)
-            $rows = array_values($expected);
-            if (!empty($rows)) {
-                DB::table('calendario_verificacion')->upsert(
-                    $rows,
-                    ['estado','terminacion','mes_inicio','mes_fin','anio'], // coincide con índice único
-                    ['regla_id','semestre','frecuencia','vigente_desde','vigente_hasta','updated_at']
-                );
-            }
-
-            return ['deleted' => count($idsToDelete), 'upserted' => count($rows)];
-        });
-    }
-
-    /* ===== Defaults para precarga en UI ===== */
-    protected function defaultSemestralDetalles(): array
-    {
-        // Mapeo
-        // S1: 5-6 Ene-Feb | 7-8 Feb-Mar | 3-4 Mar-Abr | 1-2 Abr-May | 9-0 May-Jun
-        // S2: 5-6 Jul-Ago | 7-8 Ago-Sep | 3-4 Sep-Oct | 1-2 Oct-Nov | 9-0 Nov-Dic
-        $mapS1 = [
-            5 => [1,2], 6 => [1,2],
-            7 => [2,3], 8 => [2,3],
-            3 => [3,4], 4 => [3,4],
-            1 => [4,5], 2 => [4,5],
-            9 => [5,6], 0 => [5,6],
-        ];
-
-        $out = [];
-        foreach (range(0,9) as $d) {
-            [$mi1, $mf1] = $mapS1[$d] ?? [1,2];
-            $mi2 = $mi1 + 6; if ($mi2 > 12) $mi2 -= 12;
-            $mf2 = $mf1 + 6; if ($mf2 > 12) $mf2 -= 12;
-
-            $out[$d][1]['mes_inicio'] = $mi1;
-            $out[$d][1]['mes_fin']    = $mf1;
-            $out[$d][2]['mes_inicio'] = $mi2;
-            $out[$d][2]['mes_fin']    = $mf2;
-        }
-        return $out;
-    }
-
-    protected function defaultAnualDetalles(): array
-    {
-        // Estilo Jalisco: 1→Ene–Feb, 2→Feb–Mar, ... 0→Nov–Dic
-        $map = [
-            1 => [1,2], 2 => [2,3], 3 => [3,4], 4 => [4,5], 5 => [5,6],
-            6 => [6,7], 7 => [7,8], 8 => [8,9], 9 => [9,10], 0 => [11,12],
-        ];
-        $out = [];
-        foreach (range(0,9) as $d) {
-            $mi = $map[$d][0] ?? 1;
-            $mf = $map[$d][1] ?? 2;
-            $out[$d][0]['mes_inicio'] = $mi;
-            $out[$d][0]['mes_fin']    = $mf;
-        }
-        return $out;
-    }
-
-    /* ===== Estados disponibles por AÑO (para el menú) ===== */
-    public function estadosDisponibles(Request $request)
-    {
-        $anio = (int) $request->query('anio', now()->year);
-
-        if ($anio < 2000 || $anio > 2999) {
-            return response()->json([
-                'ok'          => false,
-                'message'     => 'Año inválido',
-                'anio'        => $anio,
-                'disponibles' => [],
-                'ocupados'    => [],
-            ], 400);
-        }
-
-        // Estados ya ocupados (normalizados) EN CUALQUIER regla para ese año
-        $ocupados = VerificacionReglaEstado::where('anio', $anio)
-            ->pluck('estado')
-            ->map(fn($e) => $this->normalizeEstado($e))
-            ->unique()
-            ->values()
-            ->all();
-
-        $catalogo = $this->catalogoEstados();
-
-        $disponibles = [];
-        foreach ($catalogo as $label) {
-            $norm = $this->normalizeEstado($label);
-            if (!in_array($norm, $ocupados, true)) {
-                $disponibles[] = [
-                    'value' => $label, // el modelo normaliza al guardar
-                    'label' => $label,
-                ];
-            }
-        }
-
-        return response()->json([
-            'ok'          => true,
-            'anio'        => $anio,
-            'disponibles' => $disponibles,
-            'ocupados'    => $ocupados,
-        ]);
-    }
-}
-
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
-
-/**
- * Tabla: verificaciones
- * Campos usados en reportes:
- *  id, vehiculo_id, estado, comentarios,
- *  fecha_programada_inicio, fecha_programada_fin,
- *  anio, resultado, fecha_verificacion
- *
- * Extras soportados: holograma, fecha_real, mes_inicio, mes_fin, calendario_id
- */
-class Verificacion extends Model
-{
-    protected $table = 'verificaciones';
-    public $timestamps = true;
-
-    protected $fillable = [
-        'vehiculo_id',
-        'estado',
-        'comentarios',
-        'resultado',                // PENDIENTE|APROBADO|RECHAZADO|EXENTO|NO_APLICA
-        'holograma',                // 00|0|1|2 (nullable)
-        'fecha_programada_inicio',
-        'fecha_programada_fin',
-        'fecha_real',
-        'fecha_verificacion',       // la que usamos para "marcar completada"
-        'mes_inicio',
-        'mes_fin',
-        'anio',
-        'calendario_id',
-    ];
-
-    protected $casts = [
-        'fecha_programada_inicio' => 'date',
-        'fecha_programada_fin'    => 'date',
-        'fecha_real'              => 'date',
-        'fecha_verificacion'      => 'date',
-        'anio'                    => 'integer',
-        'mes_inicio'              => 'integer',
-        'mes_fin'                 => 'integer',
-    ];
-
-    /* ===================== Relaciones ===================== */
-
-    public function vehiculo()
-    {
-        return $this->belongsTo(\App\Models\Vehiculo::class, 'vehiculo_id');
-    }
-
-    public function calendario()
-    {
-        return $this->belongsTo(\App\Models\CalendarioVerificacion::class, 'calendario_id');
-    }
-
-    /* ===================== Constantes / Helpers ===================== */
-
-    /** Resultados que consideramos "cumplida" para el reporte. */
-    public const RESULTADOS_APROBADOS = ['APROBADO', 'EXENTO', 'NO_APLICA'];
-
-    /** ¿La verificación está aprobada/aceptable y con fecha asentada? */
-    public function esAprobada(): bool
-    {
-        return in_array((string) $this->resultado, self::RESULTADOS_APROBADOS, true)
-            && !empty($this->fecha_verificacion);
-    }
-
-    /**
-     * ¿Cumple con una ventana de calendario específica?
-     * - Prioriza match por calendario_id.
-     * - Si no hay, valida que fecha_verificacion caiga dentro de la ventana.
-     */
-    public function coincideConCalendario(?CalendarioVerificacion $cal): bool
-    {
-        if (!$cal) return false;
-        if ($this->calendario_id && (int)$this->calendario_id === (int)$cal->id) {
-            return $this->esAprobada();
-        }
-        if (!$this->esAprobada()) return false;
-        return $cal->contieneFecha($this->fecha_verificacion);
-    }
-
-    /* ===================== Scopes ===================== */
-
-    public function scopeAnio($q, ?int $anio)
-    {
-        return $anio ? $q->where('anio', $anio) : $q;
-    }
-
-    public function scopeAprobada($q)
-    {
-        return $q->whereIn('resultado', self::RESULTADOS_APROBADOS)
-                 ->whereNotNull('fecha_verificacion');
-    }
-
-    public function scopeDeVehiculo($q, ?int $vehiculoId)
-    {
-        return $vehiculoId ? $q->where('vehiculo_id', $vehiculoId) : $q;
-    }
-
-    public function scopeEstado($q, ?string $estado)
-    {
-        return $estado ? $q->whereRaw('UPPER(estado) = ?', [mb_strtoupper($estado)]) : $q;
-    }
-}
-
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
-
-class VerificacionRegla extends Model
-{
-    use HasFactory;
-
-    protected $table = 'verificacion_reglas';
-
-    protected $fillable = [
-        'nombre',
-        'version',
-        'status',            // draft|published|archived
-        'vigencia_inicio',
-        'vigencia_fin',
-        'frecuencia',        // Semestral|Anual
-        'estados',           // (JSON legible) - opcional
-        'notas',
-    ];
-
-    protected $casts = [
-        'vigencia_inicio' => 'date',
-        'vigencia_fin'    => 'date',
-        'estados'         => 'array',
-    ];
-
-    /* ===================== Constantes / Helpers ===================== */
-
-    public const STATUS = ['draft','published','archived'];
-    public const FRECUENCIAS = ['Semestral','Anual'];
-
-    public static function normalizeEstado(?string $s): string
-    {
-        $norm = Str::of($s ?? '')
-            ->ascii()
-            ->upper()
-            ->replaceMatches('/\s+/', ' ')
-            ->trim()
-            ->toString();
-
-        if (in_array($norm, ['ESTADO DE MEXICO','MEXICO','EDO MEXICO','EDO. MEX','E DOMEX'], true)) {
-            return 'EDO MEX';
-        }
-        return $norm;
-    }
-
-    /** Estados normalizados para un año dado (prefiere tabla puente). */
-    public function estadosParaAnio(int $anio): \Illuminate\Support\Collection
-    {
-        $fromPivot = $this->estadosAsignados()
-            ->where('anio', $anio)
-            ->pluck('estado')
-            ->map(fn($e) => self::normalizeEstado($e))
-            ->unique()
-            ->values();
-
-        if ($fromPivot->isNotEmpty()) {
-            return $fromPivot;
-        }
-
-        // Backward-compat (si guardabas estados en JSON)
-        $json = collect($this->estados ?? [])
-            ->map(fn($e) => self::normalizeEstado($e))
-            ->unique()
-            ->values();
-
-        return $json;
-    }
-
-    /* ===================== Relaciones ===================== */
-
-    public function periodos()
-    {
-        return $this->hasMany(CalendarioVerificacion::class, 'regla_id');
-    }
-
-    public function detalles()
-    {
-        return $this->hasMany(VerificacionReglaDetalle::class, 'regla_id');
-    }
-
-    public function estadosAsignados()
-    {
-        return $this->hasMany(VerificacionReglaEstado::class, 'regla_id');
-    }
-
-    /* ===================== Scopes ===================== */
-
-    public function scopePublished(Builder $q): Builder
-    {
-        return $q->where('status', 'published');
-    }
-}
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class VerificacionReglaDetalle extends Model
-{
-    use HasFactory;
-
-    protected $table = 'verificacion_regla_detalles';
-
-    protected $fillable = [
-        'regla_id',
-        'frecuencia',  // "Semestral" | "Anual"
-        'terminacion',
-        'semestre',    // 0 (anual), 1, 2 (semestral)
-        'mes_inicio',
-        'mes_fin',
-    ];
-
-    protected $casts = [
-        'terminacion' => 'integer',
-        'semestre'    => 'integer',
-        'mes_inicio'  => 'integer',
-        'mes_fin'     => 'integer',
-    ];
-
-    public function regla()
-    {
-        return $this->belongsTo(VerificacionRegla::class, 'regla_id');
-    }
-}
-
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class VerificacionReglaEstado extends Model
-{
-    use HasFactory;
-
-    protected $table = 'verificacion_regla_estados';
-
-    protected $fillable = [
-        'regla_id',
-        'anio',
-        'estado',
-    ];
-
-    protected $casts = [
-        'anio' => 'integer',
-    ];
-
-    public function regla()
-    {
-        return $this->belongsTo(VerificacionRegla::class, 'regla_id');
-    }
-
-    /* Normalización automática del estado al guardar */
-    public function setEstadoAttribute($value): void
-    {
-        $this->attributes['estado'] = VerificacionRegla::normalizeEstado($value);
-    }
-
-    /* Scopes útiles */
-    public function scopePorAnio($q, ?int $anio)
-    {
-        return $anio ? $q->where('anio', $anio) : $q;
-    }
-}
+        refreshDelCount();
+    });
+    </script>
+
+    <style>
+        .bg-cover { background-repeat: no-repeat; }
+        .overlay-del { pointer-events: none; }
+        .foto-card .toggle-delete { z-index: 3; }
+        .object-fit-cover { object-fit: cover; }
+    </style>
+</x-app-layout>
